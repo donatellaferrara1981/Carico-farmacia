@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: theme('colors.bg.DEFAULT');
+    color: theme('colors.ink.DEFAULT');
+    font-family: theme('fontFamily.sans');
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    position: relative;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(31, 61, 43, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(184, 132, 42, 0.05) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  ::selection {
+    background: theme('colors.forest.tint');
+    color: theme('colors.forest.DEFAULT');
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+  /* Tabular numbers per i campi numerici */
+  .num,
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg
+      bg-forest text-bg font-semibold text-sm
+      hover:bg-forest-soft active:scale-[0.98]
+      disabled:opacity-50 disabled:cursor-not-allowed
+      transition-all shadow-sm;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg
+      bg-bg-card border border-line text-ink font-semibold text-sm
+      hover:bg-bg-soft hover:border-forest
+      disabled:opacity-50 disabled:cursor-not-allowed
+      transition-all;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg
+      text-ink-soft text-sm font-medium
+      hover:bg-bg-soft hover:text-ink transition-colors;
+  }
+  .input-base {
+    @apply w-full px-4 py-2.5 rounded-lg bg-bg-card border border-line
+      text-ink placeholder:text-ink-mute
+      focus:outline-none focus:border-forest focus:ring-2 focus:ring-forest/15
+      transition-all;
+  }
+  .label-base {
+    @apply block text-xs font-semibold uppercase tracking-wider text-ink-mute mb-1.5;
+  }
+  .card {
+    @apply bg-bg-card border border-line rounded-xl p-6 shadow-sm;
+  }
+}

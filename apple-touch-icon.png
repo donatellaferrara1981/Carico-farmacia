@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="pillClip">
+      <rect x="116" y="266" width="280" height="100" rx="50"/>
+    </clipPath>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="#1f3d2b"/>
+  <circle cx="166" cy="206" r="18" fill="#b8842a"/>
+  <circle cx="256" cy="176" r="18" fill="#b8842a"/>
+  <circle cx="346" cy="206" r="18" fill="#b8842a"/>
+  <g clip-path="url(#pillClip)">
+    <rect x="116" y="266" width="140" height="100" fill="#faf6ef"/>
+    <rect x="256" y="266" width="140" height="100" fill="#b8842a"/>
+  </g>
+  <rect x="116" y="266" width="280" height="100" rx="50" fill="none" stroke="#faf6ef" stroke-width="6"/>
+  <line x1="256" y1="266" x2="256" y2="366" stroke="#1f3d2b" stroke-width="6"/>
+</svg>
