@@ -18,21 +18,18 @@ export function SignupForm() {
           <MailCheck className="w-8 h-8 text-forest" />
         </div>
         <h1 className="font-display text-3xl font-semibold text-ink tracking-tight">
-          Controlla l'email
+          Controlla l&apos;email
         </h1>
         <p className="text-ink-soft mt-3 leading-relaxed">
           Abbiamo inviato un link di conferma a <strong>{state.email}</strong>. Aprilo per
-          attivare l'account, poi torna qui per accedere.
+          attivare l&apos;account, poi torna qui per accedere.
         </p>
-        <Link
-          href="/login?signedup=1"
-          className="btn-secondary mt-8 inline-flex"
-        >
+        <Link href="/login?signedup=1" className="btn-secondary mt-8 inline-flex">
           Vai al login
           <ArrowRight className="w-4 h-4" />
         </Link>
         <p className="mt-6 text-xs text-ink-mute">
-          Non vedi l'email? Controlla nella cartella spam o promozioni.
+          Non vedi l&apos;email? Controlla nella cartella spam o promozioni.
         </p>
       </div>
     );

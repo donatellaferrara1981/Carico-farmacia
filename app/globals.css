@@ -38,7 +38,6 @@
   button {
     font: inherit;
   }
-  /* Tabular numbers per i campi numerici */
   .num,
   input[type='number'] {
     font-variant-numeric: tabular-nums;

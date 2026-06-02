@@ -26,7 +26,7 @@ export async function loginAction(_prev: AuthState | null, formData: FormData): 
       return { ok: false, error: 'Email o password non corrette.' };
     }
     if (error.message.toLowerCase().includes('email not confirmed')) {
-      return { ok: false, error: 'Devi prima confermare l\'email. Controlla la posta in arrivo.' };
+      return { ok: false, error: "Devi prima confermare l'email. Controlla la posta in arrivo." };
     }
     return { ok: false, error: error.message };
   }
@@ -63,7 +63,6 @@ export async function signupAction(
     return { ok: false, error: error.message };
   }
 
-  // Se Supabase richiede la conferma email, data.session sarà null
   if (!data.session) {
     return { needsConfirmation: true, email };
   }

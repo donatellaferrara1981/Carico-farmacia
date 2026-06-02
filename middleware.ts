@@ -1,6 +1,12 @@
-import clsx, { type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
 }
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+  ],
+};

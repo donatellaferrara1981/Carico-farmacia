@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// Endpoint richiamato da Supabase Auth dopo OAuth con Google o Microsoft.
-// Per ora rimane pronto per la fase 3 quando attiveremo i provider.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
