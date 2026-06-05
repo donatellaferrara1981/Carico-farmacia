@@ -26,6 +26,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
     if (!principio_attivo) { setError('Inserisci il principio attivo.'); return; }
 
     start(async () => {
+      const soglia = parseInt(String(fd.get('soglia_minima') ?? ''), 10);
       const res = await upsertProdottoAction(
         orgId,
         categoria,
@@ -36,6 +37,8 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
           dosaggio: String(fd.get('dosaggio') ?? ''),
           quantita: Math.max(0, parseInt(String(fd.get('quantita') ?? '0'), 10) || 0),
           consumo_giornaliero: Math.max(0, parseFloat(String(fd.get('consumo_giornaliero') ?? '0')) || 0),
+          soglia_minima: isNaN(soglia) ? null : Math.max(0, soglia),
+          data_scadenza: String(fd.get('data_scadenza') ?? ''),
           note: String(fd.get('note') ?? ''),
         },
         prodotto?.id,
@@ -124,6 +127,29 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
                 className="input-base"
                 defaultValue={prodotto?.consumo_giornaliero ?? 0}
                 placeholder="pz al giorno"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label-base">Soglia minima alert</label>
+              <input
+                name="soglia_minima"
+                type="number"
+                min={0}
+                className="input-base"
+                defaultValue={prodotto?.soglia_minima ?? ''}
+                placeholder="es. 5"
+              />
+            </div>
+            <div>
+              <label className="label-base">Data scadenza</label>
+              <input
+                name="data_scadenza"
+                type="date"
+                className="input-base"
+                defaultValue={prodotto?.data_scadenza ?? ''}
               />
             </div>
           </div>

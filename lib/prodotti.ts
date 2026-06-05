@@ -25,6 +25,8 @@ export interface Prodotto {
   consumo_giornaliero: number;
   note: string | null;
   nominativa: boolean;
+  soglia_minima: number | null;
+  data_scadenza: string | null;
   created_at: string;
   updated_at: string;
 }

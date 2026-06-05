@@ -11,6 +11,8 @@ export interface ProdottoFormData {
   dosaggio: string;
   quantita: number;
   consumo_giornaliero: number;
+  soglia_minima: number | null;
+  data_scadenza: string;
   note: string;
 }
 
@@ -33,6 +35,8 @@ export async function upsertProdottoAction(
     dosaggio: data.dosaggio.trim() || null,
     quantita: data.quantita,
     consumo_giornaliero: data.consumo_giornaliero,
+    soglia_minima: data.soglia_minima ?? null,
+    data_scadenza: data.data_scadenza || null,
     note: data.note.trim() || null,
   };
 

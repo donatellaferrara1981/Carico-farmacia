@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { BackButton } from '@/components/back-button';
 import { UnitaOperativeManager } from '@/components/unita-operative-manager';
+import { AlertConfigForm } from '@/components/alert-config-form';
 import type { CurrentUserContext } from '@/lib/types';
 
 export const metadata = { title: 'Impostazioni' };
@@ -27,11 +28,12 @@ export default async function ImpostazioniPage() {
     role: memberRes.data.role,
   };
 
-  const { data: unita } = await supabase
-    .from('unita_operative')
-    .select('*')
-    .eq('org_id', org.id)
-    .order('nome');
+  const [unitaRes, alertRes] = await Promise.all([
+    supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
+    supabase.from('alert_config').select('*').eq('org_id', org.id).maybeSingle(),
+  ]);
+  const unita = unitaRes.data;
+  const alertConfig = alertRes.data;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -46,6 +48,18 @@ export default async function ImpostazioniPage() {
           orgId={org.id}
           canEdit={ctx.role === 'admin' || ctx.role === 'collaboratore'}
         />
+
+        <div className="mt-10">
+          <h2 className="font-semibold text-ink mb-1">Alert e notifiche email</h2>
+          <p className="text-xs text-ink-mute mb-4">
+            Ricevi email automatiche per scorte in esaurimento, scadenze e promemoria di riordino.
+          </p>
+          <AlertConfigForm
+            orgId={org.id}
+            config={alertConfig}
+            defaultEmail={ctx.user.email}
+          />
+        </div>
       </main>
     </div>
   );
