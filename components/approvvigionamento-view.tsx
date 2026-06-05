@@ -83,26 +83,26 @@ export function ApprovvigionamentoView({ prodotti, orgName }: { prodotti: Prodot
 
   const giorniEffettivi = giorni === 'custom' ? custom : giorni;
   const righe = useMemo(() => calcolaOrdini(prodotti, giorniEffettivi), [prodotti, giorniEffettivi]);
-  const righeVis = soloMancanti ? righe : useMemo(() => {
-    return prodotti
-      .filter((p) => p.consumo_giornaliero > 0)
-      .map((p) => {
-        const fabbisogno = Math.ceil(p.consumo_giornaliero * giorniEffettivi);
-        return {
-          id: p.id,
-          categoria: p.categoria as CategoriaArticolo,
-          principio_attivo: p.principio_attivo,
-          forma_farmaceutica: p.forma_farmaceutica,
-          dosaggio: p.dosaggio,
-          scorta_attuale: p.quantita,
-          consumo_giornaliero: p.consumo_giornaliero,
-          fabbisogno,
-          da_ordinare: Math.max(0, fabbisogno - p.quantita),
-          note: p.note,
-        };
-      })
-      .sort((a, b) => a.principio_attivo.localeCompare(b.principio_attivo));
-  }, [prodotti, giorniEffettivi]);
+  const tutteLeRighe = useMemo(() => prodotti
+    .filter((p) => p.consumo_giornaliero > 0)
+    .map((p) => {
+      const fabbisogno = Math.ceil(p.consumo_giornaliero * giorniEffettivi);
+      return {
+        id: p.id,
+        categoria: p.categoria as CategoriaArticolo,
+        principio_attivo: p.principio_attivo,
+        forma_farmaceutica: p.forma_farmaceutica,
+        dosaggio: p.dosaggio,
+        scorta_attuale: p.quantita,
+        consumo_giornaliero: p.consumo_giornaliero,
+        fabbisogno,
+        da_ordinare: Math.max(0, fabbisogno - p.quantita),
+        note: p.note,
+      };
+    })
+    .sort((a, b) => a.principio_attivo.localeCompare(b.principio_attivo)),
+  [prodotti, giorniEffettivi]);
+  const righeVis = soloMancanti ? righe : tutteLeRighe;
 
   const senzaConsumo = prodotti.filter((p) => p.consumo_giornaliero === 0).length;
 
