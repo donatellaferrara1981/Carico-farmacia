@@ -44,19 +44,46 @@ export function DocumentiList({
   categoria: CategoriaArticolo;
   canDelete: boolean;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExtracting, startExtract] = useTransition();
-  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; error?: string } | null>(null);
+  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; error?: string; current?: string } | null>(null);
 
   const pdfDocs = documenti.filter((d) => !isImage(d.nome_file));
-  const selectedDoc = pdfDocs.find((d) => d.id === selectedId) ?? null;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+    setExtractResult(null);
+  }
+
+  function toggleAll() {
+    if (selectedIds.size === pdfDocs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pdfDocs.map((d) => d.id)));
+    }
+    setExtractResult(null);
+  }
 
   function handleExtract() {
-    if (!selectedDoc) return;
+    const selezionati = pdfDocs.filter((d) => selectedIds.has(d.id));
+    if (!selezionati.length) return;
     setExtractResult(null);
     startExtract(async () => {
-      const res = await estraiProdottiDaPdfAction(selectedDoc.id, selectedDoc.storage_path, orgId, categoria);
-      setExtractResult(res);
+      let totale = 0;
+      for (const doc of selezionati) {
+        setExtractResult({ current: doc.nome_file });
+        const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria);
+        if ('error' in res) {
+          setExtractResult({ error: `${doc.nome_file}: ${res.error}` });
+          return;
+        }
+        totale += res.count ?? 0;
+      }
+      setExtractResult({ ok: true, count: totale });
     });
   }
 
@@ -75,51 +102,63 @@ export function DocumentiList({
   return (
     <div className="flex flex-col gap-3">
 
-      {/* Pannello estrazione — appare solo se ci sono PDF */}
+      {/* Pannello estrazione */}
       {canDelete && pdfDocs.length > 0 && (
         <div className="bg-forest-tint border border-forest/20 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-forest flex items-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            Estrai prodotti con AI
-          </p>
-          <p className="text-xs text-ink-soft">Seleziona il PDF da analizzare, poi premi Estrai.</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-forest flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              Estrai prodotti automaticamente
+            </p>
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="text-xs text-forest underline"
+            >
+              {selectedIds.size === pdfDocs.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
+            </button>
+          </div>
+          <p className="text-xs text-ink-soft">Spunta uno o più PDF, poi premi Estrai.</p>
 
           <div className="flex flex-col gap-2">
             {pdfDocs.map((doc) => (
               <label
                 key={doc.id}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  selectedId === doc.id
+                  selectedIds.has(doc.id)
                     ? 'border-forest bg-forest/5'
                     : 'border-line bg-bg-card hover:border-forest/40'
                 }`}
               >
                 <input
-                  type="radio"
-                  name="doc-select"
-                  value={doc.id}
-                  checked={selectedId === doc.id}
-                  onChange={() => { setSelectedId(doc.id); setExtractResult(null); }}
-                  className="accent-forest"
+                  type="checkbox"
+                  checked={selectedIds.has(doc.id)}
+                  onChange={() => toggleSelect(doc.id)}
+                  className="accent-forest w-4 h-4"
                 />
                 <span className="text-sm text-ink truncate">{doc.nome_file}</span>
               </label>
             ))}
           </div>
 
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               type="button"
               onClick={handleExtract}
-              disabled={!selectedId || isExtracting}
+              disabled={selectedIds.size === 0 || isExtracting}
               className="btn-primary py-2"
             >
               {isExtracting ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Analisi in corso…</>
               ) : (
-                <><Sparkles className="w-4 h-4" /> Estrai</>
+                <><Sparkles className="w-4 h-4" /> Estrai{selectedIds.size > 1 ? ` (${selectedIds.size})` : ''}</>
               )}
             </button>
+            {extractResult && 'current' in extractResult && (
+              <span className="text-xs text-forest animate-pulse truncate max-w-[200px]">
+                ⏳ {extractResult.current}
+              </span>
+            )}
             {extractResult && 'ok' in extractResult && (
               <span className="flex items-center gap-1 text-sm text-forest font-medium">
                 <CheckCircle2 className="w-4 h-4" />
