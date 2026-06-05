@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
 import { logoutAction } from '@/app/(auth)/actions';
-import { LogOut, ClipboardList } from 'lucide-react';
+import { LogOut, ClipboardList, Settings } from 'lucide-react';
 import type { CurrentUserContext } from '@/lib/types';
 
 export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
@@ -19,6 +19,13 @@ export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
           >
             <ClipboardList className="w-4 h-4" />
             Ordini
+          </Link>
+          <Link
+            href="/impostazioni"
+            className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
+            title="Impostazioni"
+          >
+            <Settings className="w-4 h-4" />
           </Link>
           <RoleBadge role={ctx.role} />
           <span className="text-sm text-ink-soft hidden sm:block">
