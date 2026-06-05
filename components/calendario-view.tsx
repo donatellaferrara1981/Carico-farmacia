@@ -65,7 +65,8 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          {/* Desktop: tabella */}
+          <div className="overflow-x-auto hidden sm:block">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-bg-soft border-b border-line">
@@ -80,25 +81,45 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
                 {piano.righe.map((r, i) => (
                   <tr key={i} className={`border-b border-line/50 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
                     <td className="px-3 py-2">
-                      <p className="text-sm font-medium text-ink leading-tight">
-                        {r.principio_attivo}
-                        {r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}
-                      </p>
+                      <p className="text-sm font-medium text-ink">{r.principio_attivo}{r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}</p>
                       {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
                     </td>
                     <td className="px-3 py-2 text-center text-sm tabular-nums">{r.consumo_giornaliero}</td>
                     <td className="px-3 py-2 text-center text-sm font-semibold text-forest tabular-nums">{r.fabbisogno}</td>
                     <td className="px-3 py-2 text-center text-sm tabular-nums">{r.quantita_disponibile}</td>
                     <td className="px-3 py-2 text-center text-sm font-bold tabular-nums">
-                      {r.da_ordinare > 0
-                        ? <span className="text-abx">{r.da_ordinare}</span>
-                        : <span className="text-forest">✓</span>
-                      }
+                      {r.da_ordinare > 0 ? <span className="text-abx">{r.da_ordinare}</span> : <span className="text-forest">✓</span>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile: lista compatta */}
+          <div className="sm:hidden divide-y divide-line/50">
+            {piano.righe.map((r, i) => (
+              <div key={i} className={`px-4 py-3 flex items-center justify-between gap-3 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">{r.principio_attivo}</p>
+                  {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
+                  <div className="text-center">
+                    <p className="text-[10px] text-ink-mute">fabb.</p>
+                    <p className="font-bold text-forest">{r.fabbisogno}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-ink-mute">scorte</p>
+                    <p className="font-semibold">{r.quantita_disponibile}</p>
+                  </div>
+                  <div className="text-center w-9">
+                    <p className="text-[10px] text-ink-mute">ordine</p>
+                    {r.da_ordinare > 0 ? <p className="font-bold text-abx">{r.da_ordinare}</p> : <p className="font-bold text-forest">✓</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {canEdit && (
