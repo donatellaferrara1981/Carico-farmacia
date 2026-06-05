@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { Bell } from 'lucide-react';
 import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
+import { AlertBellServer } from './alert-bell-server';
 import { logoutAction } from '@/app/(auth)/actions';
 import { LogOut, ClipboardList, Settings, BarChart2 } from 'lucide-react';
 import type { CurrentUserContext } from '@/lib/types';
@@ -34,6 +37,11 @@ export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
           >
             <Settings className="w-4 h-4" />
           </Link>
+          <Suspense fallback={
+            <div className="p-2 text-ink-soft"><Bell className="w-4 h-4 opacity-40" /></div>
+          }>
+            <AlertBellServer orgId={ctx.organization.id} />
+          </Suspense>
           <RoleBadge role={ctx.role} />
           <span className="text-sm text-ink-soft hidden sm:block">
             {ctx.profile.full_name}
