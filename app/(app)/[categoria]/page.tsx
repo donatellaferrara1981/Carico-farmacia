@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { ProdottiView } from '@/components/prodotti-view';
+import { AutoRefresh } from '@/components/auto-refresh';
 import type { CurrentUserContext, CategoriaArticolo } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
@@ -70,7 +71,10 @@ export default async function CategoriaPage({
       <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="font-display text-3xl font-semibold text-ink">{CAT_LABELS[cat]}</h1>
-          <p className="text-ink-soft text-sm mt-1">{org.name}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-ink-soft text-sm">{org.name}</p>
+            <AutoRefresh />
+          </div>
         </div>
         <ProdottiView
           prodotti={prodotti}

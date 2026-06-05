@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { CurrentUserContext } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
+import { AutoRefresh } from '@/components/auto-refresh';
 import { FileText, ClipboardList } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
@@ -56,9 +57,12 @@ export default async function AppPage() {
         <h1 className="font-display text-3xl font-semibold text-ink mb-2">
           Benvenuta, {ctx.profile.full_name?.split(' ')[0]}
         </h1>
-        <p className="text-ink-soft mb-8">
-          Organizzazione: <strong>{ctx.organization.name}</strong>
-        </p>
+        <div className="flex items-center gap-3 mb-8">
+          <p className="text-ink-soft">
+            Organizzazione: <strong>{ctx.organization.name}</strong>
+          </p>
+          <AutoRefresh />
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {(['terapie', 'nutrizioni', 'sanitario'] as const).map((cat) => (
             <Link
