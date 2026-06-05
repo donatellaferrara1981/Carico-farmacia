@@ -94,20 +94,53 @@ export async function estraiProdottiDaPdfAction(
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
-  const insertions = estratti.map((p) => ({
-    org_id: orgId,
-    categoria,
-    principio_attivo: p.principio_attivo,
-    forma_farmaceutica: p.forma_farmaceutica,
-    dosaggio: p.dosaggio || null,
-    quantita: 0,
-    consumo_giornaliero: p.consumo_giornaliero,
-    note: p.note || null,
-  }));
+  // Carica i prodotti già presenti per questo org+categoria
+  const { data: esistenti } = await supabase
+    .from('prodotti')
+    .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero')
+    .eq('org_id', orgId)
+    .eq('categoria', categoria);
 
-  const { error: dbError } = await supabase.from('prodotti').insert(insertions);
-  if (dbError) return { error: dbError.message };
+  const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  const nuovi = [];
+  let aggiornati = 0;
+
+  for (const p of estratti) {
+    // Cerca un prodotto esistente con stesso principio attivo + forma + dosaggio
+    const match = (esistenti ?? []).find(
+      (e) =>
+        normalizza(e.principio_attivo) === normalizza(p.principio_attivo) &&
+        e.forma_farmaceutica === p.forma_farmaceutica &&
+        normalizza(e.dosaggio ?? '') === normalizza(p.dosaggio ?? ''),
+    );
+
+    if (match) {
+      // Incrementa il consumo giornaliero
+      await supabase
+        .from('prodotti')
+        .update({ consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero })
+        .eq('id', match.id);
+      aggiornati++;
+    } else {
+      nuovi.push({
+        org_id: orgId,
+        categoria,
+        principio_attivo: p.principio_attivo,
+        forma_farmaceutica: p.forma_farmaceutica,
+        dosaggio: p.dosaggio || null,
+        quantita: 0,
+        consumo_giornaliero: p.consumo_giornaliero,
+        note: p.note || null,
+      });
+    }
+  }
+
+  if (nuovi.length > 0) {
+    const { error: dbError } = await supabase.from('prodotti').insert(nuovi);
+    if (dbError) return { error: dbError.message };
+  }
 
   revalidatePath(`/${categoria}`);
-  return { ok: true, count: estratti.length };
+  return { ok: true, count: nuovi.length, aggiornati };
 }

@@ -46,7 +46,7 @@ export function DocumentiList({
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExtracting, startExtract] = useTransition();
-  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; error?: string; current?: string } | null>(null);
+  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; aggiornati?: number; error?: string; current?: string } | null>(null);
 
   const pdfDocs = documenti.filter((d) => !isImage(d.nome_file));
 
@@ -73,7 +73,8 @@ export function DocumentiList({
     if (!selezionati.length) return;
     setExtractResult(null);
     startExtract(async () => {
-      let totale = 0;
+      let totaleNuovi = 0;
+      let totaleAggiornati = 0;
       for (const doc of selezionati) {
         setExtractResult({ current: doc.nome_file });
         const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria);
@@ -81,9 +82,10 @@ export function DocumentiList({
           setExtractResult({ error: `${doc.nome_file}: ${res.error}` });
           return;
         }
-        totale += res.count ?? 0;
+        totaleNuovi += res.count ?? 0;
+        totaleAggiornati += res.aggiornati ?? 0;
       }
-      setExtractResult({ ok: true, count: totale });
+      setExtractResult({ ok: true, count: totaleNuovi, aggiornati: totaleAggiornati });
     });
   }
 
@@ -162,7 +164,10 @@ export function DocumentiList({
             {extractResult && 'ok' in extractResult && (
               <span className="flex items-center gap-1 text-sm text-forest font-medium">
                 <CheckCircle2 className="w-4 h-4" />
-                {extractResult.count} prodott{extractResult.count === 1 ? 'o' : 'i'} aggiunti
+                {extractResult.count ? `${extractResult.count} nuov${extractResult.count === 1 ? 'o' : 'i'}` : ''}
+                {extractResult.count && extractResult.aggiornati ? ' · ' : ''}
+                {extractResult.aggiornati ? `${extractResult.aggiornati} aggiornati (consumo +1)` : ''}
+                {!extractResult.count && !extractResult.aggiornati ? 'Nessun nuovo prodotto' : ''}
               </span>
             )}
             {extractResult && 'error' in extractResult && (
