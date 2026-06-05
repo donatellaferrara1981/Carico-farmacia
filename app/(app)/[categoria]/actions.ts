@@ -29,6 +29,7 @@ export async function uploadDocumentoAction(formData: FormData) {
   if (!user) return { error: 'Non autenticato.' };
 
   const storagePath = `${orgId}/${categoria}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const prodottoId = formData.get('prodotto_id') ? String(formData.get('prodotto_id')) : null;
 
   const { error: uploadError } = await supabase.storage
     .from('documenti')
@@ -43,6 +44,7 @@ export async function uploadDocumentoAction(formData: FormData) {
     storage_path: storagePath,
     dimensione: file.size,
     uploaded_by: user.id,
+    ...(prodottoId ? { prodotto_id: prodottoId } : {}),
   });
 
   if (dbError) {
