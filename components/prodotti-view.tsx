@@ -25,14 +25,17 @@ interface Props {
   canEdit: boolean;
 }
 
-function RigaProdotto({ prodotto, categoria, canEdit }: {
+function RigaProdotto({ prodotto, categoria, canEdit, giorni }: {
   prodotto: ProdottoConDocumenti;
   categoria: CategoriaArticolo;
   canEdit: boolean;
+  giorni: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [isPendingDel, startDel] = useTransition();
   const [isPendingQ, startQ] = useTransition();
+
+  const fabbisogno = Math.ceil((prodotto.consumo_giornaliero ?? 1) * giorni);
 
   const qtyColor =
     prodotto.quantita === 0 ? 'text-abx font-bold' :
@@ -57,6 +60,9 @@ function RigaProdotto({ prodotto, categoria, canEdit }: {
               {prodotto.principio_attivo}
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
+              {prodotto.nome_commerciale && (
+                <span className="text-xs text-ink-mute italic">{prodotto.nome_commerciale}</span>
+              )}
               <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">
                 {formaLabel(prodotto.forma_farmaceutica)}
               </span>
@@ -68,11 +74,14 @@ function RigaProdotto({ prodotto, categoria, canEdit }: {
         </td>
 
         {/* Consumo/die */}
-        <td className="px-3 py-2.5 text-center">
-          <span className="text-sm font-semibold text-ink tabular-nums">
-            {prodotto.consumo_giornaliero ?? 1}
-          </span>
+        <td className="px-3 py-2.5 text-center tabular-nums">
+          <span className="text-sm font-semibold text-ink">{prodotto.consumo_giornaliero ?? 1}</span>
           <span className="text-xs text-ink-mute">/die</span>
+        </td>
+
+        {/* Fabbisogno per N giorni */}
+        <td className="px-3 py-2.5 text-center tabular-nums">
+          <span className="text-sm font-semibold text-forest">{fabbisogno}</span>
         </td>
 
         {/* Scorte */}
@@ -132,10 +141,20 @@ function RigaProdotto({ prodotto, categoria, canEdit }: {
   );
 }
 
+const PRESET_GIORNI = [
+  { label: '7 gg', value: 7 },
+  { label: '14 gg', value: 14 },
+  { label: '30 gg', value: 30 },
+];
+
 export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [giorni, setGiorni] = useState(7);
+  const [customGiorni, setCustomGiorni] = useState('');
+  const [modoCustom, setModoCustom] = useState(false);
 
-  // Ordina: prima per principio attivo, poi per forma
+  const giorniEffettivi = modoCustom ? (parseInt(customGiorni) || 1) : giorni;
+
   const ordinati = [...prodotti].sort((a, b) =>
     a.principio_attivo.localeCompare(b.principio_attivo) ||
     a.forma_farmaceutica.localeCompare(b.forma_farmaceutica)
@@ -163,23 +182,69 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
           {canEdit && <p className="text-xs mt-1">Carica un PDF e clicca "Estrai" oppure aggiungi manualmente.</p>}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-bg-soft border-b border-line">
-                <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide">Farmaco</th>
-                <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">/die</th>
-                <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">Scorte</th>
-                {canEdit && <th className="px-2 py-2.5" />}
-              </tr>
-            </thead>
-            <tbody>
-              {ordinati.map((p) => (
-                <RigaProdotto key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Selettore periodo */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-ink-soft">Fabbisogno per:</span>
+            {PRESET_GIORNI.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => { setGiorni(p.value); setModoCustom(false); }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  !modoCustom && giorni === p.value
+                    ? 'bg-forest text-white border-forest'
+                    : 'border-line text-ink-soft hover:border-forest/40'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setModoCustom(true)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                modoCustom ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'
+              }`}
+            >
+              Personalizzato
+            </button>
+            {modoCustom && (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={customGiorni}
+                  onChange={(e) => setCustomGiorni(e.target.value)}
+                  placeholder="gg"
+                  className="w-16 px-2 py-1 text-xs border border-line rounded-lg text-center focus:outline-none focus:border-forest"
+                  autoFocus
+                />
+                <span className="text-xs text-ink-mute">giorni</span>
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-line">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-bg-soft border-b border-line">
+                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide">Farmaco</th>
+                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">/die</th>
+                  <th className="px-3 py-2.5 text-xs font-semibold text-forest uppercase tracking-wide text-center">
+                    {giorniEffettivi} gg
+                  </th>
+                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">Scorte</th>
+                  {canEdit && <th className="px-2 py-2.5" />}
+                </tr>
+              </thead>
+              <tbody>
+                {ordinati.map((p) => (
+                  <RigaProdotto key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Documenti liberi */}

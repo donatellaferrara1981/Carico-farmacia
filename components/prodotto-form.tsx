@@ -31,6 +31,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
         categoria,
         {
           principio_attivo,
+          nome_commerciale: String(fd.get('nome_commerciale') ?? ''),
           forma_farmaceutica: String(fd.get('forma_farmaceutica')) as FormaFarmaceutica,
           dosaggio: String(fd.get('dosaggio') ?? ''),
           quantita: Math.max(0, parseInt(String(fd.get('quantita') ?? '0'), 10) || 0),
@@ -65,6 +66,16 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
               defaultValue={prodotto?.principio_attivo ?? ''}
               placeholder="es. Paracetamolo"
               required
+            />
+          </div>
+
+          <div>
+            <label className="label-base">Nome commerciale</label>
+            <input
+              name="nome_commerciale"
+              className="input-base"
+              defaultValue={prodotto?.nome_commerciale ?? ''}
+              placeholder="es. Tachipirina, Lyrica…"
             />
           </div>
 

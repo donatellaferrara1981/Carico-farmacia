@@ -18,6 +18,7 @@ export interface Prodotto {
   org_id: string;
   categoria: string;
   principio_attivo: string;
+  nome_commerciale: string | null;
   forma_farmaceutica: FormaFarmaceutica;
   dosaggio: string | null;
   quantita: number;

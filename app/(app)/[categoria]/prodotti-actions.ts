@@ -6,6 +6,7 @@ import type { FormaFarmaceutica } from '@/lib/prodotti';
 
 export interface ProdottoFormData {
   principio_attivo: string;
+  nome_commerciale: string;
   forma_farmaceutica: FormaFarmaceutica;
   dosaggio: string;
   quantita: number;
@@ -27,6 +28,7 @@ export async function upsertProdottoAction(
     org_id: orgId,
     categoria,
     principio_attivo: data.principio_attivo.trim(),
+    nome_commerciale: data.nome_commerciale?.trim() || null,
     forma_farmaceutica: data.forma_farmaceutica,
     dosaggio: data.dosaggio.trim() || null,
     quantita: data.quantita,

@@ -2,6 +2,7 @@ import type { FormaFarmaceutica } from './prodotti';
 
 export interface ProdottoEstratto {
   principio_attivo: string;
+  nome_commerciale: string;
   forma_farmaceutica: FormaFarmaceutica;
   dosaggio: string;
   consumo_giornaliero: number;
@@ -114,8 +115,17 @@ function parseTerapiaStrutturato(testo: string): ProdottoEstratto[] {
     if (visti.has(chiave)) continue;
     visti.add(chiave);
 
+    // Estrai nome commerciale pulito (es. "LYRICA*100CPS 75MG" → "Lyrica")
+    const nomeCommercialePulito = nomeCommerciale
+      .split('*')[0]
+      .trim()
+      .split(/\s+/)[0]
+      .toLowerCase()
+      .replace(/^./, (c) => c.toUpperCase());
+
     prodotti.push({
       principio_attivo: principioAttivo,
+      nome_commerciale: nomeCommercialePulito,
       forma_farmaceutica: forma,
       dosaggio,
       consumo_giornaliero: 1,
@@ -170,7 +180,7 @@ function parseTerapiaGenerico(testo: string): ProdottoEstratto[] {
     const chiave = nome.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
     if (visti.has(chiave)) continue;
     visti.add(chiave);
-    prodotti.push({ principio_attivo: nome, forma_farmaceutica: forma, dosaggio, consumo_giornaliero: 1, note: '' });
+    prodotti.push({ principio_attivo: nome, nome_commerciale: '', forma_farmaceutica: forma, dosaggio, consumo_giornaliero: 1, note: '' });
   }
   return prodotti;
 }

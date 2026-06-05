@@ -127,6 +127,7 @@ export async function estraiProdottiDaPdfAction(
         org_id: orgId,
         categoria,
         principio_attivo: p.principio_attivo,
+        nome_commerciale: p.nome_commerciale || null,
         forma_farmaceutica: p.forma_farmaceutica,
         dosaggio: p.dosaggio || null,
         quantita: 0,
