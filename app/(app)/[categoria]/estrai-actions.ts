@@ -97,7 +97,7 @@ export async function estraiProdottiDaPdfAction(
   // Carica i prodotti già presenti per questo org+categoria
   const { data: esistenti } = await supabase
     .from('prodotti')
-    .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero')
+    .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
     .eq('org_id', orgId)
     .eq('categoria', categoria);
 
@@ -119,7 +119,10 @@ export async function estraiProdottiDaPdfAction(
       // Incrementa il consumo giornaliero
       await supabase
         .from('prodotti')
-        .update({ consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero })
+        .update({
+          consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero,
+          ...(p.nome_commerciale && !match.nome_commerciale ? { nome_commerciale: p.nome_commerciale } : {}),
+        })
         .eq('id', match.id);
       aggiornati++;
     } else {
