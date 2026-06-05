@@ -12,7 +12,7 @@ const FORMA_KEYWORDS: { keywords: string[]; forma: FormaFarmaceutica }[] = [
   {
     keywords: [
       'fiala', 'fiale', 'f.le', 'i.v.', 'i.m.', 'endovena', 'endovenosa',
-      'intramuscolo', 'intramuscolare', 's.c.', 'sottocute', 'e.v.', ' ev ', ' im ',
+      'intramuscolo', 'intramuscolare', 's.c.', 'sottocute', 'e.v.', ' ev ', ' im ', ' sc ',
       'soluzione iniettabile', 'iniett', 'per os ev', 'bolo ev',
     ],
     forma: 'fiala',

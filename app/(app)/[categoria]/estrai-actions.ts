@@ -4,78 +4,76 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
 
-// Pulizia escape sequences problematici nei PDF PHP/FPDF
-function sanitizzaPdf(buffer: Buffer): Buffer {
-  // Alcuni PDF generati da PHP usano escape sequences non standard (\u, \x non validi)
-  // Li normalizziamo nel raw binario prima di passarlo al parser
-  const str = buffer.toString('binary');
-  const pulito = str
-    .replace(/\\u[0-9a-fA-F]{0,3}(?![0-9a-fA-F])/g, '') // \uXXX incompleti
-    .replace(/\\x[0-9a-fA-F]{0,1}(?![0-9a-fA-F])/g, ''); // \xX incompleti
-  return Buffer.from(pulito, 'binary');
-}
-
-// Estrazione grezza dal binario PDF (BT/ET blocks)
-function estrazioneGrezzaFallback(buffer: Buffer): string {
-  const str = buffer.toString('latin1');
+// Estrazione diretta dai stream di testo PDF (BT/ET blocks)
+// Funziona con qualsiasi PDF inclusi quelli generati da PHP/FPDF
+function estrazioneDirecta(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
   const lines: string[] = [];
 
-  // Cerca blocchi testo BT...ET (struttura standard PDF)
-  const btBlocks = str.match(/BT[\s\S]*?ET/g) ?? [];
+  // Strategia 1: blocchi BT ... ET con operatori Tj / TJ / '
+  const btBlocks = raw.match(/BT[\s\S]*?ET/g) ?? [];
   for (const block of btBlocks) {
-    // Stringhe tra parentesi seguite da Tj/TJ
-    const txts = block.match(/\(([^)]{1,300})\)\s*(?:Tj|TJ)/g) ?? [];
-    for (const t of txts) {
-      const m = t.match(/\(([^)]+)\)/);
-      if (m) {
-        const testo = m[1]
-          .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '')
-          .replace(/\\t/g, ' ')
-          .replace(/\\\(/g, '(')
-          .replace(/\\\)/g, ')')
-          .replace(/\\\\/g, '\\');
-        if (/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{2,}/.test(testo)) lines.push(testo);
-      }
+    // Raccoglie tutte le stringhe PDF nel blocco
+    // Formato: (testo)Tj  oppure [(testo)]TJ  oppure (testo)'
+    const re = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|TJ|'|")/g;
+    let m;
+    while ((m = re.exec(block)) !== null) {
+      const decoded = decodePdfString(m[1]);
+      if (decoded.trim().length > 0) lines.push(decoded);
     }
   }
 
-  // Fallback: tutte le stringhe tra parentesi con almeno 2 lettere
+  // Strategia 2: se BT/ET non trovati, cerca tutte le (stringa)Tj nel file
   if (lines.length === 0) {
-    const matches = str.match(/\(([^\)]{2,100})\)/g) ?? [];
-    for (const m of matches) {
-      const txt = m.slice(1, -1).replace(/\\[nrt]/g, ' ');
-      if (/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{2,}/.test(txt)) lines.push(txt);
+    const re2 = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*Tj/g;
+    let m;
+    while ((m = re2.exec(raw)) !== null) {
+      const decoded = decodePdfString(m[1]);
+      if (decoded.trim().length > 0) lines.push(decoded);
+    }
+  }
+
+  // Strategia 3: tutte le stringhe tra parentesi con almeno 3 lettere
+  if (lines.length === 0) {
+    const re3 = /\(([^)]{2,120})\)/g;
+    let m;
+    while ((m = re3.exec(raw)) !== null) {
+      const txt = m[1].replace(/\\[nrt\\()]/g, ' ');
+      if (/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{3,}/.test(txt)) lines.push(txt);
     }
   }
 
   return lines.join('\n');
 }
 
+// Decodifica le escape sequences delle stringhe PDF (non JavaScript)
+function decodePdfString(s: string): string {
+  return s
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\\\\/g, '\\')
+    .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+    .replace(/\\./g, ''); // rimuovi escape sequences sconosciute
+}
+
 async function estraiTestoDaPdf(buffer: Buffer): Promise<string> {
-  // Tentativo 1: unpdf con buffer sanitizzato
-  const bufferPulito = sanitizzaPdf(buffer);
+  // Prima prova: estrazione diretta (non dipende da librerie esterne, non può crashare)
+  const testoGrezzo = estrazioneDirecta(buffer);
+  if (testoGrezzo.trim().length > 20) return testoGrezzo;
+
+  // Seconda prova: unpdf (gestisce PDF con encoding complesso)
   try {
     const { extractText } = await import('unpdf');
-    const { text } = await extractText(new Uint8Array(bufferPulito), { mergePages: true });
+    const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
     if (text && text.trim().length > 10) return text;
   } catch {
-    // unpdf fallito, prova con buffer originale
+    // unpdf non riesce, usa quello che abbiamo già
   }
 
-  // Tentativo 2: unpdf con buffer originale (nel caso la sanitizzazione abbia rotto qualcosa)
-  if (bufferPulito !== buffer) {
-    try {
-      const { extractText } = await import('unpdf');
-      const { text } = await extractText(new Uint8Array(buffer), { mergePages: true });
-      if (text && text.trim().length > 10) return text;
-    } catch {
-      // anche questo fallito
-    }
-  }
-
-  // Tentativo 3: estrazione grezza dal binario
-  return estrazioneGrezzaFallback(buffer);
+  return testoGrezzo;
 }
 
 export async function estraiProdottiDaPdfAction(
