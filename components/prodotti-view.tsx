@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { ProdottoForm } from '@/components/prodotto-form';
+import { SalvaPianoModal } from '@/components/salva-piano-modal';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
 import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
@@ -166,6 +167,7 @@ const PRESET_GIORNI = [
 
 export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [showPiano, setShowPiano] = useState(false);
   const [giorni, setGiorni] = useState(7);
   const [customGiorni, setCustomGiorni] = useState('');
   const [modoCustom, setModoCustom] = useState(false);
@@ -264,7 +266,34 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
                 <span className="text-xs text-ink-mute">giorni</span>
               </div>
             )}
+            {ordinati.length > 0 && (
+              <button
+                onClick={() => setShowPiano(true)}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-forest/40 text-forest hover:bg-forest hover:text-white transition-colors"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" /> Salva nel calendario
+              </button>
+            )}
           </div>
+
+          {showPiano && (
+            <SalvaPianoModal
+              orgId={orgId}
+              categoria={categoria}
+              giorni={giorniEffettivi}
+              righe={ordinati.map((p) => ({
+                principio_attivo: p.principio_attivo,
+                nome_commerciale: p.nome_commerciale,
+                forma_farmaceutica: p.forma_farmaceutica,
+                dosaggio: p.dosaggio,
+                consumo_giornaliero: p.consumo_giornaliero ?? 1,
+                fabbisogno: Math.ceil((p.consumo_giornaliero ?? 1) * giorniEffettivi),
+                quantita_disponibile: p.quantita,
+                da_ordinare: Math.max(0, Math.ceil((p.consumo_giornaliero ?? 1) * giorniEffettivi) - p.quantita),
+              }))}
+              onClose={() => setShowPiano(false)}
+            />
+          )}
 
           <div className="overflow-x-auto rounded-xl border border-line">
             <table className="w-full text-left">

@@ -5,7 +5,7 @@ import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
 import { logoutAction } from '@/app/(auth)/actions';
-import { LogOut, ClipboardList, Settings, BarChart2 } from 'lucide-react';
+import { LogOut, ClipboardList, Settings, BarChart2, CalendarDays } from 'lucide-react';
 import type { CurrentUserContext } from '@/lib/types';
 
 export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
@@ -22,6 +22,13 @@ export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
           >
             <BarChart2 className="w-4 h-4" />
             Grafici
+          </Link>
+          <Link
+            href="/calendario"
+            className="btn-ghost py-1.5 px-3 text-sm hidden sm:flex items-center gap-1.5"
+          >
+            <CalendarDays className="w-4 h-4" />
+            Calendario
           </Link>
           <Link
             href="/approvvigionamento"
