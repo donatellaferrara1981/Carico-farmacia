@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { CurrentUserContext } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
-import { FileText } from 'lucide-react';
+import { FileText, ClipboardList } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -72,9 +72,23 @@ export default async function AppPage() {
                 </div>
                 <h2 className="font-semibold text-ink">{CAT_LABELS[cat]}</h2>
               </div>
-              <p className="text-ink-mute text-sm">Carica e gestisci documenti PDF</p>
+              <p className="text-ink-mute text-sm">Prodotti, scorte e documenti</p>
             </Link>
           ))}
+        </div>
+        <div className="mt-4">
+          <Link
+            href="/approvvigionamento"
+            className="card hover:border-amber/40 hover:shadow-sm transition-all group flex items-center gap-4"
+          >
+            <div className="w-10 h-10 rounded-lg bg-amber/10 flex items-center justify-center shrink-0 group-hover:bg-amber/20 transition-colors">
+              <ClipboardList className="w-5 h-5 text-amber" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-ink">Approvvigionamento</h2>
+              <p className="text-ink-mute text-sm">Calcola ordini per 7, 14 giorni o personalizzato — esporta in PDF o CSV</p>
+            </div>
+          </Link>
         </div>
       </main>
     </div>

@@ -34,6 +34,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
           forma_farmaceutica: String(fd.get('forma_farmaceutica')) as FormaFarmaceutica,
           dosaggio: String(fd.get('dosaggio') ?? ''),
           quantita: Math.max(0, parseInt(String(fd.get('quantita') ?? '0'), 10) || 0),
+          consumo_giornaliero: Math.max(0, parseFloat(String(fd.get('consumo_giornaliero') ?? '0')) || 0),
           note: String(fd.get('note') ?? ''),
         },
         prodotto?.id,
@@ -91,15 +92,29 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="label-base">Quantità in scorta</label>
-            <input
-              name="quantita"
-              type="number"
-              min={0}
-              className="input-base"
-              defaultValue={prodotto?.quantita ?? 0}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label-base">Quantità in scorta</label>
+              <input
+                name="quantita"
+                type="number"
+                min={0}
+                className="input-base"
+                defaultValue={prodotto?.quantita ?? 0}
+              />
+            </div>
+            <div>
+              <label className="label-base">Consumo/die</label>
+              <input
+                name="consumo_giornaliero"
+                type="number"
+                min={0}
+                step="0.5"
+                className="input-base"
+                defaultValue={prodotto?.consumo_giornaliero ?? 0}
+                placeholder="pz al giorno"
+              />
+            </div>
           </div>
 
           <div>

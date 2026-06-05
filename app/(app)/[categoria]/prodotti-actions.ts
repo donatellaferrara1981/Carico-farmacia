@@ -9,6 +9,7 @@ export interface ProdottoFormData {
   forma_farmaceutica: FormaFarmaceutica;
   dosaggio: string;
   quantita: number;
+  consumo_giornaliero: number;
   note: string;
 }
 
@@ -29,6 +30,7 @@ export async function upsertProdottoAction(
     forma_farmaceutica: data.forma_farmaceutica,
     dosaggio: data.dosaggio.trim() || null,
     quantita: data.quantita,
+    consumo_giornaliero: data.consumo_giornaliero,
     note: data.note.trim() || null,
   };
 

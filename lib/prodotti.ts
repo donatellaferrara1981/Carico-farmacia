@@ -21,6 +21,7 @@ export interface Prodotto {
   forma_farmaceutica: FormaFarmaceutica;
   dosaggio: string | null;
   quantita: number;
+  consumo_giornaliero: number;
   note: string | null;
   created_at: string;
   updated_at: string;

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
 import { logoutAction } from '@/app/(auth)/actions';
-import { LogOut } from 'lucide-react';
+import { LogOut, ClipboardList } from 'lucide-react';
 import type { CurrentUserContext } from '@/lib/types';
 
 export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
@@ -13,6 +13,13 @@ export function AppHeader({ ctx }: { ctx: CurrentUserContext }) {
           <Logo size={32} />
         </Link>
         <div className="flex items-center gap-3">
+          <Link
+            href="/approvvigionamento"
+            className="btn-ghost py-1.5 px-3 text-sm hidden sm:flex items-center gap-1.5"
+          >
+            <ClipboardList className="w-4 h-4" />
+            Ordini
+          </Link>
           <RoleBadge role={ctx.role} />
           <span className="text-sm text-ink-soft hidden sm:block">
             {ctx.profile.full_name}
