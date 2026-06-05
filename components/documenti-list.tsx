@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { FileText, Download, Trash2, Loader2 } from 'lucide-react';
+import { useTransition } from 'react';
+import { FileText, ImageIcon, Download, Trash2, Loader2 } from 'lucide-react';
 import { deleteDocumentoAction, getDownloadUrlAction } from '@/app/(app)/[categoria]/actions';
 import type { CategoriaArticolo } from '@/lib/types';
 
@@ -11,6 +11,10 @@ interface Documento {
   storage_path: string;
   dimensione: number | null;
   created_at: string;
+}
+
+function isImage(nome: string) {
+  return /\.(jpe?g|png|heic|heif|webp|gif)$/i.test(nome);
 }
 
 function formatBytes(b: number | null) {
@@ -59,7 +63,11 @@ function DocumentoRow({
   return (
     <div className="flex items-center gap-3 p-4 bg-bg-card border border-line rounded-xl">
       <div className="shrink-0 w-10 h-10 rounded-lg bg-abx-soft flex items-center justify-center">
-        <FileText className="w-5 h-5 text-abx" />
+        {isImage(doc.nome_file) ? (
+          <ImageIcon className="w-5 h-5 text-abx" />
+        ) : (
+          <FileText className="w-5 h-5 text-abx" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-ink truncate">{doc.nome_file}</p>
@@ -119,7 +127,7 @@ export function DocumentiList({
         <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
         <p className="text-sm">Nessun documento caricato.</p>
         {canDelete && (
-          <p className="text-xs mt-1">Usa il pulsante "Carica PDF" per aggiungere file.</p>
+          <p className="text-xs mt-1">Usa i pulsanti in alto per caricare PDF, foto o immagini.</p>
         )}
       </div>
     );

@@ -1,9 +1,12 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Camera, Loader2 } from 'lucide-react';
 import { uploadDocumentoAction } from '@/app/(app)/[categoria]/actions';
 import type { CategoriaArticolo } from '@/lib/types';
+
+const ACCEPT_FILE = 'application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp';
+const ACCEPT_CAMERA = 'image/*';
 
 export function UploadButton({
   categoria,
@@ -12,7 +15,8 @@ export function UploadButton({
   categoria: CategoriaArticolo;
   orgId: string;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -31,35 +35,64 @@ export function UploadButton({
       if (res && 'error' in res) {
         setError(res.error ?? 'Errore sconosciuto.');
       }
-      if (inputRef.current) inputRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = '';
+      if (cameraRef.current) cameraRef.current.value = '';
     });
   }
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        disabled={isPending}
-        onClick={() => inputRef.current?.click()}
-        className="btn-primary"
-      >
-        {isPending ? (
-          <>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => cameraRef.current?.click()}
+          className="btn-secondary"
+          title="Scatta o scegli foto"
+        >
+          {isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
-            Caricamento…
-          </>
-        ) : (
-          <>
-            <Upload className="w-4 h-4" />
-            Carica PDF
-          </>
-        )}
-      </button>
-      {error && <p className="text-xs text-abx">{error}</p>}
+          ) : (
+            <Camera className="w-4 h-4" />
+          )}
+          <span className="hidden sm:inline">Foto</span>
+        </button>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => fileRef.current?.click()}
+          className="btn-primary"
+          title="Carica PDF o immagine"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Caricamento…
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4" />
+              Carica
+            </>
+          )}
+        </button>
+      </div>
+      {error && <p className="text-xs text-abx text-right">{error}</p>}
+
+      {/* selezione da file (PDF + immagini) */}
       <input
-        ref={inputRef}
+        ref={fileRef}
         type="file"
-        accept="application/pdf"
+        accept={ACCEPT_FILE}
+        className="hidden"
+        onChange={handleChange}
+      />
+      {/* fotocamera / rullino */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept={ACCEPT_CAMERA}
+        capture="environment"
         className="hidden"
         onChange={handleChange}
       />

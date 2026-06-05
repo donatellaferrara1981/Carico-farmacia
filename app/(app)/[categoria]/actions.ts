@@ -8,8 +8,18 @@ export async function uploadDocumentoAction(formData: FormData) {
   const orgId = String(formData.get('org_id') ?? '');
   const categoria = String(formData.get('categoria') ?? '');
 
+  const TIPI_ACCETTATI = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/heic',
+    'image/heif',
+    'image/webp',
+  ];
+
   if (!file || file.size === 0) return { error: 'Nessun file selezionato.' };
-  if (file.type !== 'application/pdf') return { error: 'Solo file PDF sono accettati.' };
+  if (!TIPI_ACCETTATI.includes(file.type) && !file.type.startsWith('image/'))
+    return { error: 'Formato non supportato. Carica un PDF o un\'immagine (JPG, PNG, HEIC).' };
   if (file.size > 20 * 1024 * 1024) return { error: 'Il file supera i 20 MB.' };
 
   const supabase = await createClient();
@@ -22,7 +32,7 @@ export async function uploadDocumentoAction(formData: FormData) {
 
   const { error: uploadError } = await supabase.storage
     .from('documenti')
-    .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
+    .upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false });
 
   if (uploadError) return { error: uploadError.message };
 
