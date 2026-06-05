@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
+import { BackButton } from '@/components/back-button';
 import { ApprovvigionamentoView } from '@/components/approvvigionamento-view';
 import type { CurrentUserContext } from '@/lib/types';
 import type { Prodotto } from '@/lib/prodotti';
@@ -39,7 +40,8 @@ export default async function ApprovvigionamentoPage() {
       <AppHeader ctx={ctx} />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="font-display text-3xl font-semibold text-ink">Approvvigionamento</h1>
+          <BackButton />
+          <h1 className="font-display text-3xl font-semibold text-ink mt-2">Approvvigionamento</h1>
           <p className="text-ink-soft text-sm mt-1">{org.name}</p>
         </div>
         <ApprovvigionamentoView

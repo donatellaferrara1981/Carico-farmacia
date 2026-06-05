@@ -6,6 +6,7 @@ import { AutoRefresh } from '@/components/auto-refresh';
 import type { CurrentUserContext, CategoriaArticolo } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
+import { BackButton } from '@/components/back-button';
 
 const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario'];
 
@@ -70,7 +71,8 @@ export default async function CategoriaPage({
       <AppHeader ctx={ctx} />
       <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="font-display text-3xl font-semibold text-ink">{CAT_LABELS[cat]}</h1>
+          <BackButton />
+          <h1 className="font-display text-3xl font-semibold text-ink mt-2">{CAT_LABELS[cat]}</h1>
           <div className="flex items-center gap-3 mt-1">
             <p className="text-ink-soft text-sm">{org.name}</p>
             <AutoRefresh />

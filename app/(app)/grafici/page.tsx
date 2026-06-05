@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
+import { BackButton } from '@/components/back-button';
 import { GraficiView } from '@/components/grafici-view';
 import { AutoRefresh } from '@/components/auto-refresh';
 import type { CurrentUserContext } from '@/lib/types';
@@ -37,7 +38,8 @@ export default async function GraficiPage() {
       <AppHeader ctx={ctx} />
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="font-display text-3xl font-semibold text-ink">Grafici</h1>
+          <BackButton />
+          <h1 className="font-display text-3xl font-semibold text-ink mt-2">Grafici</h1>
           <div className="flex items-center gap-3 mt-1">
             <p className="text-ink-soft text-sm">{org.name}</p>
             <AutoRefresh />

@@ -88,6 +88,9 @@ export function ProdottoCard({ prodotto, categoria, canEdit }: Props) {
                 {prodotto.dosaggio && (
                   <span className="text-xs text-ink-mute">{prodotto.dosaggio}</span>
                 )}
+                {prodotto.consumo_giornaliero > 0 && (
+                  <span className="text-xs text-ink-mute">· {prodotto.consumo_giornaliero}/die</span>
+                )}
               </div>
               {prodotto.note && (
                 <p className="text-xs text-ink-soft mt-1 leading-relaxed">{prodotto.note}</p>
