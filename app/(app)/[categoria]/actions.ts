@@ -1,0 +1,68 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { createClient } from '@/lib/supabase/server';
+
+export async function uploadDocumentoAction(formData: FormData) {
+  const file = formData.get('file') as File | null;
+  const orgId = String(formData.get('org_id') ?? '');
+  const categoria = String(formData.get('categoria') ?? '');
+
+  if (!file || file.size === 0) return { error: 'Nessun file selezionato.' };
+  if (file.type !== 'application/pdf') return { error: 'Solo file PDF sono accettati.' };
+  if (file.size > 20 * 1024 * 1024) return { error: 'Il file supera i 20 MB.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const storagePath = `${orgId}/${categoria}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('documenti')
+    .upload(storagePath, file, { contentType: 'application/pdf', upsert: false });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: dbError } = await supabase.from('documenti').insert({
+    org_id: orgId,
+    categoria,
+    nome_file: file.name,
+    storage_path: storagePath,
+    dimensione: file.size,
+    uploaded_by: user.id,
+  });
+
+  if (dbError) {
+    await supabase.storage.from('documenti').remove([storagePath]);
+    return { error: dbError.message };
+  }
+
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
+
+export async function deleteDocumentoAction(id: string, storagePath: string, categoria: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  await supabase.storage.from('documenti').remove([storagePath]);
+  await supabase.from('documenti').delete().eq('id', id);
+
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
+
+export async function getDownloadUrlAction(storagePath: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage
+    .from('documenti')
+    .createSignedUrl(storagePath, 60 * 60); // 1 ora
+  if (error) return { error: error.message };
+  return { url: data.signedUrl };
+}

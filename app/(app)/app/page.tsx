@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { CurrentUserContext } from '@/lib/types';
+import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
+import { FileText } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -58,10 +61,19 @@ export default async function AppPage() {
         </p>
         <div className="grid gap-4 sm:grid-cols-3">
           {(['terapie', 'nutrizioni', 'sanitario'] as const).map((cat) => (
-            <div key={cat} className="card">
-              <h2 className="font-semibold text-ink capitalize mb-1">{cat}</h2>
-              <p className="text-ink-mute text-sm">Prossimamente disponibile</p>
-            </div>
+            <Link
+              key={cat}
+              href={`/${cat}`}
+              className="card hover:border-forest/40 hover:shadow-sm transition-all group"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-forest-tint flex items-center justify-center group-hover:bg-forest/10 transition-colors">
+                  <FileText className="w-5 h-5 text-forest" />
+                </div>
+                <h2 className="font-semibold text-ink">{CAT_LABELS[cat]}</h2>
+              </div>
+              <p className="text-ink-mute text-sm">Carica e gestisci documenti PDF</p>
+            </Link>
           ))}
         </div>
       </main>
