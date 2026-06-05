@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
 export interface AlertConfigData {
-  email_destinatario: string;
+  email_destinatari: string[];
   alert_scorte: boolean;
   alert_scadenza: boolean;
   alert_riordino: boolean;
@@ -20,7 +20,11 @@ export async function salvaAlertConfigAction(orgId: string, data: AlertConfigDat
 
   const { error } = await supabase
     .from('alert_config')
-    .upsert({ org_id: orgId, ...data }, { onConflict: 'org_id' });
+    .upsert({
+      org_id: orgId,
+      ...data,
+      email_destinatario: data.email_destinatari[0] ?? '',
+    }, { onConflict: 'org_id' });
 
   if (error) return { error: error.message };
   revalidatePath('/impostazioni');

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Bell, BellOff, Mail, Send, Loader2, CheckCircle } from 'lucide-react';
+import { Bell, BellOff, Mail, Send, Loader2, CheckCircle, Plus, X } from 'lucide-react';
 import { salvaAlertConfigAction, inviaTestAlertAction } from '@/app/(app)/impostazioni/alert-actions';
 
 interface AlertConfig {
-  email_destinatario: string;
+  email_destinatari: string[];
   alert_scorte: boolean;
   alert_scadenza: boolean;
   alert_riordino: boolean;
@@ -26,7 +26,12 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [email, setEmail] = useState(config?.email_destinatario ?? defaultEmail);
+  const initialEmails = config?.email_destinatari?.length
+    ? config.email_destinatari
+    : [defaultEmail];
+
+  const [emails, setEmails] = useState<string[]>(initialEmails);
+  const [newEmail, setNewEmail] = useState('');
   const [scorte, setScorte] = useState(config?.alert_scorte ?? true);
   const [scadenza, setScadenza] = useState(config?.alert_scadenza ?? true);
   const [riordino, setRiordino] = useState(config?.alert_riordino ?? false);
@@ -34,12 +39,25 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
   const [anticipo, setAnticipo] = useState(config?.scadenza_anticipo_giorni ?? 14);
   const [attivo, setAttivo] = useState(config?.attivo ?? true);
 
-  function handleSave() {
+  function addEmail() {
+    const e = newEmail.trim().toLowerCase();
+    if (!e || emails.includes(e)) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setError('Email non valida'); return; }
+    setEmails([...emails, e]);
+    setNewEmail('');
     setError(null);
-    setSaved(false);
+  }
+
+  function removeEmail(idx: number) {
+    setEmails(emails.filter((_, i) => i !== idx));
+  }
+
+  function handleSave() {
+    if (emails.length === 0) { setError('Aggiungi almeno un indirizzo email.'); return; }
+    setError(null); setSaved(false);
     start(async () => {
       const res = await salvaAlertConfigAction(orgId, {
-        email_destinatario: email,
+        email_destinatari: emails,
         alert_scorte: scorte,
         alert_scadenza: scadenza,
         alert_riordino: riordino,
@@ -82,18 +100,42 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
         </button>
       </div>
 
-      {/* Email destinatario */}
+      {/* Lista destinatari */}
       <div>
-        <label className="label-base flex items-center gap-1.5">
-          <Mail className="w-3.5 h-3.5" /> Email destinatario
+        <label className="label-base flex items-center gap-1.5 mb-2">
+          <Mail className="w-3.5 h-3.5" /> Destinatari
         </label>
-        <input
-          type="email"
-          className="input-base"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="es. farmacia@ospedale.it"
-        />
+
+        <div className="space-y-2 mb-2">
+          {emails.map((e, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-soft border border-line">
+              <span className="text-sm text-ink flex-1">{e}</span>
+              {emails.length > 1 && (
+                <button onClick={() => removeEmail(i)} className="text-ink-mute hover:text-abx transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="email"
+            className="input-base flex-1"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
+            placeholder="collega@irccsme.it"
+          />
+          <button
+            onClick={addEmail}
+            disabled={!newEmail.trim()}
+            className="btn-ghost flex items-center gap-1 text-sm disabled:opacity-40"
+          >
+            <Plus className="w-4 h-4" /> Aggiungi
+          </button>
+        </div>
       </div>
 
       {/* Tipi di alert */}
@@ -117,10 +159,7 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
           {scadenza && (
             <div className="flex items-center gap-1.5">
               <input
-                type="number"
-                min={1}
-                max={90}
-                value={anticipo}
+                type="number" min={1} max={90} value={anticipo}
                 onChange={(e) => setAnticipo(parseInt(e.target.value) || 14)}
                 className="w-14 px-2 py-1 text-xs border border-line rounded-lg text-center focus:outline-none focus:border-forest"
               />
@@ -139,10 +178,7 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-ink-mute">ogni</span>
               <input
-                type="number"
-                min={1}
-                max={90}
-                value={riordiniGiorni}
+                type="number" min={1} max={90} value={riordiniGiorni}
                 onChange={(e) => setRiordiniGiorni(parseInt(e.target.value) || 7)}
                 className="w-14 px-2 py-1 text-xs border border-line rounded-lg text-center focus:outline-none focus:border-forest"
               />
@@ -164,7 +200,7 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
       <div className="flex gap-2 pt-1">
         <button
           onClick={handleTest}
-          disabled={isTestPending || !email}
+          disabled={isTestPending || emails.length === 0}
           className="btn-ghost flex items-center gap-1.5 text-sm disabled:opacity-40"
         >
           {isTestPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -172,7 +208,7 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
         </button>
         <button
           onClick={handleSave}
-          disabled={isPending || !email}
+          disabled={isPending || emails.length === 0}
           className="btn-primary flex-1 flex items-center justify-center gap-1.5 disabled:opacity-40"
         >
           {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salva configurazione'}
