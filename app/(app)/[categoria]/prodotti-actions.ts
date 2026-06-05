@@ -45,6 +45,16 @@ export async function upsertProdottoAction(
   return { ok: true };
 }
 
+export async function svuotaProdottiAction(orgId: string, categoria: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  await supabase.from('prodotti').delete().eq('org_id', orgId).eq('categoria', categoria);
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
+
 export async function deleteProdottoAction(id: string, categoria: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

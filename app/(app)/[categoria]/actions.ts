@@ -56,6 +56,26 @@ export async function uploadDocumentoAction(formData: FormData) {
   return { ok: true };
 }
 
+export async function svuotaDocumentiAction(orgId: string, categoria: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { data: docs } = await supabase
+    .from('documenti')
+    .select('storage_path')
+    .eq('org_id', orgId)
+    .eq('categoria', categoria);
+
+  if (docs && docs.length > 0) {
+    await supabase.storage.from('documenti').remove(docs.map((d) => d.storage_path));
+    await supabase.from('documenti').delete().eq('org_id', orgId).eq('categoria', categoria);
+  }
+
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
+
 export async function deleteDocumentoAction(id: string, storagePath: string, categoria: string) {
   const supabase = await createClient();
   const {

@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
-import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { svuotaDocumentiAction } from '@/app/(app)/[categoria]/actions';
 import type { CategoriaArticolo } from '@/lib/types';
 
 interface DocLibero {
@@ -168,6 +169,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
   const [giorni, setGiorni] = useState(7);
   const [customGiorni, setCustomGiorni] = useState('');
   const [modoCustom, setModoCustom] = useState(false);
+  const [isPendingReset, startReset] = useTransition();
 
   const giorniEffettivi = modoCustom ? (parseInt(customGiorni) || 1) : giorni;
 
@@ -179,7 +181,31 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
   return (
     <div className="space-y-6">
       {canEdit && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                if (!confirm('Eliminare tutti i prodotti dalla tabella? L\'operazione non è reversibile.')) return;
+                startReset(async () => { await svuotaProdottiAction(orgId, categoria); });
+              }}
+              disabled={isPendingReset || prodotti.length === 0}
+              className="btn-ghost text-abx hover:bg-abx/10 text-xs flex items-center gap-1.5 disabled:opacity-40"
+            >
+              {isPendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Svuota prodotti
+            </button>
+            <button
+              onClick={() => {
+                if (!confirm('Eliminare tutti i documenti allegati? L\'operazione non è reversibile.')) return;
+                startReset(async () => { await svuotaDocumentiAction(orgId, categoria); });
+              }}
+              disabled={isPendingReset || docsLiberi.length === 0}
+              className="btn-ghost text-abx hover:bg-abx/10 text-xs flex items-center gap-1.5 disabled:opacity-40"
+            >
+              {isPendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Svuota documenti
+            </button>
+          </div>
           <button onClick={() => setShowForm(true)} className="btn-primary">
             <Plus className="w-4 h-4" />
             Nuovo prodotto
