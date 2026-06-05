@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2 } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
-import { deleteProdottoAction, aggiornaQuantitaAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import type { CategoriaArticolo } from '@/lib/types';
 
 interface DocLibero {
@@ -34,6 +34,7 @@ function RigaProdotto({ prodotto, categoria, canEdit, giorni }: {
   const [editing, setEditing] = useState(false);
   const [isPendingDel, startDel] = useTransition();
   const [isPendingQ, startQ] = useTransition();
+  const [isPendingN, startN] = useTransition();
 
   const fabbisogno = Math.ceil((prodotto.consumo_giornaliero ?? 1) * giorni);
 
@@ -56,13 +57,20 @@ function RigaProdotto({ prodotto, categoria, canEdit, giorni }: {
         {/* Farmaco */}
         <td className="px-3 py-2.5">
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-ink leading-tight">
-              {prodotto.principio_attivo}
-            </span>
             <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-medium text-ink leading-tight">
+                {prodotto.principio_attivo}
+              </span>
               {prodotto.nome_commerciale && (
-                <span className="text-xs text-ink-mute italic">{prodotto.nome_commerciale}</span>
+                <span className="text-xs text-ink-mute italic">· {prodotto.nome_commerciale}</span>
               )}
+              {prodotto.nominativa && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber/20 text-amber font-medium border border-amber/40">
+                  nominativa
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">
                 {formaLabel(prodotto.forma_farmaceutica)}
               </span>
@@ -115,6 +123,14 @@ function RigaProdotto({ prodotto, categoria, canEdit, giorni }: {
         {canEdit && (
           <td className="px-2 py-2.5">
             <div className="flex items-center gap-1 justify-end">
+              <button
+                onClick={() => startN(async () => { await toggleNominativaAction(prodotto.id, !prodotto.nominativa, categoria); })}
+                disabled={isPendingN}
+                className={`p-1.5 rounded transition-colors ${prodotto.nominativa ? 'text-amber bg-amber/10' : 'text-ink-mute hover:bg-bg-soft hover:text-amber'}`}
+                title={prodotto.nominativa ? 'Rimuovi nominativa' : 'Segna come nominativa (farmacia esterna)'}
+              >
+                {isPendingN ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+              </button>
               <button
                 onClick={() => setEditing(true)}
                 className="p-1.5 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors"

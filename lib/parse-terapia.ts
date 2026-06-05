@@ -111,7 +111,7 @@ function parseTerapiaStrutturato(testo: string): ProdottoEstratto[] {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
 
-    const chiave = principioAttivo.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
+    const chiave = principioAttivo.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma + (dosaggio.toLowerCase().replace(/\s+/g, ''));
     if (visti.has(chiave)) continue;
     visti.add(chiave);
 
@@ -177,7 +177,7 @@ function parseTerapiaGenerico(testo: string): ProdottoEstratto[] {
     if (nome.length < 3 || !/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{3,}/.test(nome)) continue;
 
     nome = nome.charAt(0).toUpperCase() + nome.slice(1);
-    const chiave = nome.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
+    const chiave = nome.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma + (dosaggio.toLowerCase().replace(/\s+/g, ''));
     if (visti.has(chiave)) continue;
     visti.add(chiave);
     prodotti.push({ principio_attivo: nome, nome_commerciale: '', forma_farmaceutica: forma, dosaggio, consumo_giornaliero: 1, note: '' });

@@ -55,6 +55,16 @@ export async function deleteProdottoAction(id: string, categoria: string) {
   return { ok: true };
 }
 
+export async function toggleNominativaAction(id: string, nominativa: boolean, categoria: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  await supabase.from('prodotti').update({ nominativa }).eq('id', id);
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
+
 export async function aggiornaQuantitaAction(id: string, delta: number, categoria: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

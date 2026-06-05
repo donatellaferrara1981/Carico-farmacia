@@ -24,6 +24,7 @@ export interface Prodotto {
   quantita: number;
   consumo_giornaliero: number;
   note: string | null;
+  nominativa: boolean;
   created_at: string;
   updated_at: string;
 }
