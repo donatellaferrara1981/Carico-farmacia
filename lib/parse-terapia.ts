@@ -8,181 +8,178 @@ export interface ProdottoEstratto {
   note: string;
 }
 
-const FORMA_KEYWORDS: { keywords: string[]; forma: FormaFarmaceutica }[] = [
-  {
-    keywords: [
-      'fiala', 'fiale', 'f.le', 'i.v.', 'i.m.', 'endovena', 'endovenosa',
-      'intramuscolo', 'intramuscolare', 's.c.', 'sottocute', 'e.v.', ' ev ', ' im ', ' sc ',
-      'soluzione iniettabile', 'iniett', 'per os ev', 'bolo ev',
-    ],
-    forma: 'fiala',
-  },
-  {
-    keywords: [
-      'flacone', 'flaconi', 'infusione', 'fisiologica', 'ringer', 'glucosata',
-      'soluzione per infusione', 'elettrolitica', 'acqua per preparazioni', 'nacl',
-      'sol.per inf', 'sol inf', 'sf ', 'soluzione fisiologica', 'glucos', 'sacca',
-    ],
-    forma: 'flacone_infusione',
-  },
-  {
-    keywords: [
-      'compressa', 'compresse', 'cpr', 'cps ', 'cp ', 'tabl', 'tablet',
-      'orodispersibile', 'deglutire', 'masticabile', 'rilascio prolungato', 'gastroresistente',
-    ],
-    forma: 'compressa',
-  },
-  {
-    keywords: ['capsula', 'capsule', 'caps'],
-    forma: 'capsula',
-  },
-  {
-    keywords: ['sciroppo', 'soluzione orale', 'gocce orali', 'sospensione orale', ' os '],
-    forma: 'sciroppo',
-  },
-  {
-    keywords: ['crema', 'unguento', 'gel ', 'pomata', 'cerotto', 'patch', 'topico', 'topica'],
-    forma: 'crema',
-  },
-  {
-    keywords: ['collirio', 'gocce oculari', 'gocce otologiche', 'oftalmico'],
-    forma: 'collirio',
-  },
-  {
-    keywords: ['supposta', 'supposte', 'supp', 'rettale'],
-    forma: 'supposta',
-  },
-];
+// Mappa via di somministrazione → forma farmaceutica
+const VIA_FORMA: Record<string, FormaFarmaceutica> = {
+  'orale': 'compressa',
+  'sottocute': 'fiala',
+  'endovenosa': 'fiala',
+  'endovena': 'fiala',
+  'cutanea': 'crema',
+  'topica': 'crema',
+  'rettale': 'supposta',
+  'oftalmica': 'collirio',
+  'auricolare': 'collirio',
+  'inalatoria': 'sciroppo',
+  'intramuscolare': 'fiala',
+  'intramuscolo': 'fiala',
+  'infusione': 'flacone_infusione',
+  'endovenosa lenta': 'flacone_infusione',
+};
 
-// Pattern dosaggio: cattura qualsiasi combinazione numero + unità
-const DOSAGGIO_RE =
-  /\b(\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|μg|g|ui|u\.i\.|ml|%|meq|mmol|mEq|MUI|UI|U\.I\.)(?:\s*\/\s*(?:\d+\s*)?(?:ml|g|l|die|kg|h|ora))?)/i;
+// Codici forma nel nome commerciale (LYRICA*100CPS → capsula)
+const CODICE_FORMA: Record<string, FormaFarmaceutica> = {
+  'CPR': 'compressa', 'CPR RIV': 'compressa', 'CPR DIV': 'compressa', 'CPR GAST': 'compressa',
+  'CPS': 'capsula', 'CPS GASTR': 'capsula', 'CPS MOLLI': 'capsula',
+  'SIR': 'fiala', 'FL': 'fiala', 'FLI': 'fiala', 'FIALA': 'fiala',
+  'BUST': 'sciroppo', 'OS POLV': 'sciroppo', 'GOCCE': 'sciroppo', 'SOL OR': 'sciroppo',
+  'UNG': 'crema', 'CREMA': 'crema', 'GEL': 'crema', 'CEROTTO': 'crema', 'PATCH': 'crema',
+  'COLL': 'collirio', 'SUPP': 'supposta',
+};
 
-function estraiDosaggio(testo: string): string {
-  const m = testo.match(DOSAGGIO_RE);
+// Righe da ignorare nel parser strutturato
+const SKIP_PATTERN = /^(BOLO|Paziente|Farmaco prescritto|Principio attivo|Dose|Medico|Orario|Somministrazione|Effettuata|Indicazione:|TERAPIA |PDFium)/i;
+
+function estraiFormaCommerciale(nome: string): FormaFarmaceutica | null {
+  const upper = nome.toUpperCase();
+  const dopoPuntatore = upper.includes('*') ? upper.split('*')[1] ?? '' : upper;
+  for (const [codice, forma] of Object.entries(CODICE_FORMA)) {
+    if (dopoPuntatore.includes(codice)) return forma as FormaFarmaceutica;
+  }
+  return null;
+}
+
+function estraiDosaggioCommerciale(nome: string): string {
+  const m = nome.match(/(\d+(?:[.,]\d+)?\s*(?:MG|MCG|µG|G|UI|U\.I\.|ML|%|MEQ|MMOL|MUI)(?:\s*\/\s*\d*\s*(?:ML|G|L))?)/i);
   return m ? m[0].trim() : '';
 }
 
-function inferForma(riga: string, dosaggio: string): FormaFarmaceutica {
-  const r = ' ' + riga.toLowerCase() + ' ';
-  for (const { keywords, forma } of FORMA_KEYWORDS) {
-    if (keywords.some((k) => r.includes(k.toLowerCase()))) return forma;
-  }
-  if (/\d+\s*ml|\d+\s*%/.test(dosaggio.toLowerCase())) return 'flacone_infusione';
-  return 'compressa';
-}
-
-function stimaConsumo(riga: string): number {
-  const xMatch = riga.match(/(\d+)\s*[xX×]/);
-  if (xMatch) return parseInt(xMatch[1]);
-  const volteMatch = riga.match(/(\d+)\s*volt/i);
-  if (volteMatch) return parseInt(volteMatch[1]);
-  const oreMatch = riga.match(/ogni\s+(\d+)\s+or/i);
-  if (oreMatch) return Math.round(24 / parseInt(oreMatch[1]));
-  const orari = riga.match(/\b\d{1,2}[:.]\d{2}\b/g);
-  if (orari && orari.length > 0) return orari.length;
-  return 1;
-}
-
-// Righe che sono sicuramente intestazioni/metadati, non farmaci
-const SKIP_RE = /^(data|paziente|reparto|medico|infermiere|turno|mattino|pomeriggio|notte|firma|ora|orario|dose|note|mattina|sera|terapia|prescrizione|farmaco|posologia|nome|cognome|nato|nata|ricovero|scheda|foglio|pagina|piano|piano di|data di|n°|nr\.|num\.)$/i;
-
-function rigaDaSkippare(r: string): boolean {
-  if (r.length < 3) return true;
-  if (SKIP_RE.test(r.trim())) return true;
-  // Solo data
-  if (/^\d{1,2}[\/\-.]\d{1,2}([\/\-.]\d{2,4})?$/.test(r.trim())) return true;
-  // Solo ora
-  if (/^\d{1,2}[:. ]\d{2}$/.test(r.trim())) return true;
-  // Solo numeri/simboli
-  if (/^[\d\s\-_.,:;/|\\()[\]{}]+$/.test(r.trim())) return true;
-  return false;
-}
-
-// Estrae il nome del farmaco: prende la parte prima del dosaggio
-// e prima delle parole-chiave di forma
-function estraiNome(riga: string, dosaggio: string): string {
-  let nome = riga;
-
-  // Taglia alla prima occorrenza del dosaggio
-  if (dosaggio) {
-    const idx = nome.toLowerCase().indexOf(dosaggio.toLowerCase());
-    if (idx > 0) nome = nome.slice(0, idx);
-  }
-
-  // Taglia alle keyword di forma
-  const r = nome.toLowerCase();
-  for (const { keywords } of FORMA_KEYWORDS) {
-    for (const k of keywords) {
-      const ki = r.indexOf(k.toLowerCase());
-      if (ki > 0) {
-        nome = nome.slice(0, ki);
-        break;
-      }
-    }
-  }
-
-  // Rimuovi prefissi numerici, trattini, asterischi
-  nome = nome.replace(/^[\s\d\-_.*•·–—|/\\]+/, '');
-  // Rimuovi suffissi non-alfabetici
-  nome = nome.replace(/[\s\-_.*•·–—|/\\]+$/, '');
-  // Normalizza spazi
-  nome = nome.replace(/\s+/g, ' ').trim();
-
-  return nome;
-}
-
-export function parseTerapiaText(testo: string): ProdottoEstratto[] {
-  const righe = testo
-    .split('\n')
-    .map((r) => r.trim())
-    .filter(Boolean);
-
+// Parser STRUTTURATO per il formato PDF clinico ospedaliero
+// Struttura: Nome commerciale → Principio attivo → Dose → Medico → Data/ora
+function parseTerapiaStrutturato(testo: string): ProdottoEstratto[] {
+  const righe = testo.split('\n').map((r) => r.trim()).filter(Boolean);
   const prodotti: ProdottoEstratto[] = [];
   const visti = new Set<string>();
 
-  for (const riga of righe) {
-    if (rigaDaSkippare(riga)) continue;
+  let viaCorrente: FormaFarmaceutica = 'compressa';
 
-    const dosaggio = estraiDosaggio(riga);
+  // Riga nome commerciale: contiene * e lettere maiuscole (es: LYRICA*100CPS 75MG)
+  const isNomeCommerciale = (r: string) => /\*/.test(r) && /[A-Z]{3,}/.test(r) && !r.startsWith('GSO_');
+  // Principio attivo: tutto maiuscolo, no numeri, no asterischi
+  const isPrincipioAttivo = (r: string) =>
+    /^[A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s\/\-0-9]+$/.test(r) &&
+    r.length >= 3 && r.length <= 80 &&
+    !SKIP_PATTERN.test(r) &&
+    !r.includes('*') &&
+    !r.startsWith('GSO_') &&
+    !r.startsWith('Stanza');
 
-    // Accetta la riga se contiene un dosaggio OPPURE una parola-chiave di forma farmaceutica
-    const haForma = FORMA_KEYWORDS.some(({ keywords }) =>
-      keywords.some((k) => (' ' + riga.toLowerCase() + ' ').includes(k.toLowerCase()))
-    );
-    if (!dosaggio && !haForma) continue;
+  for (let i = 0; i < righe.length; i++) {
+    const r = righe[i];
 
-    const forma = inferForma(riga, dosaggio);
-    const consumo = stimaConsumo(riga);
-    let nome = estraiNome(riga, dosaggio);
-
-    // Se il nome è troppo corto prova a prendere le prime parole significative della riga
-    if (nome.length < 3) {
-      const parole = riga
-        .split(/\s+/)
-        .filter((p) => /[a-zA-ZàèéìòùÀÈÉÌÒÙ]{3,}/.test(p))
-        .slice(0, 3);
-      nome = parole.join(' ');
+    // Aggiorna la via di somministrazione corrente
+    const viaKey = r.toLowerCase().trim();
+    if (VIA_FORMA[viaKey]) {
+      viaCorrente = VIA_FORMA[viaKey];
+      continue;
     }
 
-    if (nome.length < 3) continue;
-    if (!/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{3,}/.test(nome)) continue;
+    if (!isNomeCommerciale(r)) continue;
 
-    // Capitalizza
-    nome = nome.charAt(0).toUpperCase() + nome.slice(1);
+    const nomeCommerciale = r;
+    const dosaggio = estraiDosaggioCommerciale(nomeCommerciale);
+    const formaCommerciale = estraiFormaCommerciale(nomeCommerciale);
+    const forma = formaCommerciale ?? viaCorrente;
 
-    const chiave = nome.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
+    // La riga successiva dovrebbe essere il principio attivo
+    let principioAttivo = '';
+    if (i + 1 < righe.length && isPrincipioAttivo(righe[i + 1]) && !SKIP_PATTERN.test(righe[i + 1])) {
+      principioAttivo = righe[i + 1].trim();
+      i++;
+    }
+
+    if (!principioAttivo || principioAttivo.length < 3) {
+      // Fallback: usa il nome commerciale senza asterisco e codice
+      const parteNome = nomeCommerciale.split('*')[0].trim();
+      if (parteNome.length >= 3) principioAttivo = parteNome;
+      else continue;
+    }
+
+    // Normalizza maiuscole: Prima lettera maiuscola, resto minuscolo
+    principioAttivo = principioAttivo
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+
+    const chiave = principioAttivo.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
     if (visti.has(chiave)) continue;
     visti.add(chiave);
 
     prodotti.push({
-      principio_attivo: nome,
+      principio_attivo: principioAttivo,
       forma_farmaceutica: forma,
       dosaggio,
-      consumo_giornaliero: consumo,
+      consumo_giornaliero: 1,
       note: '',
     });
   }
 
   return prodotti;
+}
+
+// Parser GENERICO di fallback (per PDF non strutturati)
+const FORMA_KEYWORDS: { keywords: string[]; forma: FormaFarmaceutica }[] = [
+  { keywords: ['fiala', 'fiale', 'i.v.', 'i.m.', 'endovena', 's.c.', 'sottocute', ' ev ', ' im ', ' sc ', 'iniett'], forma: 'fiala' },
+  { keywords: ['flacone', 'infusione', 'fisiologica', 'ringer', 'glucosata', 'nacl', 'sacca'], forma: 'flacone_infusione' },
+  { keywords: ['compressa', 'compresse', 'cpr', 'cps ', 'tabl', 'orodispersibile'], forma: 'compressa' },
+  { keywords: ['capsula', 'capsule', 'caps'], forma: 'capsula' },
+  { keywords: ['sciroppo', 'soluzione orale', 'gocce orali', 'sospensione orale'], forma: 'sciroppo' },
+  { keywords: ['crema', 'unguento', 'gel ', 'pomata', 'cerotto', 'patch'], forma: 'crema' },
+  { keywords: ['collirio', 'gocce oculari', 'oftalmico'], forma: 'collirio' },
+  { keywords: ['supposta', 'supposte', 'rettale'], forma: 'supposta' },
+];
+
+const DOSAGGIO_RE = /\b(\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|μg|g|ui|u\.i\.|ml|%|meq|mmol|mEq|MUI|UI)(?:\s*\/\s*(?:\d+\s*)?(?:ml|g|l|die|kg|h))?)/i;
+
+function parseTerapiaGenerico(testo: string): ProdottoEstratto[] {
+  const righe = testo.split('\n').map((r) => r.trim()).filter(Boolean);
+  const prodotti: ProdottoEstratto[] = [];
+  const visti = new Set<string>();
+
+  for (const riga of righe) {
+    if (riga.length < 3) continue;
+    const dosaggio = (riga.match(DOSAGGIO_RE) ?? [])[0]?.trim() ?? '';
+    const haForma = FORMA_KEYWORDS.some(({ keywords }) =>
+      keywords.some((k) => (' ' + riga.toLowerCase() + ' ').includes(k))
+    );
+    if (!dosaggio && !haForma) continue;
+
+    const forma = (() => {
+      const r = ' ' + riga.toLowerCase() + ' ';
+      for (const { keywords, forma } of FORMA_KEYWORDS) {
+        if (keywords.some((k) => r.includes(k))) return forma;
+      }
+      return 'compressa' as FormaFarmaceutica;
+    })();
+
+    let nome = riga;
+    if (dosaggio) { const idx = nome.toLowerCase().indexOf(dosaggio.toLowerCase()); if (idx > 0) nome = nome.slice(0, idx); }
+    nome = nome.replace(/^[\s\d\-_.*•·–—|/\\]+/, '').replace(/[\s\d\-_.*•·–—|/\\]+$/, '').replace(/\s+/g, ' ').trim();
+    if (nome.length < 3 || !/[a-zA-ZàèéìòùÀÈÉÌÒÙ]{3,}/.test(nome)) continue;
+
+    nome = nome.charAt(0).toUpperCase() + nome.slice(1);
+    const chiave = nome.toLowerCase().replace(/\s+/g, '').slice(0, 25) + forma;
+    if (visti.has(chiave)) continue;
+    visti.add(chiave);
+    prodotti.push({ principio_attivo: nome, forma_farmaceutica: forma, dosaggio, consumo_giornaliero: 1, note: '' });
+  }
+  return prodotti;
+}
+
+export function parseTerapiaText(testo: string): ProdottoEstratto[] {
+  // Prima tenta il parser strutturato (formato PDF clinico ospedaliero)
+  const strutturati = parseTerapiaStrutturato(testo);
+  if (strutturati.length > 0) return strutturati;
+
+  // Fallback: parser generico
+  return parseTerapiaGenerico(testo);
 }
