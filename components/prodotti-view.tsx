@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, ChevronDown, MoreVertical } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, ChevronDown, MoreVertical, ShieldAlert } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
+import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { SalvaPianoModal } from '@/components/salva-piano-modal';
 import { DocumentiList } from '@/components/documenti-list';
@@ -41,6 +42,7 @@ function CardProdotto({ prodotto, categoria, canEdit, giorni }: {
 
   const fabbisogno = Math.ceil((prodotto.consumo_giornaliero ?? 1) * giorni);
   const daOrdinare = Math.max(0, fabbisogno - prodotto.quantita);
+  const abx = classificaFarmaco(prodotto.principio_attivo);
 
   const qtyColor =
     prodotto.quantita === 0 ? 'text-abx' :
@@ -52,16 +54,19 @@ function CardProdotto({ prodotto, categoria, canEdit, giorni }: {
       {editing && (
         <ProdottoForm orgId={prodotto.org_id} categoria={categoria} prodotto={prodotto} onClose={() => setEditing(false)} />
       )}
-      <div className={`rounded-xl border bg-bg-card p-3.5 ${prodotto.nominativa ? 'border-amber/40' : 'border-line'}`}>
+      <div className={`rounded-xl border bg-bg-card p-3.5 ${prodotto.nominativa ? 'border-amber/40' : abx.isAntibiotico ? 'border-red-200' : 'border-line'}`}>
         {/* Riga 1: nome + azioni */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-ink leading-snug">
-              {prodotto.principio_attivo}
-              {prodotto.nome_commerciale && (
-                <span className="text-ink-mute font-normal"> · {prodotto.nome_commerciale}</span>
-              )}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {abx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+              <p className={`text-sm font-semibold leading-snug ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
+                {prodotto.principio_attivo}
+                {prodotto.nome_commerciale && (
+                  <span className="text-ink-mute font-normal"> · {prodotto.nome_commerciale}</span>
+                )}
+              </p>
+            </div>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">
                 {formaLabel(prodotto.forma_farmaceutica)}
@@ -70,6 +75,11 @@ function CardProdotto({ prodotto, categoria, canEdit, giorni }: {
               {prodotto.nominativa && (
                 <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber/20 text-amber font-medium border border-amber/40">
                   nominativa
+                </span>
+              )}
+              {abx.isAntibiotico && abx.classe && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">
+                  {CLASSE_LABEL[abx.classe]}
                 </span>
               )}
             </div>
@@ -330,15 +340,20 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
                   const [isPendingDel, startDel] = useTransition();
                   const [isPendingQ, startQ] = useTransition();
                   const [isPendingN, startN] = useTransition();
+                  const rowAbx = classificaFarmaco(p.principio_attivo);
                   return (
-                    <tr key={p.id} className="border-b border-line/50 hover:bg-bg-soft/40 transition-colors">
+                    <tr key={p.id} className={`border-b border-line/50 hover:bg-bg-soft/40 transition-colors ${rowAbx.isAntibiotico ? 'bg-red-50/40' : ''}`}>
                       {editing && <ProdottoForm orgId={p.org_id} categoria={categoria} prodotto={p} onClose={() => setEditing(false)} />}
                       <td className="px-3 py-2.5">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm font-medium text-ink">{p.principio_attivo}</span>
+                            {rowAbx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                            <span className={`text-sm font-medium ${rowAbx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>{p.principio_attivo}</span>
                             {p.nome_commerciale && <span className="text-xs text-ink-mute italic">· {p.nome_commerciale}</span>}
                             {p.nominativa && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber/20 text-amber font-medium border border-amber/40">nominativa</span>}
+                            {rowAbx.isAntibiotico && rowAbx.classe && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">{CLASSE_LABEL[rowAbx.classe]}</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">{formaLabel(p.forma_farmaceutica)}</span>

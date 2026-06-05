@@ -3,10 +3,11 @@
 import { useState, useTransition, useRef, useEffect } from 'react';
 import {
   ChevronDown, ChevronUp, Trash2, Loader2, Calendar,
-  Eye, Share2, Printer, ChevronRight, FileDown, Mail, Copy, Check,
+  Eye, Share2, Printer, ChevronRight, FileDown, Mail, Copy, Check, ShieldAlert,
 } from 'lucide-react';
 import { eliminaPianoAction } from '@/app/(app)/[categoria]/piani-actions';
 import type { RigaPiano } from '@/app/(app)/[categoria]/piani-actions';
+import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
 
 interface Piano {
   id: string;
@@ -73,43 +74,67 @@ function PianoDetailModal({ piano, onClose }: { piano: Piano; onClose: () => voi
                 </tr>
               </thead>
               <tbody>
-                {piano.righe.map((r, i) => (
-                  <tr key={i} className={`border-b border-line/50 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
-                    <td className="px-4 py-2.5">
-                      <p className="text-sm font-medium text-ink">
-                        {r.principio_attivo}
-                        {r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}
-                      </p>
-                      {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
-                    </td>
-                    <td className="px-3 py-2.5 text-center text-sm tabular-nums">{r.consumo_giornaliero}</td>
-                    <td className="px-3 py-2.5 text-center text-sm font-semibold text-forest tabular-nums">{r.fabbisogno}</td>
-                    <td className="px-3 py-2.5 text-center text-sm tabular-nums">{r.quantita_disponibile}</td>
-                    <td className="px-3 py-2.5 text-center text-sm font-bold tabular-nums">
-                      {r.da_ordinare > 0 ? <span className="text-abx">{r.da_ordinare}</span> : <span className="text-forest">✓</span>}
-                    </td>
-                  </tr>
-                ))}
+                {piano.righe.map((r, i) => {
+                  const abx = classificaFarmaco(r.principio_attivo);
+                  return (
+                    <tr key={i} className={`border-b border-line/50 ${abx.isAntibiotico ? 'bg-red-50/60' : r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {abx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                          <p className={`text-sm font-medium ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
+                            {r.principio_attivo}
+                            {r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
+                          {abx.isAntibiotico && abx.classe && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">
+                              {CLASSE_LABEL[abx.classe]}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-sm tabular-nums">{r.consumo_giornaliero}</td>
+                      <td className="px-3 py-2.5 text-center text-sm font-semibold text-forest tabular-nums">{r.fabbisogno}</td>
+                      <td className="px-3 py-2.5 text-center text-sm tabular-nums">{r.quantita_disponibile}</td>
+                      <td className="px-3 py-2.5 text-center text-sm font-bold tabular-nums">
+                        {r.da_ordinare > 0 ? <span className="text-abx">{r.da_ordinare}</span> : <span className="text-forest">✓</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           {/* Mobile */}
           <div className="sm:hidden divide-y divide-line/50">
-            {piano.righe.map((r, i) => (
-              <div key={i} className={`px-4 py-3 flex items-center justify-between gap-3 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink truncate">{r.principio_attivo}</p>
-                  {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
-                </div>
-                <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
-                  <div className="text-center"><p className="text-[10px] text-ink-mute">fabb.</p><p className="font-bold text-forest">{r.fabbisogno}</p></div>
-                  <div className="text-center"><p className="text-[10px] text-ink-mute">scorte</p><p className="font-semibold">{r.quantita_disponibile}</p></div>
-                  <div className="text-center w-9"><p className="text-[10px] text-ink-mute">ordine</p>
-                    {r.da_ordinare > 0 ? <p className="font-bold text-abx">{r.da_ordinare}</p> : <p className="font-bold text-forest">✓</p>}
+            {piano.righe.map((r, i) => {
+              const abx = classificaFarmaco(r.principio_attivo);
+              return (
+                <div key={i} className={`px-4 py-3 flex items-center justify-between gap-3 ${abx.isAntibiotico ? 'bg-red-50/60' : r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {abx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                      <p className={`text-sm font-medium truncate ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>{r.principio_attivo}</p>
+                    </div>
+                    {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
+                    {abx.isAntibiotico && abx.classe && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">
+                        {CLASSE_LABEL[abx.classe]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
+                    <div className="text-center"><p className="text-[10px] text-ink-mute">fabb.</p><p className="font-bold text-forest">{r.fabbisogno}</p></div>
+                    <div className="text-center"><p className="text-[10px] text-ink-mute">scorte</p><p className="font-semibold">{r.quantita_disponibile}</p></div>
+                    <div className="text-center w-9"><p className="text-[10px] text-ink-mute">ordine</p>
+                      {r.da_ordinare > 0 ? <p className="font-bold text-abx">{r.da_ordinare}</p> : <p className="font-bold text-forest">✓</p>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -195,7 +220,7 @@ function PrintDropdown({ piano, onClose }: { piano: Piano; onClose: () => void }
   }, [onClose]);
 
   return (
-    <div ref={ref} className="absolute right-0 top-full mt-1 z-40 bg-bg-card border border-line rounded-xl shadow-xl w-56 py-1 text-sm">
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-40 bg-bg-card border border-line rounded-xl shadow-xl w-60 py-1 text-sm">
       <p className="px-4 py-2 text-xs font-semibold text-ink-mute uppercase tracking-wide border-b border-line">Stampa</p>
       <button
         onClick={() => { triggerPrint(piano, 'all'); onClose(); }}
@@ -218,37 +243,61 @@ function PrintDropdown({ piano, onClose }: { piano: Piano; onClose: () => void }
         <ChevronRight className="w-4 h-4 shrink-0 text-forest" />
         Riepilogo scorte
       </button>
+      <div className="border-t border-line mt-1 pt-1">
+        <button
+          onClick={() => { triggerPrint(piano, 'antibiotici'); onClose(); }}
+          className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-red-50 text-red-700 transition-colors"
+        >
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          Solo antibiotici (ICA)
+        </button>
+      </div>
     </div>
   );
 }
 
 // ─── Funzione stampa/PDF ──────────────────────────────────────────────────────
-function triggerPrint(piano: Piano, mode: 'all' | 'order' | 'summary' | 'save') {
-  const righe = mode === 'order'
-    ? piano.righe.filter((r) => r.da_ordinare > 0)
-    : piano.righe;
+function triggerPrint(piano: Piano, mode: 'all' | 'order' | 'summary' | 'save' | 'antibiotici') {
+  const righe =
+    mode === 'order' ? piano.righe.filter((r) => r.da_ordinare > 0) :
+    mode === 'antibiotici' ? piano.righe.filter((r) => classificaFarmaco(r.principio_attivo).isAntibiotico) :
+    piano.righe;
 
-  const rows = righe.map((r) => `
-    <tr style="border-bottom:1px solid #e5e7eb;${r.da_ordinare > 0 ? 'background:#fef2f2' : ''}">
+  const modeLabel =
+    mode === 'order' ? 'Farmaci da ordinare' :
+    mode === 'summary' ? 'Riepilogo scorte' :
+    mode === 'antibiotici' ? 'Report Antibiotici / ICA' :
+    'Piano completo';
+
+  const isAbx = mode === 'antibiotici';
+
+  const rows = righe.map((r) => {
+    const abx = classificaFarmaco(r.principio_attivo);
+    const rowBg = abx.isAntibiotico ? 'background:#fff1f2' : r.da_ordinare > 0 ? 'background:#fef2f2' : '';
+    return `
+    <tr style="border-bottom:1px solid #e5e7eb;${rowBg}">
       <td style="padding:8px 12px">
-        <strong>${r.principio_attivo}</strong>${r.nome_commerciale ? ` · <em>${r.nome_commerciale}</em>` : ''}
+        ${abx.isAntibiotico ? '🛡 ' : ''}<strong style="${abx.isAntibiotico ? 'color:#b91c1c' : ''}">${r.principio_attivo}</strong>${r.nome_commerciale ? ` · <em>${r.nome_commerciale}</em>` : ''}
         ${r.dosaggio ? `<br><small style="color:#6b7280">${r.dosaggio}</small>` : ''}
+        ${abx.isAntibiotico && abx.classe ? `<br><small style="color:#dc2626;font-weight:600">${CLASSE_LABEL[abx.classe]}</small>` : ''}
       </td>
       <td style="padding:8px;text-align:center">${r.consumo_giornaliero}</td>
-      ${mode !== 'summary' ? `<td style="padding:8px;text-align:center;font-weight:600;color:#2d6a4f">${r.fabbisogno}</td>` : ''}
+      ${!isAbx || true ? `<td style="padding:8px;text-align:center;font-weight:600;color:#2d6a4f">${r.fabbisogno}</td>` : ''}
       <td style="padding:8px;text-align:center">${r.quantita_disponibile}</td>
       ${mode !== 'summary' ? `<td style="padding:8px;text-align:center;font-weight:700;color:${r.da_ordinare > 0 ? '#dc2626' : '#2d6a4f'}">${r.da_ordinare > 0 ? r.da_ordinare : '✓'}</td>` : ''}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
-  const modeLabel = mode === 'order' ? 'Farmaci da ordinare' : mode === 'summary' ? 'Riepilogo scorte' : 'Piano completo';
+  const abxCount = piano.righe.filter((r) => classificaFarmaco(r.principio_attivo).isAntibiotico).length;
 
   const html = `<!DOCTYPE html><html lang="it"><head>
-    <meta charset="UTF-8"><title>${piano.titolo}</title>
+    <meta charset="UTF-8"><title>${piano.titolo} — ${modeLabel}</title>
     <style>
       body{font-family:system-ui,sans-serif;margin:0;padding:24px;color:#111}
       h1{font-size:20px;margin:0 0 4px}
       .meta{font-size:13px;color:#6b7280;margin-bottom:4px}
       .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:9999px;border:1px solid #d1d5db;text-transform:capitalize;margin-bottom:16px}
+      .badge-abx{display:inline-block;font-size:11px;padding:2px 8px;border-radius:9999px;border:1px solid #fca5a5;background:#fee2e2;color:#b91c1c;font-weight:600;margin-left:6px}
       table{width:100%;border-collapse:collapse;font-size:13px}
       th{background:#f3f4f6;padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;border-bottom:2px solid #e5e7eb}
       th.c{text-align:center}
@@ -259,11 +308,12 @@ function triggerPrint(piano: Piano, mode: 'all' | 'order' | 'summary' | 'save') 
     <p class="meta">${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} · ${piano.giorni} giorni · ${modeLabel}</p>
     ${piano.note ? `<p class="meta" style="font-style:italic">${piano.note}</p>` : ''}
     <span class="badge">${piano.categoria}</span>
+    ${isAbx ? `<span class="badge-abx">🛡 ${abxCount} antibiotici</span>` : ''}
     <table>
       <thead><tr>
         <th>Farmaco</th>
         <th class="c">/die</th>
-        ${mode !== 'summary' ? '<th class="c" style="color:#2d6a4f">Fabbisogno</th>' : ''}
+        <th class="c" style="color:#2d6a4f">Fabbisogno</th>
         <th class="c">Disponibile</th>
         ${mode !== 'summary' ? '<th class="c" style="color:#dc2626">Da ordinare</th>' : ''}
       </tr></thead>
@@ -277,9 +327,6 @@ function triggerPrint(piano: Piano, mode: 'all' | 'order' | 'summary' | 'save') 
   if (!win) return;
   win.document.write(html);
   win.document.close();
-  if (mode === 'save') {
-    // lascia aperta la finestra per "Salva come PDF" manuale
-  }
 }
 
 // ─── PianoCard ────────────────────────────────────────────────────────────────
@@ -339,44 +386,66 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {piano.righe.map((r, i) => (
-                    <tr key={i} className={`border-b border-line/50 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
-                      <td className="px-3 py-2">
-                        <p className="text-sm font-medium text-ink">
-                          {r.principio_attivo}
-                          {r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}
-                        </p>
-                        {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
-                      </td>
-                      <td className="px-3 py-2 text-center text-sm tabular-nums">{r.consumo_giornaliero}</td>
-                      <td className="px-3 py-2 text-center text-sm font-semibold text-forest tabular-nums">{r.fabbisogno}</td>
-                      <td className="px-3 py-2 text-center text-sm tabular-nums">{r.quantita_disponibile}</td>
-                      <td className="px-3 py-2 text-center text-sm font-bold tabular-nums">
-                        {r.da_ordinare > 0 ? <span className="text-abx">{r.da_ordinare}</span> : <span className="text-forest">✓</span>}
-                      </td>
-                    </tr>
-                  ))}
+                  {piano.righe.map((r, i) => {
+                    const abx = classificaFarmaco(r.principio_attivo);
+                    return (
+                      <tr key={i} className={`border-b border-line/50 ${abx.isAntibiotico ? 'bg-red-50/60' : r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {abx.isAntibiotico && <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />}
+                            <p className={`text-sm font-medium ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
+                              {r.principio_attivo}
+                              {r.nome_commerciale && <span className="text-ink-mute font-normal"> · {r.nome_commerciale}</span>}
+                            </p>
+                            {abx.isAntibiotico && abx.classe && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">
+                                {CLASSE_LABEL[abx.classe]}
+                              </span>
+                            )}
+                          </div>
+                          {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
+                        </td>
+                        <td className="px-3 py-2 text-center text-sm tabular-nums">{r.consumo_giornaliero}</td>
+                        <td className="px-3 py-2 text-center text-sm font-semibold text-forest tabular-nums">{r.fabbisogno}</td>
+                        <td className="px-3 py-2 text-center text-sm tabular-nums">{r.quantita_disponibile}</td>
+                        <td className="px-3 py-2 text-center text-sm font-bold tabular-nums">
+                          {r.da_ordinare > 0 ? <span className="text-abx">{r.da_ordinare}</span> : <span className="text-forest">✓</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile: lista compatta */}
             <div className="sm:hidden divide-y divide-line/50">
-              {piano.righe.map((r, i) => (
-                <div key={i} className={`px-4 py-3 flex items-center justify-between gap-3 ${r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink truncate">{r.principio_attivo}</p>
-                    {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
-                    <div className="text-center"><p className="text-[10px] text-ink-mute">fabb.</p><p className="font-bold text-forest">{r.fabbisogno}</p></div>
-                    <div className="text-center"><p className="text-[10px] text-ink-mute">scorte</p><p className="font-semibold">{r.quantita_disponibile}</p></div>
-                    <div className="text-center w-9"><p className="text-[10px] text-ink-mute">ordine</p>
-                      {r.da_ordinare > 0 ? <p className="font-bold text-abx">{r.da_ordinare}</p> : <p className="font-bold text-forest">✓</p>}
+              {piano.righe.map((r, i) => {
+                const abx = classificaFarmaco(r.principio_attivo);
+                return (
+                  <div key={i} className={`px-4 py-3 flex items-center justify-between gap-3 ${abx.isAntibiotico ? 'bg-red-50/60' : r.da_ordinare > 0 ? 'bg-abx/5' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {abx.isAntibiotico && <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />}
+                        <p className={`text-sm font-medium truncate ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>{r.principio_attivo}</p>
+                      </div>
+                      {r.dosaggio && <p className="text-xs text-ink-mute">{r.dosaggio}</p>}
+                      {abx.isAntibiotico && abx.classe && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">
+                          {CLASSE_LABEL[abx.classe]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 text-xs tabular-nums">
+                      <div className="text-center"><p className="text-[10px] text-ink-mute">fabb.</p><p className="font-bold text-forest">{r.fabbisogno}</p></div>
+                      <div className="text-center"><p className="text-[10px] text-ink-mute">scorte</p><p className="font-semibold">{r.quantita_disponibile}</p></div>
+                      <div className="text-center w-9"><p className="text-[10px] text-ink-mute">ordine</p>
+                        {r.da_ordinare > 0 ? <p className="font-bold text-abx">{r.da_ordinare}</p> : <p className="font-bold text-forest">✓</p>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Barra azioni */}
