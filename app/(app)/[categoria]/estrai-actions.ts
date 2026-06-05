@@ -5,44 +5,75 @@ import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
 
 async function estraiTestoDaPdf(buffer: Buffer): Promise<string> {
-  // Tentativo 1: pdfjs-dist (più robusto con PDF clinici)
+  // Tentativo 1: pdfjs-dist legacy (robusto con PDF ospedalieri)
   try {
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    // Disabilita worker per esecuzione in Node.js (stringa vuota = main thread)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      useWorkerFetch: false,
+      useSystemFonts: true,
+    });
     const pdf = await loadingTask.promise;
     const testi: string[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const pageText = content.items
-        .map((item: unknown) => (item as { str?: string }).str ?? '')
-        .join(' ');
-      testi.push(pageText);
+      // Ricostruisce le righe preservando la struttura
+      let rigaCorrente = '';
+      const righe: string[] = [];
+      for (const item of content.items) {
+        const it = item as { str?: string; hasEOL?: boolean; transform?: number[] };
+        const testo = it.str ?? '';
+        rigaCorrente += testo;
+        if (it.hasEOL || testo.endsWith('\n')) {
+          righe.push(rigaCorrente.trim());
+          rigaCorrente = '';
+        } else if (testo.endsWith(' ') || testo === '') {
+          rigaCorrente += ' ';
+        }
+      }
+      if (rigaCorrente.trim()) righe.push(rigaCorrente.trim());
+      testi.push(righe.join('\n'));
     }
     const testo = testi.join('\n');
-    if (testo.trim()) return testo;
+    if (testo.trim().length > 20) return testo;
   } catch {
-    // fallback al secondo metodo
+    // passa al metodo 2
   }
 
-  // Tentativo 2: pdf-parse come fallback
+  // Tentativo 2: pdf-parse standard
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require('pdf-parse/lib/pdf-parse.js');
-    const data = await pdfParse(buffer);
-    if (data.text?.trim()) return data.text;
+    const pdfParse = require('pdf-parse');
+    const data = await pdfParse(buffer, { max: 0 });
+    if (data.text?.trim().length > 20) return data.text;
   } catch {
-    // fallback al parsing manuale
+    // passa al metodo 3
   }
 
-  // Tentativo 3: estrazione testo grezzo dal binario PDF
+  // Tentativo 3: estrazione grezzo dal binario
   const str = buffer.toString('latin1');
-  const matches = str.match(/\(([^\)]{2,})\)/g) ?? [];
-  const grezzo = matches
-    .map((m) => m.slice(1, -1))
-    .filter((s) => /[a-zA-ZàèìòùÀÈÌÒÙ]{2,}/.test(s))
-    .join(' ');
-  return grezzo;
+  const lines: string[] = [];
+  // Cerca testo in BT...ET blocks
+  const btBlocks = str.match(/BT\s*([\s\S]*?)\s*ET/g) ?? [];
+  for (const block of btBlocks) {
+    const txts = block.match(/\(([^)]{1,200})\)\s*(?:Tj|TJ)/g) ?? [];
+    for (const t of txts) {
+      const m = t.match(/\(([^)]+)\)/);
+      if (m) lines.push(m[1]);
+    }
+  }
+  // Fallback: cerca tutte le sequenze tra parentesi
+  if (lines.length === 0) {
+    const matches = str.match(/\(([^\)]{2,80})\)/g) ?? [];
+    for (const m of matches) {
+      const txt = m.slice(1, -1);
+      if (/[a-zA-ZàèìòùÀÈÌÒÙ]{2,}/.test(txt)) lines.push(txt);
+    }
+  }
+  return lines.join('\n');
 }
 
 export async function estraiProdottiDaPdfAction(
@@ -66,12 +97,14 @@ export async function estraiProdottiDaPdfAction(
   const testo = await estraiTestoDaPdf(buffer);
 
   if (!testo.trim()) {
-    return { error: 'Nessun testo trovato nel PDF. Il file potrebbe essere una scansione immagine — carica i prodotti manualmente.' };
+    return { error: 'Nessun testo trovato nel PDF. Il file è probabilmente una scansione immagine — carica i prodotti manualmente.' };
   }
 
   const estratti = parseTerapiaText(testo);
   if (!estratti.length) {
-    return { error: 'Testo estratto ma nessun farmaco riconosciuto. Mandami un esempio del PDF per migliorare il riconoscimento.' };
+    // Restituisce anche un anteprima del testo estratto per debug
+    const anteprima = testo.slice(0, 300).replace(/\n+/g, ' ↵ ');
+    return { error: `Testo estratto (${testo.length} car.) ma nessun farmaco riconosciuto. Anteprima: "${anteprima}"` };
   }
 
   const insertions = estratti.map((p) => ({
