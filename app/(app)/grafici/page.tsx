@@ -5,6 +5,7 @@ import { BackButton } from '@/components/back-button';
 import { GraficiView } from '@/components/grafici-view';
 import { AutoRefresh } from '@/components/auto-refresh';
 import type { CurrentUserContext } from '@/lib/types';
+import { getUoAttivaId } from '@/lib/uo-cookie';
 
 export const metadata = { title: 'Grafici' };
 
@@ -27,15 +28,18 @@ export default async function GraficiPage() {
     role: memberRes.data.role,
   };
 
-  const [{ data: prodotti }, { data: documenti }, { data: unita }] = await Promise.all([
+  const [uoAttivaId, { data: prodotti }, { data: documenti }, { data: unita }] = await Promise.all([
+    getUoAttivaId(),
     supabase.from('prodotti').select('*').eq('org_id', org.id),
     supabase.from('documenti').select('*').eq('org_id', org.id).order('created_at', { ascending: false }),
-    supabase.from('unita_operative').select('*').eq('org_id', org.id).eq('attiva', true),
+    supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
   ]);
+
+  const uoAttiva = (unita ?? []).find((u: { id: string }) => u.id === uoAttivaId) ?? null;
 
   return (
     <div className="min-h-screen bg-bg">
-      <AppHeader ctx={ctx} />
+      <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita ?? []} />
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6">
           <BackButton />

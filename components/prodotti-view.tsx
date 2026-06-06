@@ -27,6 +27,7 @@ interface Props {
   orgId: string;
   categoria: CategoriaArticolo;
   canEdit: boolean;
+  uoAttivaId?: string | null;
 }
 
 // ─── Card mobile ──────────────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ const PRESET_GIORNI = [
 ];
 
 // ─── Vista principale ─────────────────────────────────────────────────────────
-export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }: Props) {
+export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, uoAttivaId }: Props) {
   const [showForm, setShowForm]         = useState(false);
   const [showPiano, setShowPiano]       = useState(false);
   const [giorni, setGiorni]             = useState(7);

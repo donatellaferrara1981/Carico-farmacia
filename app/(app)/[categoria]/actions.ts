@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getUoAttivaId } from '@/lib/uo-cookie';
 
 export async function uploadDocumentoAction(formData: FormData) {
   const file = formData.get('file') as File | null;
@@ -28,6 +29,7 @@ export async function uploadDocumentoAction(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
+  const uoAttivaId = await getUoAttivaId();
   const storagePath = `${orgId}/${categoria}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const prodottoId = formData.get('prodotto_id') ? String(formData.get('prodotto_id')) : null;
   const sala = formData.get('sala') ? String(formData.get('sala')) : null;
@@ -47,6 +49,7 @@ export async function uploadDocumentoAction(formData: FormData) {
     uploaded_by: user.id,
     ...(prodottoId ? { prodotto_id: prodottoId } : {}),
     ...(sala ? { sala } : {}),
+    ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
   });
 
   if (dbError) {

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
 import { inflateSync } from 'zlib';
+import { getUoAttivaId } from '@/lib/uo-cookie';
 
 function decodePdfString(s: string): string {
   return s
@@ -74,6 +75,8 @@ export async function estraiProdottiDaPdfAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
+  const uoAttivaId = await getUoAttivaId();
+
   // Legge la sala associata al documento
   const { data: docMeta } = await supabase
     .from('documenti')
@@ -102,13 +105,14 @@ export async function estraiProdottiDaPdfAction(
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
-  // Carica i prodotti già presenti per questo org+categoria+sala
+  // Carica i prodotti già presenti per questo org+categoria+sala+UO
   const esistentiQuery = supabase
     .from('prodotti')
     .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
     .eq('org_id', orgId)
     .eq('categoria', categoria);
   if (sala) esistentiQuery.eq('sala', sala);
+  if (uoAttivaId) esistentiQuery.eq('unita_operativa_id', uoAttivaId);
   const { data: esistenti } = await esistentiQuery;
 
   const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -147,6 +151,7 @@ export async function estraiProdottiDaPdfAction(
         consumo_giornaliero: p.consumo_giornaliero,
         note: p.note || null,
         ...(sala ? { sala } : {}),
+        ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
       });
     }
   }

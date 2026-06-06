@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getUoAttivaId } from '@/lib/uo-cookie';
 
 export interface RigaPiano {
   principio_attivo: string;
@@ -30,9 +31,12 @@ export async function salvaPianoAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
+  const uoAttivaId = await getUoAttivaId();
+
   const { error } = await supabase.from('piani_fabbisogno').insert({
     org_id: orgId,
     categoria,
+    unita_operativa_id: uoAttivaId ?? null,
     ...data,
   });
 

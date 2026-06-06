@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { FormaFarmaceutica } from '@/lib/prodotti';
+import { getUoAttivaId } from '@/lib/uo-cookie';
 
 export interface ProdottoFormData {
   principio_attivo: string;
@@ -14,6 +15,8 @@ export interface ProdottoFormData {
   soglia_minima: number | null;
   data_scadenza: string;
   note: string;
+  ciclo_totale?: number | null;
+  data_inizio_ciclo?: string | null;
 }
 
 export async function upsertProdottoAction(
@@ -26,7 +29,9 @@ export async function upsertProdottoAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
-  const payload = {
+  const uoAttivaId = await getUoAttivaId();
+
+  const payload: Record<string, unknown> = {
     org_id: orgId,
     categoria,
     principio_attivo: data.principio_attivo.trim(),
@@ -38,7 +43,13 @@ export async function upsertProdottoAction(
     soglia_minima: data.soglia_minima ?? null,
     data_scadenza: data.data_scadenza || null,
     note: data.note.trim() || null,
+    ciclo_totale: data.ciclo_totale ?? null,
+    data_inizio_ciclo: data.data_inizio_ciclo || null,
   };
+
+  if (!id && uoAttivaId) {
+    payload.unita_operativa_id = uoAttivaId;
+  }
 
   const { error } = id
     ? await supabase.from('prodotti').update(payload).eq('id', id)
