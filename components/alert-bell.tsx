@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Bell, X, AlertTriangle, Calendar, Package } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Bell, X, AlertTriangle, Calendar, Package, Maximize2, Minimize2, GripHorizontal } from 'lucide-react';
 
 export interface AlertItem {
   id: string;
@@ -17,11 +17,42 @@ export interface AlertItem {
 }
 
 export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]         = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [pos, setPos]           = useState<{ x: number; y: number } | null>(null);
+  const dragging                = useRef(false);
+  const dragStart               = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+  const panelRef                = useRef<HTMLDivElement>(null);
 
-  const scorte = alerts.filter((a) => a.tipo === 'scorta');
+  const scorte   = alerts.filter((a) => a.tipo === 'scorta');
   const scadenze = alerts.filter((a) => a.tipo === 'scadenza');
-  const count = alerts.length;
+  const count    = alerts.length;
+
+  // Resetta posizione quando si chiude
+  useEffect(() => { if (!open) { setPos(null); setExpanded(false); } }, [open]);
+
+  const onDragStart = useCallback((e: React.PointerEvent) => {
+    if (!panelRef.current) return;
+    const rect = panelRef.current.getBoundingClientRect();
+    dragging.current = true;
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: rect.left, py: rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const onDragMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - dragStart.current.mx;
+    const dy = e.clientY - dragStart.current.my;
+    setPos({ x: dragStart.current.px + dx, y: dragStart.current.py + dy });
+  }, []);
+
+  const onDragEnd = useCallback(() => { dragging.current = false; }, []);
+
+  const panelStyle = pos
+    ? { position: 'fixed' as const, left: pos.x, top: pos.y, right: 'auto', zIndex: 50 }
+    : { position: 'absolute' as const, right: 0, top: 40, zIndex: 50 };
+
+  const width = expanded ? 'w-[92vw] sm:w-[480px]' : 'w-[92vw] sm:w-80';
 
   return (
     <div className="relative">
@@ -40,86 +71,98 @@ export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-50 w-80 bg-bg-card rounded-2xl shadow-xl border border-line overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-              <h3 className="font-semibold text-sm text-ink">Alert farmaci</h3>
-              <button onClick={() => setOpen(false)} className="text-ink-mute hover:text-ink">
-                <X className="w-4 h-4" />
+          {/* overlay solo se non è stato spostato */}
+          {!pos && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className={`${width} bg-bg-card rounded-2xl shadow-2xl border border-line overflow-hidden transition-[width] duration-150`}
+          >
+            {/* Barra titolo — draggable */}
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 border-b border-line bg-bg-soft cursor-grab active:cursor-grabbing select-none"
+              onPointerDown={onDragStart}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+            >
+              <GripHorizontal className="w-4 h-4 text-ink-mute shrink-0" />
+              <h3 className="font-semibold text-sm text-ink flex-1">
+                Alert farmaci {count > 0 && <span className="text-abx">({count})</span>}
+              </h3>
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors"
+                title={expanded ? 'Riduci' : 'Espandi'}
+              >
+                {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="max-h-96 overflow-y-auto">
+            {/* Contenuto */}
+            <div className={`overflow-y-auto ${expanded ? 'max-h-[70vh]' : 'max-h-72'}`}>
               {count === 0 ? (
-                <div className="px-4 py-8 text-center">
-                  <Bell className="w-8 h-8 mx-auto mb-2 text-ink-mute opacity-30" />
+                <div className="px-4 py-6 text-center">
+                  <Bell className="w-7 h-7 mx-auto mb-2 text-ink-mute opacity-30" />
                   <p className="text-sm text-ink-mute">Nessun alert attivo</p>
                 </div>
               ) : (
                 <>
                   {scorte.length > 0 && (
-                    <div>
-                      <div className="px-4 py-2 bg-amber/10 border-b border-amber/20">
+                    <section>
+                      <div className="px-3 py-1.5 bg-amber/10 border-b border-amber/20 sticky top-0">
                         <p className="text-xs font-semibold text-amber flex items-center gap-1.5">
-                          <Package className="w-3.5 h-3.5" /> Scorte in esaurimento ({scorte.length})
+                          <Package className="w-3 h-3" /> Scorte esaurite / in esaurimento ({scorte.length})
                         </p>
                       </div>
                       {scorte.map((a) => (
-                        <div key={a.id} className="px-4 py-3 border-b border-line/50 hover:bg-bg-soft/40">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium text-ink leading-tight">
-                                {a.principio_attivo}
-                                {a.nome_commerciale && (
-                                  <span className="text-ink-mute font-normal"> · {a.nome_commerciale}</span>
-                                )}
-                              </p>
-                              {a.dosaggio && <p className="text-xs text-ink-mute">{a.dosaggio}</p>}
-                              <p className="text-xs text-ink-mute capitalize">{a.categoria}</p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className={`text-sm font-bold ${a.quantita === 0 ? 'text-abx' : 'text-amber'}`}>
-                                {a.quantita === 0 ? 'ESAURITO' : `${a.quantita} pz`}
-                              </span>
-                              {a.soglia !== undefined && a.quantita !== 0 && (
-                                <p className="text-xs text-ink-mute">soglia: {a.soglia}</p>
-                              )}
-                            </div>
+                        <div key={a.id} className="flex items-center justify-between gap-2 px-3 py-2 border-b border-line/40 hover:bg-bg-soft/40">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-ink truncate">
+                              {a.principio_attivo}
+                              {a.nome_commerciale && <span className="font-normal text-ink-mute"> · {a.nome_commerciale}</span>}
+                            </p>
+                            <p className="text-[10px] text-ink-mute">{a.dosaggio ?? ''}{a.dosaggio && a.categoria ? ' · ' : ''}{a.categoria}</p>
                           </div>
+                          <span className={`text-xs font-bold shrink-0 ${a.quantita === 0 ? 'text-abx' : 'text-amber'}`}>
+                            {a.quantita === 0 ? 'ESAURITO' : `${a.quantita} pz`}
+                          </span>
                         </div>
                       ))}
-                    </div>
+                    </section>
                   )}
 
                   {scadenze.length > 0 && (
-                    <div>
-                      <div className="px-4 py-2 bg-purple-50 border-b border-purple-100">
+                    <section>
+                      <div className="px-3 py-1.5 bg-purple-50 border-b border-purple-100 sticky top-0">
                         <p className="text-xs font-semibold text-purple-700 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5" /> Scadenze imminenti ({scadenze.length})
+                          <Calendar className="w-3 h-3" /> Scadenze imminenti ({scadenze.length})
                         </p>
                       </div>
                       {scadenze.map((a) => (
-                        <div key={a.id + '-scad'} className="px-4 py-3 border-b border-line/50 hover:bg-bg-soft/40">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium text-ink leading-tight">
-                                {a.principio_attivo}
-                                {a.nome_commerciale && (
-                                  <span className="text-ink-mute font-normal"> · {a.nome_commerciale}</span>
-                                )}
-                              </p>
-                              {a.dosaggio && <p className="text-xs text-ink-mute">{a.dosaggio}</p>}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className={`text-sm font-bold ${(a.giorni_alla_scadenza ?? 99) <= 3 ? 'text-abx' : 'text-amber'}`}>
-                                {a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza} gg`}
-                              </span>
-                              <p className="text-xs text-ink-mute">{a.data_scadenza}</p>
-                            </div>
+                        <div key={a.id + '-s'} className="flex items-center justify-between gap-2 px-3 py-2 border-b border-line/40 hover:bg-bg-soft/40">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-ink truncate">
+                              {a.principio_attivo}
+                              {a.nome_commerciale && <span className="font-normal text-ink-mute"> · {a.nome_commerciale}</span>}
+                            </p>
+                            {a.dosaggio && <p className="text-[10px] text-ink-mute">{a.dosaggio}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className={`text-xs font-bold block ${(a.giorni_alla_scadenza ?? 99) <= 3 ? 'text-abx' : 'text-amber'}`}>
+                              {a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza} gg`}
+                            </span>
+                            <span className="text-[10px] text-ink-mute">{a.data_scadenza}</span>
                           </div>
                         </div>
                       ))}
-                    </div>
+                    </section>
                   )}
                 </>
               )}
