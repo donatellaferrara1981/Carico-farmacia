@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { FileText, ImageIcon, Download, Trash2, Loader2, Sparkles, CheckCircle2, AlertCircle, Eye, X } from 'lucide-react';
 import { deleteDocumentoAction, getDownloadUrlAction } from '@/app/(app)/[categoria]/actions';
-import { estraiProdottiDaPdfAction } from '@/app/(app)/[categoria]/estrai-actions';
+import { estraiProdottiDaPdfAction, estraiProdottiDaImmagineAction } from '@/app/(app)/[categoria]/estrai-actions';
 import type { CategoriaArticolo } from '@/lib/types';
 
 interface Documento {
@@ -182,7 +182,7 @@ export function DocumentiList({
 
       {/* Lista documenti */}
       {documenti.map((doc) => (
-        <DocRow key={doc.id} doc={doc} canDelete={canDelete} categoria={categoria} />
+        <DocRow key={doc.id} doc={doc} canDelete={canDelete} categoria={categoria} orgId={orgId} />
       ))}
     </div>
   );
@@ -222,14 +222,18 @@ function DocRow({
   doc,
   canDelete,
   categoria,
+  orgId,
 }: {
   doc: Documento;
   canDelete: boolean;
   categoria: CategoriaArticolo;
+  orgId: string;
 }) {
   const [isPending, startDownload] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [isViewing, startView] = useTransition();
+  const [isExtracting, startExtract] = useTransition();
+  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; aggiornati?: number; error?: string } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const img = isImage(doc.nome_file);
@@ -248,6 +252,14 @@ function DocRow({
     });
   }
 
+  function handleExtractImage() {
+    setExtractResult(null);
+    startExtract(async () => {
+      const res = await estraiProdottiDaImmagineAction(doc.id, doc.storage_path, orgId, categoria);
+      setExtractResult(res);
+    });
+  }
+
   function handleDelete() {
     if (!confirm(`Eliminare "${doc.nome_file}"?`)) return;
     startDelete(async () => {
@@ -260,54 +272,93 @@ function DocRow({
       {previewUrl && (
         <ImageModal url={previewUrl} nome={doc.nome_file} onClose={() => setPreviewUrl(null)} />
       )}
-      <div className="flex items-center gap-3 p-4 bg-bg-card border border-line rounded-xl">
-        <div className="shrink-0 w-10 h-10 rounded-lg bg-abx-soft flex items-center justify-center">
-          {img ? (
-            <ImageIcon className="w-5 h-5 text-abx" />
-          ) : (
-            <FileText className="w-5 h-5 text-abx" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-ink truncate">{doc.nome_file}</p>
-          <p className="text-xs text-ink-mute">
-            {formatDate(doc.created_at)}
-            {doc.dimensione ? ` · ${formatBytes(doc.dimensione)}` : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {img && (
+      <div className="flex flex-col gap-2 bg-bg-card border border-line rounded-xl overflow-hidden">
+        <div className="flex items-center gap-3 p-4">
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-abx-soft flex items-center justify-center">
+            {img ? (
+              <ImageIcon className="w-5 h-5 text-abx" />
+            ) : (
+              <FileText className="w-5 h-5 text-abx" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-ink truncate">{doc.nome_file}</p>
+            <p className="text-xs text-ink-mute">
+              {formatDate(doc.created_at)}
+              {doc.dimensione ? ` · ${formatBytes(doc.dimensione)}` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {img && (
+              <button
+                type="button"
+                onClick={handleView}
+                disabled={isViewing}
+                className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
+                title="Visualizza"
+              >
+                {isViewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleView}
-              disabled={isViewing}
+              onClick={handleDownload}
+              disabled={isPending}
               className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
-              title="Visualizza"
+              title="Scarica"
             >
-              {isViewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={isPending}
-            className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
-            title="Scarica"
-          >
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          </button>
-          {canDelete && (
+            {canDelete && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="p-2 rounded-lg hover:bg-abx-soft text-ink-soft hover:text-abx transition-colors"
+                title="Elimina"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Estrai farmaci da immagine */}
+        {img && canDelete && (
+          <div className="border-t border-line px-4 py-2.5 flex items-center justify-between gap-3 bg-forest-tint/40">
+            <div className="flex items-center gap-2">
+              {isExtracting ? (
+                <span className="flex items-center gap-1.5 text-xs text-forest animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analisi immagine in corso…
+                </span>
+              ) : extractResult ? (
+                'ok' in extractResult ? (
+                  <span className="flex items-center gap-1 text-xs text-forest font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {extractResult.count ? `${extractResult.count} nuov${extractResult.count === 1 ? 'o' : 'i'}` : ''}
+                    {extractResult.count && extractResult.aggiornati ? ' · ' : ''}
+                    {extractResult.aggiornati ? `${extractResult.aggiornati} aggiornati` : ''}
+                    {!extractResult.count && !extractResult.aggiornati ? 'Nessun nuovo prodotto' : ''}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-abx">
+                    <AlertCircle className="w-3.5 h-3.5" /> {extractResult.error}
+                  </span>
+                )
+              ) : (
+                <span className="text-xs text-ink-soft">Estrai farmaci da questa immagine con AI</span>
+              )}
+            </div>
             <button
               type="button"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="p-2 rounded-lg hover:bg-abx-soft text-ink-soft hover:text-abx transition-colors"
-              title="Elimina"
+              onClick={handleExtractImage}
+              disabled={isExtracting}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-forest text-white hover:bg-forest/90 transition-colors shrink-0 disabled:opacity-50"
             >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <Sparkles className="w-3.5 h-3.5" /> Estrai
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );
