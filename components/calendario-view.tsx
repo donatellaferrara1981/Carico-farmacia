@@ -40,61 +40,42 @@ function pianoToText(piano: Piano): string {
 }
 
 function stampaPiano(piano: Piano) {
-  const righe = piano.righe.map((r) => `
-    <tr style="border-bottom:1px solid #e5e7eb;${r.da_ordinare > 0 ? 'background:#fff7f7' : ''}">
-      <td style="padding:6px 10px">
-        <strong>${r.principio_attivo}</strong>${r.nome_commerciale ? ` · <em>${r.nome_commerciale}</em>` : ''}
-        ${r.dosaggio ? `<br><small style="color:#6b7280">${r.dosaggio}</small>` : ''}
-      </td>
-      <td style="padding:6px 10px;text-align:center">${r.consumo_giornaliero}</td>
-      <td style="padding:6px 10px;text-align:center;font-weight:bold;color:#166534">${r.fabbisogno}</td>
-      <td style="padding:6px 10px;text-align:center">${r.quantita_disponibile}</td>
-      <td style="padding:6px 10px;text-align:center;font-weight:bold;color:${r.da_ordinare > 0 ? '#dc2626' : '#166534'}">${r.da_ordinare > 0 ? r.da_ordinare : '✓'}</td>
-    </tr>`).join('');
+  const righe = piano.righe.map((r) => `<tr style="${r.da_ordinare > 0 ? 'background:#fff0f0' : ''}">
+    <td>${r.principio_attivo}${r.nome_commerciale ? ` <span style="color:#6b7280">· ${r.nome_commerciale}</span>` : ''}${r.dosaggio ? ` <span style="color:#9ca3af;font-size:10px">${r.dosaggio}</span>` : ''}</td>
+    <td>${r.consumo_giornaliero}</td>
+    <td style="font-weight:700;color:#166534">${r.fabbisogno}</td>
+    <td>${r.quantita_disponibile}</td>
+    <td style="font-weight:700;color:${r.da_ordinare > 0 ? '#dc2626' : '#166534'}">${r.da_ordinare > 0 ? r.da_ordinare : '✓'}</td>
+  </tr>`).join('');
 
-  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
-    <title>${piano.titolo}</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:24px;color:#111;margin:0}
-      h1{font-size:18px;margin:0 0 4px}
-      p{margin:2px 0;color:#6b7280;font-size:13px}
-      table{width:100%;border-collapse:collapse;margin-top:16px}
-      th{background:#f3f4f6;padding:6px 10px;font-size:12px;text-align:left;border-bottom:2px solid #d1d5db}
-      td{font-size:13px}
-      @media print{@page{margin:1.5cm}body{padding:0}}
-    </style>
-    </head><body>
-    <h1>${piano.titolo}</h1>
-    <p>${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} &nbsp;·&nbsp; ${piano.giorni} giorni &nbsp;·&nbsp; ${piano.categoria}</p>
-    ${piano.note ? `<p style="margin-top:8px;font-style:italic">${piano.note}</p>` : ''}
-    <table><thead><tr>
-      <th>Farmaco</th><th style="text-align:center">/die</th>
-      <th style="text-align:center;color:#166534">Fabbisogno</th>
-      <th style="text-align:center">Disponibile</th>
-      <th style="text-align:center;color:#dc2626">Da ordinare</th>
-    </tr></thead><tbody>${righe}</tbody></table>
-    </body></html>`;
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>${piano.titolo}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:12px}
+    h1{font-size:13px;font-weight:700;margin-bottom:2px}
+    .sub{font-size:10px;color:#6b7280;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{background:#f3f4f6;font-size:10px;font-weight:600;text-align:center;padding:4px 6px;border:1px solid #d1d5db}
+    th:first-child{text-align:left}
+    td{font-size:11px;padding:3px 6px;border:1px solid #e5e7eb;vertical-align:middle;text-align:center}
+    td:first-child{text-align:left}
+    tr:nth-child(even){background:#fafafa}
+    @media print{@page{size:A4;margin:1cm}body{padding:0}}
+  </style></head><body>
+  <h1>${piano.titolo}</h1>
+  <div class="sub">${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} · ${piano.giorni} giorni · ${piano.categoria}${piano.note ? ' · ' + piano.note : ''}</div>
+  <table><thead><tr>
+    <th>Farmaco</th><th>/die</th><th>Fabbisogno</th><th>Disponibile</th><th>Da ordinare</th>
+  </tr></thead><tbody>${righe}</tbody></table>
+  </body></html>`;
 
-  // Usa un iframe nascosto nella stessa pagina per evitare blocchi popup
-  // e garantire il dialogo di stampa nativo (incluse stampanti WiFi/AirPrint/Mopria)
-  const existingFrame = document.getElementById('print-frame');
-  if (existingFrame) existingFrame.remove();
-
-  const iframe = document.createElement('iframe');
-  iframe.id = 'print-frame';
-  iframe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!doc) return;
-  doc.open();
-  doc.write(html);
-  doc.close();
-
-  iframe.onload = () => {
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-  };
+  const w = window.open('', '_blank');
+  if (!w) { alert('Consenti i popup per questo sito per poter stampare.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 400);
 }
 
 function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
