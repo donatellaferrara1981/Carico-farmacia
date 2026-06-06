@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Printer, Download, ClipboardCopy, Check } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { formaLabel, type Prodotto } from '@/lib/prodotti';
 import { CAT_LABELS, type CategoriaArticolo } from '@/lib/types';
+import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
+
 
 interface RigaOrdine {
   id: string;
@@ -64,22 +66,11 @@ function exportCSV(righe: RigaOrdine[], giorni: number, orgName: string) {
   URL.revokeObjectURL(url);
 }
 
-function copyText(righe: RigaOrdine[], giorni: number) {
-  const lines = [`📋 Approvvigionamento ${giorni} giorni — ${new Date().toLocaleDateString('it-IT')}`, ''];
-  let lastCat = '';
-  for (const r of righe) {
-    const cat = CAT_LABELS[r.categoria];
-    if (cat !== lastCat) { lines.push(`\n▪ ${cat.toUpperCase()}`); lastCat = cat; }
-    lines.push(`  • ${r.principio_attivo}${r.dosaggio ? ` ${r.dosaggio}` : ''} (${formaLabel(r.forma_farmaceutica)}) → ${r.da_ordinare} pz`);
-  }
-  navigator.clipboard.writeText(lines.join('\n'));
-}
 
 export function ApprovvigionamentoView({ prodotti, orgName }: { prodotti: Prodotto[]; orgName: string }) {
   const [giorni, setGiorni] = useState<7 | 14 | 'custom'>(7);
   const [custom, setCustom] = useState(21);
   const [soloMancanti, setSoloMancanti] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const giorniEffettivi = giorni === 'custom' ? custom : giorni;
   const righe = useMemo(() => calcolaOrdini(prodotti, giorniEffettivi), [prodotti, giorniEffettivi]);
@@ -105,12 +96,6 @@ export function ApprovvigionamentoView({ prodotti, orgName }: { prodotti: Prodot
   const righeVis = soloMancanti ? righe : tutteLeRighe;
 
   const senzaConsumo = prodotti.filter((p) => p.consumo_giornaliero === 0).length;
-
-  function handleCopy() {
-    copyText(righe, giorniEffettivi);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   return (
     <div className="space-y-6">
@@ -175,19 +160,38 @@ export function ApprovvigionamentoView({ prodotti, orgName }: { prodotti: Prodot
 
       {/* Pulsanti azioni */}
       {righeVis.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-end print:hidden">
-          <button onClick={handleCopy} className="btn-ghost">
-            {copied ? <Check className="w-4 h-4 text-forest" /> : <ClipboardCopy className="w-4 h-4" />}
-            {copied ? 'Copiato!' : 'Copia testo'}
-          </button>
-          <button onClick={() => exportCSV(righeVis, giorniEffettivi, orgName)} className="btn-ghost">
+        <div className="flex flex-wrap gap-2 justify-between items-center print:hidden">
+          <button onClick={() => exportCSV(righeVis, giorniEffettivi, orgName)} className="btn-ghost text-sm">
             <Download className="w-4 h-4" />
             Scarica CSV
           </button>
-          <button onClick={() => window.print()} className="btn-primary">
-            <Printer className="w-4 h-4" />
-            Stampa / PDF
-          </button>
+          <SharePrintBar
+            titolo={`Approvvigionamento ${giorniEffettivi} giorni — ${orgName}`}
+            testoCondivisione={() => {
+              const lines = [`📋 Approvvigionamento ${giorniEffettivi} giorni — ${orgName}`, `Data: ${new Date().toLocaleDateString('it-IT')}`, ''];
+              let lastCat = '';
+              for (const r of righeVis) {
+                const cat = CAT_LABELS[r.categoria];
+                if (cat !== lastCat) { lines.push(`\n▪ ${cat.toUpperCase()}`); lastCat = cat; }
+                const stato = r.da_ordinare > 0 ? `→ ordina ${r.da_ordinare}` : '✓ ok';
+                lines.push(`  • ${r.principio_attivo}${r.dosaggio ? ` ${r.dosaggio}` : ''} (${formaLabel(r.forma_farmaceutica)}) ${stato}`);
+              }
+              return lines.join('\n');
+            }}
+            generaHtml={() => {
+              const righe = righeVis.map((r) => `
+                <tr>
+                  <td>${CAT_LABELS[r.categoria]}</td>
+                  <td><strong>${r.principio_attivo}</strong>${r.dosaggio ? ` <span style="color:#6b7280">${r.dosaggio}</span>` : ''}</td>
+                  <td>${formaLabel(r.forma_farmaceutica)}</td>
+                  <td class="num">${r.scorta_attuale}</td>
+                  <td class="num">${r.fabbisogno}</td>
+                  <td class="num ${r.da_ordinare > 0 ? 'green' : ''}">${r.da_ordinare > 0 ? r.da_ordinare : '✓'}</td>
+                </tr>`).join('');
+              const corpo = `<table><thead><tr><th>Categoria</th><th>Principio attivo</th><th>Forma</th><th class="num">Scorta</th><th class="num">Fabbisogno</th><th class="num">Da ordinare</th></tr></thead><tbody>${righe}</tbody></table>`;
+              return htmlBase(`Approvvigionamento ${giorniEffettivi} giorni — ${orgName}`, `Data: ${new Date().toLocaleDateString('it-IT')}`, corpo);
+            }}
+          />
         </div>
       )}
 

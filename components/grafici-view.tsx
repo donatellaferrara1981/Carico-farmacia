@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { formaLabel } from '@/lib/prodotti';
 import { CAT_LABELS, type CategoriaArticolo } from '@/lib/types';
+import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 // Palette colori
 const COLORS = ['#1f3d2b','#2d5a3d','#b8842a','#c0392b','#4a7c59','#e8a838','#6b9e7a','#d4956a'];
@@ -50,10 +51,42 @@ export function GraficiView({ prodotti, documenti, unita }: {
 }) {
   const [tab, setTab] = useState<TipoGrafico>('scorte');
 
+  function testoTabella() {
+    if (tab === 'scorte') {
+      const righe = prodotti.filter(p => p.quantita >= 0).sort((a,b) => a.quantita - b.quantita).slice(0,20);
+      return `📊 Scorte attuali\n${righe.map(p => `• ${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}: ${p.quantita} pz`).join('\n')}`;
+    }
+    if (tab === 'consumo') {
+      const righe = prodotti.filter(p => p.consumo_giornaliero > 0).sort((a,b) => b.consumo_giornaliero - a.consumo_giornaliero).slice(0,20);
+      return `📊 Consumo giornaliero\n${righe.map(p => `• ${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}: ${p.consumo_giornaliero} pz/die`).join('\n')}`;
+    }
+    const bycat = Object.entries(
+      prodotti.reduce<Record<string, number>>((acc, p) => { acc[p.categoria] = (acc[p.categoria] ?? 0) + p.quantita; return acc; }, {})
+    );
+    return `📊 Distribuzione prodotti\n${bycat.map(([c, v]) => `• ${CAT_LABELS[c as CategoriaArticolo] ?? c}: ${v} pz`).join('\n')}`;
+  }
+
+  function htmlTabella() {
+    const titolo = TABS.find(t => t.id === tab)?.label ?? 'Grafici';
+    let corpo = '';
+    if (tab === 'scorte') {
+      const righe = prodotti.filter(p => p.quantita >= 0).sort((a,b) => a.quantita - b.quantita).slice(0,20);
+      corpo = `<table><thead><tr><th>Principio attivo</th><th>Forma</th><th class="num">Scorta</th></tr></thead><tbody>${righe.map(p => `<tr><td>${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}</td><td>${formaLabel(p.forma_farmaceutica)}</td><td class="num ${p.quantita === 0 ? 'red' : ''}">${p.quantita}</td></tr>`).join('')}</tbody></table>`;
+    } else if (tab === 'consumo') {
+      const righe = prodotti.filter(p => p.consumo_giornaliero > 0).sort((a,b) => b.consumo_giornaliero - a.consumo_giornaliero).slice(0,20);
+      corpo = `<table><thead><tr><th>Principio attivo</th><th>Forma</th><th class="num">Consumo/die</th></tr></thead><tbody>${righe.map(p => `<tr><td>${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}</td><td>${formaLabel(p.forma_farmaceutica)}</td><td class="num">${p.consumo_giornaliero}</td></tr>`).join('')}</tbody></table>`;
+    } else {
+      const bycat = Object.entries(prodotti.reduce<Record<string, number>>((acc, p) => { acc[p.categoria] = (acc[p.categoria] ?? 0) + p.quantita; return acc; }, {}));
+      corpo = `<table><thead><tr><th>Categoria</th><th class="num">Quantità totale</th></tr></thead><tbody>${bycat.map(([c, v]) => `<tr><td>${CAT_LABELS[c as CategoriaArticolo] ?? c}</td><td class="num">${v}</td></tr>`).join('')}</tbody></table>`;
+    }
+    return htmlBase(titolo, new Date().toLocaleDateString('it-IT'), corpo);
+  }
+
   return (
     <div className="space-y-6">
-      {/* Tab selector */}
-      <div className="flex flex-wrap gap-2">
+      {/* Tab selector + Share */}
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -67,6 +100,12 @@ export function GraficiView({ prodotti, documenti, unita }: {
             {t.label}
           </button>
         ))}
+        </div>
+        <SharePrintBar
+          titolo={TABS.find(t => t.id === tab)?.label ?? 'Grafici'}
+          testoCondivisione={testoTabella}
+          generaHtml={htmlTabella}
+        />
       </div>
 
       <div className="card">

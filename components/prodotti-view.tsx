@@ -12,6 +12,8 @@ import { UploadButton } from '@/components/upload-button';
 import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { svuotaDocumentiAction } from '@/app/(app)/[categoria]/actions';
 import type { CategoriaArticolo } from '@/lib/types';
+import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
+import { CAT_LABELS } from '@/lib/types';
 
 interface DocLibero {
   id: string;
@@ -446,6 +448,39 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                 da_ordinare: Math.max(0, Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi) - p.quantita),
               }))}
               onClose={() => setShowPiano(false)}
+            />
+          )}
+
+          {/* Stampa / Condividi */}
+          {ordinati.length > 0 && (
+            <SharePrintBar
+              titolo={`${CAT_LABELS[categoria]} — fabbisogno ${giorniEffettivi} gg`}
+              testoCondivisione={() => {
+                const lines = [`📋 ${CAT_LABELS[categoria]} — ${giorniEffettivi} giorni\n`];
+                ordinati.forEach((p) => {
+                  const fabb = Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi);
+                  const ord  = Math.max(0, fabb - p.quantita);
+                  lines.push(`• ${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''} — fabb: ${fabb} | disp: ${p.quantita} | ord: ${ord > 0 ? ord : '✓'}`);
+                });
+                return lines.join('\n');
+              }}
+              generaHtml={() => {
+                const date = new Date().toLocaleDateString('it-IT');
+                const righe = ordinati.map((p) => {
+                  const fabb = Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi);
+                  const ord  = Math.max(0, fabb - p.quantita);
+                  return `<tr>
+                    <td>${p.principio_attivo}${p.nome_commerciale ? ` <span style="color:#6b7280">· ${p.nome_commerciale}</span>` : ''}${p.dosaggio ? ` <small>${p.dosaggio}</small>` : ''}</td>
+                    <td class="num">${p.consumo_giornaliero}</td>
+                    <td class="num green">${fabb}</td>
+                    <td class="num">${p.quantita}</td>
+                    <td class="num ${ord > 0 ? 'red' : 'green'}">${ord > 0 ? ord : '✓'}</td>
+                  </tr>`;
+                }).join('');
+                const corpo = `<table><thead><tr><th>Farmaco</th><th class="num">/die</th><th class="num">Fabbisogno</th><th class="num">Disponibile</th><th class="num">Da ordinare</th></tr></thead><tbody>${righe}</tbody></table>`;
+                return htmlBase(`${CAT_LABELS[categoria]} — fabbisogno ${giorniEffettivi} giorni`, `Stampato il ${date}`, corpo);
+              }}
+              className="justify-end"
             />
           )}
 
