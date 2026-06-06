@@ -30,6 +30,7 @@ export async function uploadDocumentoAction(formData: FormData) {
 
   const storagePath = `${orgId}/${categoria}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const prodottoId = formData.get('prodotto_id') ? String(formData.get('prodotto_id')) : null;
+  const sala = formData.get('sala') ? String(formData.get('sala')) : null;
 
   const { error: uploadError } = await supabase.storage
     .from('documenti')
@@ -45,6 +46,7 @@ export async function uploadDocumentoAction(formData: FormData) {
     dimensione: file.size,
     uploaded_by: user.id,
     ...(prodottoId ? { prodotto_id: prodottoId } : {}),
+    ...(sala ? { sala } : {}),
   });
 
   if (dbError) {
