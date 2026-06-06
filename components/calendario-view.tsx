@@ -54,7 +54,15 @@ function stampaPiano(piano: Piano) {
 
   const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
     <title>${piano.titolo}</title>
-    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}p{margin:2px 0;color:#6b7280;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f3f4f6;padding:6px 10px;font-size:12px;text-align:left;border-bottom:2px solid #d1d5db}td{font-size:13px}@media print{body{padding:0}}</style>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#111;margin:0}
+      h1{font-size:18px;margin:0 0 4px}
+      p{margin:2px 0;color:#6b7280;font-size:13px}
+      table{width:100%;border-collapse:collapse;margin-top:16px}
+      th{background:#f3f4f6;padding:6px 10px;font-size:12px;text-align:left;border-bottom:2px solid #d1d5db}
+      td{font-size:13px}
+      @media print{@page{margin:1.5cm}body{padding:0}}
+    </style>
     </head><body>
     <h1>${piano.titolo}</h1>
     <p>${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} &nbsp;·&nbsp; ${piano.giorni} giorni &nbsp;·&nbsp; ${piano.categoria}</p>
@@ -65,11 +73,28 @@ function stampaPiano(piano: Piano) {
       <th style="text-align:center">Disponibile</th>
       <th style="text-align:center;color:#dc2626">Da ordinare</th>
     </tr></thead><tbody>${righe}</tbody></table>
-    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
     </body></html>`;
 
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (w) { w.document.write(html); w.document.close(); }
+  // Usa un iframe nascosto nella stessa pagina per evitare blocchi popup
+  // e garantire il dialogo di stampa nativo (incluse stampanti WiFi/AirPrint/Mopria)
+  const existingFrame = document.getElementById('print-frame');
+  if (existingFrame) existingFrame.remove();
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'print-frame';
+  iframe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) return;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  iframe.onload = () => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+  };
 }
 
 function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
