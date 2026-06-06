@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, ChevronDown, MoreVertical, ShieldAlert } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, ChevronDown, MoreVertical, ShieldAlert, PackageOpen } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
 import { ProdottoForm } from '@/components/prodotto-form';
@@ -164,6 +164,33 @@ function CardProdotto({ prodotto, categoria, canEdit, giorni }: {
             Da ordinare: {daOrdinare} pz
           </p>
         )}
+
+        {/* Banner consegna parziale */}
+        {prodotto.ciclo_totale && prodotto.ciclo_totale > 0 && (() => {
+          const consumo = prodotto.consumo_giornaliero ?? 1;
+          const giorniRim = consumo > 0 ? Math.floor(prodotto.quantita / consumo) : null;
+          const mancante = Math.max(0, prodotto.ciclo_totale - prodotto.quantita);
+          const dataEsaur = giorniRim !== null
+            ? new Date(Date.now() + giorniRim * 86400000).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+            : null;
+          const urgente = giorniRim !== null && giorniRim <= 2;
+          return (
+            <div className={`mt-2 rounded-lg px-3 py-2 text-xs flex items-start gap-2 ${urgente ? 'bg-red-50 border border-red-200' : 'bg-orange-50 border border-orange-200'}`}>
+              <PackageOpen className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${urgente ? 'text-red-500' : 'text-orange-500'}`} />
+              <div className="flex-1">
+                <p className={`font-semibold ${urgente ? 'text-red-700' : 'text-orange-700'}`}>
+                  {urgente ? 'Richiedere subito la rimanenza' : 'Consegna parziale — da richiedere'}
+                </p>
+                <p className={`mt-0.5 ${urgente ? 'text-red-600' : 'text-orange-600'}`}>
+                  {prodotto.quantita}/{prodotto.ciclo_totale} unità consegnate
+                  {mancante > 0 && <> · <strong>{mancante} da richiedere</strong></>}
+                  {dataEsaur && <> · scorte fino al {dataEsaur}</>}
+                  {giorniRim !== null && <> ({giorniRim} gg)</>}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </>
   );
@@ -355,9 +382,22 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit }
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">{CLASSE_LABEL[rowAbx.classe]}</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">{formaLabel(p.forma_farmaceutica)}</span>
                             {p.dosaggio && <span className="text-xs text-ink-mute">{p.dosaggio}</span>}
+                            {/* consegna parziale inline */}
+                            {p.ciclo_totale && p.ciclo_totale > 0 && (() => {
+                              const consumo = p.consumo_giornaliero ?? 1;
+                              const ggRim = consumo > 0 ? Math.floor(p.quantita / consumo) : null;
+                              const mancante = Math.max(0, p.ciclo_totale - p.quantita);
+                              const urgente = ggRim !== null && ggRim <= 2;
+                              return mancante > 0 ? (
+                                <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${urgente ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
+                                  <PackageOpen className="w-3 h-3" />
+                                  {mancante} da richiedere{ggRim !== null ? ` · ${ggRim} gg` : ''}
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       </td>
