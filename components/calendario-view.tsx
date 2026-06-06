@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ChevronDown, ChevronUp, Trash2, Loader2, Calendar, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, Loader2, Calendar, Share2, Printer } from 'lucide-react';
 import { eliminaPianoAction } from '@/app/(app)/[categoria]/piani-actions';
 import type { RigaPiano } from '@/app/(app)/[categoria]/piani-actions';
 
@@ -25,6 +25,51 @@ const CAT_COLORS: Record<string, string> = {
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function pianoToText(piano: Piano): string {
+  const header = `${piano.titolo}\n${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} (${piano.giorni} giorni)\nCategoria: ${piano.categoria}\n`;
+  const note = piano.note ? `Note: ${piano.note}\n` : '';
+  const sep = '─'.repeat(60) + '\n';
+  const cols = 'Farmaco                              /die  Fabb  Disp  Ord\n';
+  const rows = piano.righe.map((r) => {
+    const nome = `${r.principio_attivo}${r.dosaggio ? ` ${r.dosaggio}` : ''}`.slice(0, 36).padEnd(36);
+    return `${nome} ${String(r.consumo_giornaliero).padStart(4)}  ${String(r.fabbisogno).padStart(4)}  ${String(r.quantita_disponibile).padStart(4)}  ${r.da_ordinare > 0 ? String(r.da_ordinare).padStart(3) : '  ✓'}`;
+  }).join('\n');
+  return `${header}${note}${sep}${cols}${sep}${rows}`;
+}
+
+function stampaPiano(piano: Piano) {
+  const righe = piano.righe.map((r) => `
+    <tr style="border-bottom:1px solid #e5e7eb;${r.da_ordinare > 0 ? 'background:#fff7f7' : ''}">
+      <td style="padding:6px 10px">
+        <strong>${r.principio_attivo}</strong>${r.nome_commerciale ? ` · <em>${r.nome_commerciale}</em>` : ''}
+        ${r.dosaggio ? `<br><small style="color:#6b7280">${r.dosaggio}</small>` : ''}
+      </td>
+      <td style="padding:6px 10px;text-align:center">${r.consumo_giornaliero}</td>
+      <td style="padding:6px 10px;text-align:center;font-weight:bold;color:#166534">${r.fabbisogno}</td>
+      <td style="padding:6px 10px;text-align:center">${r.quantita_disponibile}</td>
+      <td style="padding:6px 10px;text-align:center;font-weight:bold;color:${r.da_ordinare > 0 ? '#dc2626' : '#166534'}">${r.da_ordinare > 0 ? r.da_ordinare : '✓'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
+    <title>${piano.titolo}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}p{margin:2px 0;color:#6b7280;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f3f4f6;padding:6px 10px;font-size:12px;text-align:left;border-bottom:2px solid #d1d5db}td{font-size:13px}@media print{body{padding:0}}</style>
+    </head><body>
+    <h1>${piano.titolo}</h1>
+    <p>${fmt(piano.data_inizio)} → ${fmt(piano.data_fine)} &nbsp;·&nbsp; ${piano.giorni} giorni &nbsp;·&nbsp; ${piano.categoria}</p>
+    ${piano.note ? `<p style="margin-top:8px;font-style:italic">${piano.note}</p>` : ''}
+    <table><thead><tr>
+      <th>Farmaco</th><th style="text-align:center">/die</th>
+      <th style="text-align:center;color:#166534">Fabbisogno</th>
+      <th style="text-align:center">Disponibile</th>
+      <th style="text-align:center;color:#dc2626">Da ordinare</th>
+    </tr></thead><tbody>${righe}</tbody></table>
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+    </body></html>`;
+
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
@@ -101,8 +146,30 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
             </table>
           </div>
 
-          {canEdit && (
-            <div className="px-4 py-3 border-t border-line flex justify-end">
+          <div className="px-4 py-3 border-t border-line flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  const testo = pianoToText(piano);
+                  if (navigator.share) {
+                    try { await navigator.share({ title: piano.titolo, text: testo }); } catch { /* annullato */ }
+                  } else {
+                    await navigator.clipboard.writeText(testo);
+                    alert('Testo copiato negli appunti');
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line bg-bg-soft hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5" /> Condividi
+              </button>
+              <button
+                onClick={() => stampaPiano(piano)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line bg-bg-soft hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" /> Stampa
+              </button>
+            </div>
+            {canEdit && (
               <button
                 onClick={() => {
                   if (!confirm(`Eliminare il piano "${piano.titolo}"?`)) return;
@@ -114,8 +181,8 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
                 {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 Elimina piano
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
