@@ -1,35 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, X, AlertTriangle, Calendar, Package, PackageOpen } from 'lucide-react';
+import { Bell, X, AlertTriangle, Calendar, Package } from 'lucide-react';
 
 export interface AlertItem {
   id: string;
-  tipo: 'scorta' | 'scadenza' | 'consegna_parziale';
+  tipo: 'scorta' | 'scadenza';
   principio_attivo: string;
   nome_commerciale: string | null;
   dosaggio: string | null;
   categoria: string;
-  // scorta
   quantita?: number;
   soglia?: number;
-  // scadenza
   data_scadenza?: string;
   giorni_alla_scadenza?: number;
-  // consegna parziale
-  giorni_rimanenti?: number;
-  data_esaurimento?: string;
-  quantita_mancante?: number;
-  ciclo_totale?: number;
 }
 
 export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
   const [open, setOpen] = useState(false);
 
-  const scorte    = alerts.filter((a) => a.tipo === 'scorta');
-  const scadenze  = alerts.filter((a) => a.tipo === 'scadenza');
-  const parziali  = alerts.filter((a) => a.tipo === 'consegna_parziale');
-  const count     = alerts.length;
+  const scorte = alerts.filter((a) => a.tipo === 'scorta');
+  const scadenze = alerts.filter((a) => a.tipo === 'scadenza');
+  const count = alerts.length;
 
   return (
     <div className="relative">
@@ -57,7 +49,7 @@ export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
               </button>
             </div>
 
-            <div className="max-h-[32rem] overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto">
               {count === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <Bell className="w-8 h-8 mx-auto mb-2 text-ink-mute opacity-30" />
@@ -65,47 +57,6 @@ export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
                 </div>
               ) : (
                 <>
-                  {/* Consegne parziali */}
-                  {parziali.length > 0 && (
-                    <div>
-                      <div className="px-4 py-2 bg-orange-50 border-b border-orange-200">
-                        <p className="text-xs font-semibold text-orange-700 flex items-center gap-1.5">
-                          <PackageOpen className="w-3.5 h-3.5" /> Richiedere rimanenza ({parziali.length})
-                        </p>
-                      </div>
-                      {parziali.map((a) => (
-                        <div key={a.id + '-parz'} className="px-4 py-3 border-b border-line/50 hover:bg-orange-50/40">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-ink leading-tight">
-                                {a.principio_attivo}
-                                {a.nome_commerciale && (
-                                  <span className="text-ink-mute font-normal"> · {a.nome_commerciale}</span>
-                                )}
-                              </p>
-                              {a.dosaggio && <p className="text-xs text-ink-mute">{a.dosaggio}</p>}
-                              <p className="text-xs text-ink-mute capitalize">{a.categoria}</p>
-                              {a.data_esaurimento && (
-                                <p className="text-xs text-orange-600 mt-0.5">
-                                  Scorte fino al {new Date(a.data_esaurimento).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
-                                </p>
-                              )}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className={`text-sm font-bold ${(a.giorni_rimanenti ?? 99) <= 2 ? 'text-abx' : 'text-orange-600'}`}>
-                                {a.giorni_rimanenti === 0 ? 'OGGI' : `${a.giorni_rimanenti} gg`}
-                              </span>
-                              {a.quantita_mancante !== undefined && a.quantita_mancante > 0 && (
-                                <p className="text-xs text-orange-600 font-semibold">-{a.quantita_mancante} da richiedere</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Scorte */}
                   {scorte.length > 0 && (
                     <div>
                       <div className="px-4 py-2 bg-amber/10 border-b border-amber/20">
@@ -140,7 +91,6 @@ export function AlertBell({ alerts }: { alerts: AlertItem[] }) {
                     </div>
                   )}
 
-                  {/* Scadenze */}
                   {scadenze.length > 0 && (
                     <div>
                       <div className="px-4 py-2 bg-purple-50 border-b border-purple-100">

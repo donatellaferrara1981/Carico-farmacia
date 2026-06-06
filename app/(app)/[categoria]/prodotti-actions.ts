@@ -13,8 +13,6 @@ export interface ProdottoFormData {
   consumo_giornaliero: number;
   soglia_minima: number | null;
   data_scadenza: string;
-  ciclo_totale: number | null;
-  data_inizio_ciclo: string;
   note: string;
 }
 
@@ -39,8 +37,6 @@ export async function upsertProdottoAction(
     consumo_giornaliero: data.consumo_giornaliero,
     soglia_minima: data.soglia_minima ?? null,
     data_scadenza: data.data_scadenza || null,
-    ciclo_totale: data.ciclo_totale ?? null,
-    data_inizio_ciclo: data.data_inizio_ciclo || null,
     note: data.note.trim() || null,
   };
 

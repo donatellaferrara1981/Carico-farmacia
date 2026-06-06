@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { X, Loader2, PackageOpen } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { FORME_FARMACEUTICHE, type FormaFarmaceutica, type Prodotto } from '@/lib/prodotti';
 import { upsertProdottoAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import type { CategoriaArticolo } from '@/lib/types';
@@ -27,7 +27,6 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
 
     start(async () => {
       const soglia = parseInt(String(fd.get('soglia_minima') ?? ''), 10);
-      const cicloTotale = parseInt(String(fd.get('ciclo_totale') ?? ''), 10);
       const res = await upsertProdottoAction(
         orgId,
         categoria,
@@ -40,8 +39,6 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
           consumo_giornaliero: Math.max(0, parseFloat(String(fd.get('consumo_giornaliero') ?? '0')) || 0),
           soglia_minima: isNaN(soglia) ? null : Math.max(0, soglia),
           data_scadenza: String(fd.get('data_scadenza') ?? ''),
-          ciclo_totale: isNaN(cicloTotale) ? null : Math.max(0, cicloTotale),
-          data_inizio_ciclo: String(fd.get('data_inizio_ciclo') ?? ''),
           note: String(fd.get('note') ?? ''),
         },
         prodotto?.id,
@@ -154,37 +151,6 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
                 className="input-base"
                 defaultValue={prodotto?.data_scadenza ?? ''}
               />
-            </div>
-          </div>
-
-          {/* Consegna parziale */}
-          <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3.5 space-y-3">
-            <div className="flex items-center gap-1.5">
-              <PackageOpen className="w-4 h-4 text-orange-500" />
-              <span className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Consegna parziale (alto costo)</span>
-            </div>
-            <p className="text-xs text-orange-600/80">Compila solo se la farmacia ha consegnato una parte del ciclo. L'app calcolerà quando richiedere la rimanenza.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-base">Quantità totale ciclo</label>
-                <input
-                  name="ciclo_totale"
-                  type="number"
-                  min={0}
-                  className="input-base"
-                  defaultValue={prodotto?.ciclo_totale ?? ''}
-                  placeholder="es. 60 unità"
-                />
-              </div>
-              <div>
-                <label className="label-base">Data inizio ciclo</label>
-                <input
-                  name="data_inizio_ciclo"
-                  type="date"
-                  className="input-base"
-                  defaultValue={prodotto?.data_inizio_ciclo ?? ''}
-                />
-              </div>
             </div>
           </div>
 

@@ -27,8 +27,6 @@ export interface Prodotto {
   nominativa: boolean;
   soglia_minima: number | null;
   data_scadenza: string | null;
-  ciclo_totale: number | null;
-  data_inizio_ciclo: string | null;
   created_at: string;
   updated_at: string;
 }
