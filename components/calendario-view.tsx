@@ -69,13 +69,17 @@ function stampaPiano(piano: Piano) {
   </tr></thead><tbody>${righe}</tbody></table>
   </body></html>`;
 
-  const w = window.open('', '_blank');
-  if (!w) { alert('Consenti i popup per questo sito per poter stampare.'); return; }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 400);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const w    = window.open(url, '_blank');
+  if (!w) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+  w.addEventListener('load', () => {
+    w.print();
+    URL.revokeObjectURL(url);
+  });
 }
 
 function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
