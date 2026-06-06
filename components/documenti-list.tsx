@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { FileText, ImageIcon, Download, Trash2, Loader2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileText, ImageIcon, Download, Trash2, Loader2, Sparkles, CheckCircle2, AlertCircle, Eye, X } from 'lucide-react';
 import { deleteDocumentoAction, getDownloadUrlAction } from '@/app/(app)/[categoria]/actions';
 import { estraiProdottiDaPdfAction } from '@/app/(app)/[categoria]/estrai-actions';
 import type { CategoriaArticolo } from '@/lib/types';
@@ -188,6 +188,36 @@ export function DocumentiList({
   );
 }
 
+function ImageModal({ url, nome, onClose }: { url: string; nome: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between w-full mb-2 px-1">
+          <p className="text-white text-sm font-medium truncate">{nome}</p>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={nome}
+          className="max-h-[80vh] max-w-full rounded-xl object-contain shadow-2xl"
+        />
+      </div>
+    </div>
+  );
+}
+
 function DocRow({
   doc,
   canDelete,
@@ -199,11 +229,22 @@ function DocRow({
 }) {
   const [isPending, startDownload] = useTransition();
   const [isDeleting, startDelete] = useTransition();
+  const [isViewing, startView] = useTransition();
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const img = isImage(doc.nome_file);
 
   function handleDownload() {
     startDownload(async () => {
       const res = await getDownloadUrlAction(doc.storage_path);
       if ('url' in res) window.open(res.url, '_blank');
+    });
+  }
+
+  function handleView() {
+    startView(async () => {
+      const res = await getDownloadUrlAction(doc.storage_path);
+      if ('url' in res && res.url) setPreviewUrl(res.url);
     });
   }
 
@@ -215,43 +256,59 @@ function DocRow({
   }
 
   return (
-    <div className="flex items-center gap-3 p-4 bg-bg-card border border-line rounded-xl">
-      <div className="shrink-0 w-10 h-10 rounded-lg bg-abx-soft flex items-center justify-center">
-        {isImage(doc.nome_file) ? (
-          <ImageIcon className="w-5 h-5 text-abx" />
-        ) : (
-          <FileText className="w-5 h-5 text-abx" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-ink truncate">{doc.nome_file}</p>
-        <p className="text-xs text-ink-mute">
-          {formatDate(doc.created_at)}
-          {doc.dimensione ? ` · ${formatBytes(doc.dimensione)}` : ''}
-        </p>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={handleDownload}
-          disabled={isPending}
-          className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
-          title="Scarica"
-        >
-          {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        </button>
-        {canDelete && (
+    <>
+      {previewUrl && (
+        <ImageModal url={previewUrl} nome={doc.nome_file} onClose={() => setPreviewUrl(null)} />
+      )}
+      <div className="flex items-center gap-3 p-4 bg-bg-card border border-line rounded-xl">
+        <div className="shrink-0 w-10 h-10 rounded-lg bg-abx-soft flex items-center justify-center">
+          {img ? (
+            <ImageIcon className="w-5 h-5 text-abx" />
+          ) : (
+            <FileText className="w-5 h-5 text-abx" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-ink truncate">{doc.nome_file}</p>
+          <p className="text-xs text-ink-mute">
+            {formatDate(doc.created_at)}
+            {doc.dimensione ? ` · ${formatBytes(doc.dimensione)}` : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {img && (
+            <button
+              type="button"
+              onClick={handleView}
+              disabled={isViewing}
+              className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
+              title="Visualizza"
+            >
+              {isViewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+            </button>
+          )}
           <button
             type="button"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="p-2 rounded-lg hover:bg-abx-soft text-ink-soft hover:text-abx transition-colors"
-            title="Elimina"
+            onClick={handleDownload}
+            disabled={isPending}
+            className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-forest transition-colors"
+            title="Scarica"
           >
-            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           </button>
-        )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-2 rounded-lg hover:bg-abx-soft text-ink-soft hover:text-abx transition-colors"
+              title="Elimina"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
