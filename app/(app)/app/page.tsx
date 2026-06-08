@@ -5,7 +5,7 @@ import type { CurrentUserContext } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
 import { AutoRefresh } from '@/components/auto-refresh';
-import { FileText, ClipboardList, BarChart2 } from 'lucide-react';
+import { FileText, ClipboardList, BarChart2, Users } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -91,6 +91,20 @@ export default async function AppPage() {
             <div>
               <h2 className="font-semibold text-ink">Grafici</h2>
               <p className="text-ink-mute text-sm">Scorte, consumi, Gantt turni e analisi statistiche</p>
+            </div>
+          </Link>
+        </div>
+        <div className="mt-4">
+          <Link
+            href="/pazienti"
+            className="card hover:border-forest/40 hover:shadow-sm transition-all group flex items-center gap-4 mb-4"
+          >
+            <div className="w-10 h-10 rounded-lg bg-forest-tint flex items-center justify-center shrink-0 group-hover:bg-forest/10 transition-colors">
+              <Users className="w-5 h-5 text-forest" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-ink">Pazienti ricoverati</h2>
+              <p className="text-ink-mute text-sm">Carica la mappa posti letto (JPEG/PNG) — estrae automaticamente pazienti per sala</p>
             </div>
           </Link>
         </div>
