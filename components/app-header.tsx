@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { Bell, LogOut, ClipboardList, Settings, BarChart2, CalendarDays } from 'lucide-react';
+import { Bell, LogOut, ClipboardList, Settings, BarChart2, CalendarDays, Users } from 'lucide-react';
 import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
@@ -35,6 +35,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           {[
             { href: '/grafici',            label: 'Grafici',    Icon: BarChart2     },
             { href: '/calendario',         label: 'Calendario', Icon: CalendarDays  },
+            { href: '/pazienti',           label: 'Pazienti',   Icon: Users         },
             { href: '/approvvigionamento', label: 'Ordini',     Icon: ClipboardList },
           ].map(({ href, label, Icon }) => (
             <Link

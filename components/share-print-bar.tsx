@@ -106,6 +106,7 @@ export function htmlBase(titolo: string, sottotitolo: string, corpo: string) {
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:14px}
   h1{font-size:13px;font-weight:700;margin-bottom:3px}
+  h2{font-size:11px;font-weight:700;margin:10px 0 4px}
   .sub{font-size:10px;color:#6b7280;margin-bottom:10px}
   table{width:100%;border-collapse:collapse;margin-top:6px}
   th{background:#f3f4f6;font-size:10px;font-weight:600;padding:4px 6px;border:1px solid #d1d5db;text-align:left}
