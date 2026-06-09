@@ -278,9 +278,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
               <button type="button" onClick={resetForm} className="btn-ghost text-xs flex items-center gap-1.5">
                 <RotateCcw className="w-3 h-3" /> Annulla modifiche
               </button>
-            ) : (
-              <button type="button" onClick={onClose} className="btn-ghost text-xs">Chiudi</button>
-            )}
+            ) : null}
             <button type="submit" disabled={isPending} className="btn-primary text-xs flex-1">
               {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Salva'}
             </button>
