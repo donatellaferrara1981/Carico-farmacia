@@ -73,6 +73,9 @@
   .label-base {
     @apply block text-xs font-semibold uppercase tracking-wider text-ink-mute mb-1.5;
   }
+  .label-xs {
+    @apply block text-xs text-ink-soft mb-1;
+  }
   .card {
     @apply bg-bg-card border border-line rounded-xl p-6 shadow-sm;
   }

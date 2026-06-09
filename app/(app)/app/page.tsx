@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
-import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users } from 'lucide-react';
+import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -132,14 +132,23 @@ export default async function AppPage() {
               </Link>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Link href="/pazienti" className="card hover:border-forest/40 hover:shadow-sm transition-all group flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-forest-tint flex items-center justify-center shrink-0 group-hover:bg-forest/10">
                   <Users className="w-5 h-5 text-forest" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-ink">Pazienti ricoverati</h3>
-                  <p className="text-ink-mute text-sm">Carica mappa posti letto — OCR automatico per sala</p>
+                  <p className="text-ink-mute text-sm">Carica mappa posti letto — OCR per sala</p>
+                </div>
+              </Link>
+              <Link href="/gare" className="card hover:border-purple-300 hover:shadow-sm transition-all group flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center shrink-0 group-hover:bg-purple-100">
+                  <Gavel className="w-5 h-5 text-purple-700" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-ink">Gare d&apos;appalto</h3>
+                  <p className="text-ink-mute text-sm">Contratti regionali farmaci e sanitario</p>
                 </div>
               </Link>
               <Link href="/approvvigionamento" className="card hover:border-amber/40 hover:shadow-sm transition-all group flex items-center gap-4">
