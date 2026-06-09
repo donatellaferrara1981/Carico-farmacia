@@ -23,6 +23,21 @@ export async function archiaviaAvvisoAction(prodottoId: string, tipo: string) {
   revalidatePath('/approvvigionamento');
 }
 
+export async function ripristinaAvvisoAction(prodottoId: string, tipo: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const orgId = await getOrgId(supabase, user.id);
+  if (!orgId) return;
+  await supabase.from('avvisi_archiviati')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('prodotto_id', prodottoId)
+    .eq('tipo', tipo);
+  revalidatePath('/avvisi');
+  revalidatePath('/app');
+}
+
 export async function azzeraAvvisiAction() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

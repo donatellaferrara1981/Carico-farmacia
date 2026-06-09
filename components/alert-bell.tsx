@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useTransition } from 'react';
+import Link from 'next/link';
 import { Bell, X, AlertTriangle, Calendar, Package, Maximize2, Minimize2, GripHorizontal, Trash2, Clock } from 'lucide-react';
 import { archiaviaAvvisoAction, azzeraAvvisiAction } from '@/app/(app)/avvisi/actions';
 
@@ -234,11 +235,12 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
               )}
             </div>
 
-            {count > 0 && (
-              <div className="px-3 py-2 border-t border-line bg-bg-soft text-[10px] text-ink-mute">
-                Usa ✕ per archiviare la singola notifica · "Azzera tutto" le rimuove tutte
-              </div>
-            )}
+            <div className="px-3 py-2 border-t border-line bg-bg-soft flex items-center justify-between text-[10px] text-ink-mute">
+              <span>{count > 0 ? 'Usa ✕ per archiviare la singola notifica' : 'Tutte le notifiche sono in archivio'}</span>
+              <Link href="/avvisi" onClick={() => setOpen(false)} className="underline underline-offset-2 hover:text-ink transition-colors">
+                storico archiviati
+              </Link>
+            </div>
           </div>
         </>
       )}
