@@ -35,8 +35,8 @@ export async function estraiPazientiDaImmagineAction(
 
   const anthropic = new Anthropic();
   const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8192,
     messages: [{
       role: 'user',
       content: [
@@ -46,19 +46,26 @@ export async function estraiPazientiDaImmagineAction(
         },
         {
           type: 'text',
-          text: `Sei un assistente per una struttura ospedaliera italiana. Analizza questa immagine che mostra la mappa dei posti letto suddivisi in sale/stanze.
+          text: `Sei un assistente per un reparto ospedaliero italiano. Questa immagine mostra la pagina "POSTI LETTO DEL REPARTO" del gestionale ospedaliero.
 
-Estrai TUTTI i pazienti presenti (letti occupati). Per i letti vuoti NON includere nulla.
+STRUTTURA DELLA PAGINA:
+- Le STANZE/SALE hanno un'intestazione con sfondo blu (es. "STANZA GRANDE PIANO TERRA", "STANZA PICCOLA PIANO TERRA", "STANZA GRANDE 1 PIANO", "STANZA PICCOLA 1 PIANO", "Sala Lunga")
+- Ogni letto occupa una cella con: "posto letto N" in alto, un badge "Misto", un'icona letto colorata, il NOME PAZIENTE in maiuscolo su 1-2 righe, il codice GSO sotto (formato GSO_XXXXXXXXXXXXXX)
+- I letti VUOTI hanno solo l'icona grigia con un "+" — NON includere letti vuoti
 
-Per ogni paziente restituisci un oggetto con:
-- sala: string (nome esatto della sala/stanza come appare nell'intestazione, es. "GCA1", "GCA3", "STANZA GRANDE 1 PIANO", "STANZA PICCOLA 1 PIANO", "Sala Lunga")
-- numero_letto: number (numero del letto)
-- nominativo: string (nome e cognome del paziente, maiuscolo come appare)
+ISTRUZIONI:
+1. Scorri OGNI sezione da sinistra a destra, riga per riga
+2. Per ogni letto OCCUPATO (ha nome paziente + codice GSO) estrai:
+   - sala: nome esatto dall'intestazione blu della sezione
+   - numero_letto: il numero dopo "posto letto" o "Posto Letto"
+   - nominativo: nome completo in MAIUSCOLO (unisci le righe se il nome è su 2 righe, es. "DI MAURO" + "ANNA" → "DI MAURO ANNA")
+3. Se il nome è troncato (finisce con ...) includi quello che vedi
+4. Non saltare nessun paziente — controlla ogni cella
 
-Rispondi SOLO con un array JSON valido, senza testo aggiuntivo. Esempio:
-[{"sala":"GCA1","numero_letto":1,"nominativo":"ROSSI MARIO"},{"sala":"GCA3","numero_letto":5,"nominativo":"BIANCHI ANNA"}]
+Rispondi SOLO con JSON array, nessun testo extra:
+[{"sala":"STANZA GRANDE PIANO TERRA","numero_letto":1,"nominativo":"GAROFALO ROSARIO"},...]
 
-Se non trovi pazienti: []`,
+Se nessun paziente: []`,
         },
       ],
     }],

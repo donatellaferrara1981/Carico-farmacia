@@ -165,7 +165,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,text/html,.html"
+          accept="image/jpeg,image/png,image/webp,image/bmp,text/html,.html,.htm"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
         />
@@ -180,7 +180,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
               <Upload className="w-8 h-8 text-ink-mute" />
               <div>
                 <p className="text-sm font-medium text-ink">Carica mappa posti letto</p>
-                <p className="text-xs text-ink-soft mt-1">JPEG, PNG o HTML · trascina qui o clicca</p>
+                <p className="text-xs text-ink-soft mt-1">Screenshot (JPG/PNG) o file HTML · trascina qui o clicca</p>
               </div>
             </>
           )}
