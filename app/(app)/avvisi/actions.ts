@@ -23,6 +23,24 @@ export async function archiaviaAvvisoAction(prodottoId: string, tipo: string) {
   revalidatePath('/approvvigionamento');
 }
 
+export async function archiviaTuttiAction(items: { id: string; tipo: string }[]) {
+  if (!items.length) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const orgId = await getOrgId(supabase, user.id);
+  if (!orgId) return;
+  const now = new Date().toISOString();
+  await supabase.from('avvisi_archiviati').upsert(
+    items.map(i => ({ org_id: orgId, prodotto_id: i.id, tipo: i.tipo, archiviato_il: now })),
+    { onConflict: 'org_id,prodotto_id,tipo' },
+  );
+  revalidatePath('/app');
+  revalidatePath('/grafici');
+  revalidatePath('/approvvigionamento');
+  revalidatePath('/avvisi');
+}
+
 export async function ripristinaAvvisoAction(prodottoId: string, tipo: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

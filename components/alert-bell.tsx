@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { Bell, X, AlertTriangle, Calendar, Package, Maximize2, Minimize2, GripHorizontal, Trash2, Clock } from 'lucide-react';
-import { archiaviaAvvisoAction, azzeraAvvisiAction } from '@/app/(app)/avvisi/actions';
+import { archiaviaAvvisoAction, archiviaTuttiAction, azzeraAvvisiAction } from '@/app/(app)/avvisi/actions';
 
 export interface AlertItem {
   id: string;
@@ -111,7 +111,7 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
 
   function azzeraTutto() {
     startClear(async () => {
-      await azzeraAvvisiAction();
+      await archiviaTuttiAction(alerts.map(a => ({ id: a.id, tipo: a.tipo })));
       setAlerts([]);
     });
   }
