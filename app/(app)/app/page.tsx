@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
-import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel } from 'lucide-react';
+import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -149,6 +149,15 @@ export default async function AppPage() {
                 <div>
                   <h3 className="font-semibold text-ink">Gare d&apos;appalto</h3>
                   <p className="text-ink-mute text-sm">Contratti regionali farmaci e sanitario</p>
+                </div>
+              </Link>
+              <Link href="/germ-alert" className="card hover:border-red-200 hover:shadow-sm transition-all group flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0 group-hover:bg-red-100">
+                  <Microscope className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-ink">Germ Alert</h3>
+                  <p className="text-ink-mute text-sm">Referti microbiologici · antibiogramma</p>
                 </div>
               </Link>
               <Link href="/approvvigionamento" className="card hover:border-amber/40 hover:shadow-sm transition-all group flex items-center gap-4">

@@ -124,58 +124,77 @@ function stripHtml(html: string): string {
 
 /**
  * Parser diretto per il gestionale posti-letto IRCCS/MEG.
- * Cerca: intestazioni sala → "posto letto N" → nome paziente (ALL CAPS) → GSO code.
- * I letti vuoti non hanno GSO code: vengono ignorati.
+ * Strategia: usa i codici GSO come ancoraggio sicuro per i letti occupati.
+ * GSO codes possono essere alfanumerici (es. GSO_2024XXXXXX o GSO_123456789).
  */
 function parsePostiLettoHtml(html: string): PazienteEstratto[] {
   const testo = stripHtml(html);
   const risultati: PazienteEstratto[] = [];
 
-  // Segmenta per sala: cerca intestazioni di sezione in maiuscolo
-  // Pattern: parole come "STANZA", "SALA", "PIANO", seguite da altri token maiuscoli
-  // Usiamo i GSO code come ancora: GSO_YYYYNNNNNNNNN
-  // Intorno a ogni GSO recuperiamo il nome (maiuscolo) e il numero letto
+  // Parole da escludere quando si cerca il nome paziente
+  const ESCLUDI = new Set([
+    'MISTO','MISTA','LETTO','POSTO','PIANO','STANZA','SALA','CARICO','REPARTO',
+    'GRANDE','PICCOLA','TERRA','PRIMO','LUNGA','LUNGO','LARGO','LARGA','MISTO',
+    'BADGE','ICONA','VUOTO','NOTE','DATA','TIPO','SESSO','ANNO','MESE','GIORNO',
+  ]);
 
-  // 1. Trova tutte le posizioni dei GSO
-  const gsoReg = /GSO[_\s](\d{10,})/gi;
-  // 2. Identifica intestazioni sala: blocchi ALL CAPS ≥ 3 parole
-  const salaReg = /\b([A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s]{3,}(?:PIANO\s*TERRA|PIANO|\d°?\s*PIANO|LARGA|LUNGA|GRANDE|PICCOLA|LUNG[AO])[A-ZÀÈÌÒÙ\s]*)\b/g;
-
-  // Costruiamo una mappa posizione→sala dalla serie di match
+  // 1. Mappa posizione→nome sala usando intestazioni (sequenze ALL CAPS significative)
+  //    Cerca blocchi che contengono almeno una parola tipica di sala
+  const salaReg = /\b((?:[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s]{2,})?(?:STANZA|SALA)\s+[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s]*|[A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s]*(?:PIANO\s*TERRA|PIANO\s*\d|PIANO\s*PRIMO|\d\s*PIANO|\d°\s*PIANO)[A-ZÀÈÌÒÙ\s]*)/g;
   const salaMarkers: Array<{ pos: number; sala: string }> = [];
   let m: RegExpExecArray | null;
   while ((m = salaReg.exec(testo)) !== null) {
     const nome = m[0].replace(/\s+/g, ' ').trim();
-    if (nome.length > 3) salaMarkers.push({ pos: m.index, sala: nome });
+    if (nome.length >= 4) salaMarkers.push({ pos: m.index, sala: nome });
   }
 
   function salaAtPos(pos: number): string {
     let sala = 'REPARTO';
     for (const mk of salaMarkers) {
       if (mk.pos <= pos) sala = mk.sala;
+      else break;
     }
     return sala;
   }
 
-  // Per ogni GSO recupera il contesto precedente (500 char) per trovare letto e nome
+  // 2. Per ogni codice GSO (letto occupato), estrai letto+nome dal contesto precedente
+  // GSO può essere: GSO_123456789 o GSO 123456789 (alfanumerico)
+  const gsoReg = /\bGSO[_\s]([A-Z0-9]{6,})\b/gi;
   while ((m = gsoReg.exec(testo)) !== null) {
     const gsoPos = m.index;
-    const ctx = testo.slice(Math.max(0, gsoPos - 500), gsoPos);
+    // Contesto: 600 caratteri prima del GSO
+    const ctx = testo.slice(Math.max(0, gsoPos - 600), gsoPos);
 
-    // Numero letto: "posto letto N" (case-insensitive)
+    // Numero letto: "posto letto N" o "Posto Letto N"
     const lettoM = /posto\s+letto\s+(\d+)/i.exec(ctx);
     if (!lettoM) continue;
     const numeroLetto = parseInt(lettoM[1], 10);
 
-    // Nome paziente: blocco ALL CAPS (2-4 parole, no numeri) più recente nel contesto
-    const nomeReg = /\b([A-ZÀÈÌÒÙÄËÏÖÜ']{2,}(?:\s+[A-ZÀÈÌÒÙÄËÏÖÜ']{2,}){1,3})\b/g;
+    // Nome paziente: ultima sequenza ALL CAPS (2-4 parole, solo lettere/apostrofo)
+    // dopo il match "posto letto N"
+    const ctxDopoLetto = ctx.slice(lettoM.index + lettoM[0].length);
+    const nomeReg = /\b([A-ZÀÈÌÒÙÄËÏÖÜ'][A-ZÀÈÌÒÙÄËÏÖÜ']{1,}(?:\s+[A-ZÀÈÌÒÙÄËÏÖÜ'][A-ZÀÈÌÒÙÄËÏÖÜ']{1,}){0,3})\b/g;
     let nomeM: RegExpExecArray | null;
     let ultimoNome = '';
-    while ((nomeM = nomeReg.exec(ctx)) !== null) {
+    while ((nomeM = nomeReg.exec(ctxDopoLetto)) !== null) {
       const candidato = nomeM[1].trim();
-      // Esclude parole di sistema / UI
-      if (/^(MISTO|MISTA|LETTO|POSTO|PIANO|STANZA|SALA|CARICO|REPARTO|GRANDE|PICCOLA|TERRA|PRIMO|LUNGA|LARGO)$/.test(candidato)) continue;
+      // Salta parole singole che sono keywords
+      const parole = candidato.split(/\s+/);
+      if (parole.length === 1 && ESCLUDI.has(candidato)) continue;
+      // Salta se tutte le parole sono keywords
+      if (parole.every(p => ESCLUDI.has(p))) continue;
       ultimoNome = candidato;
+    }
+
+    // Se non trovato dopo il numero letto, cerca nel contesto intero pre-GSO
+    if (!ultimoNome) {
+      const nomeReg2 = /\b([A-ZÀÈÌÒÙÄËÏÖÜ'][A-ZÀÈÌÒÙÄËÏÖÜ']{1,}(?:\s+[A-ZÀÈÌÒÙÄËÏÖÜ'][A-ZÀÈÌÒÙÄËÏÖÜ']{1,}){1,3})\b/g;
+      while ((nomeM = nomeReg2.exec(ctx)) !== null) {
+        const candidato = nomeM[1].trim();
+        const parole = candidato.split(/\s+/);
+        if (parole.every(p => ESCLUDI.has(p))) continue;
+        ultimoNome = candidato;
+      }
     }
 
     if (!ultimoNome) continue;
@@ -207,25 +226,32 @@ export async function estraiPazientiDaHtmlAction(
 
   // 2. Fallback Claude se il parser non trova abbastanza (< 3 pazienti)
   if (estratti.length < 3) {
-    const testoStrippato = stripHtml(htmlText).slice(0, 40000);
+    // Invia HTML raw (troncato) invece del testo stripped, per preservare più contesto
+    const htmlTroncato = htmlText.slice(0, 80000);
     const anthropic = new Anthropic();
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{
         role: 'user',
-        content: `Sei un assistente ospedaliero. Questo testo è estratto da una pagina HTML del gestionale posti letto di un reparto ospedaliero italiano.
+        content: `Sei un assistente ospedaliero. Stai leggendo l'HTML della pagina "Posti Letto del Reparto" di un gestionale ospedaliero italiano (es. IRCCS).
 
-Il formato tipico è: nome stanza/sala (in maiuscolo), poi "posto letto N", poi nome paziente in MAIUSCOLO (cognome nome), poi un codice GSO.
-I letti vuoti NON hanno nome paziente né codice GSO.
+La pagina mostra le stanze/sale del reparto (intestazioni in maiuscolo o con sfondo colorato), e per ogni sala i letti. Ogni letto occupato ha:
+- "posto letto N" o "Posto Letto N" (numero del letto)
+- Nome paziente in MAIUSCOLO (cognome e nome)
+- Un codice GSO (formato GSO_XXXXXXX o simile)
 
-Estrai TUTTI i pazienti ricoverati. Restituisci SOLO un array JSON:
-[{"sala":"NOME SALA","numero_letto":1,"nominativo":"COGNOME NOME"}]
+I letti vuoti non hanno nome paziente né codice GSO.
 
-Se nessun paziente: []
+Analizza l'HTML completo e restituisci SOLO un array JSON con TUTTI i pazienti trovati:
+[{"sala":"NOME SALA ESATTO","numero_letto":1,"nominativo":"COGNOME NOME"}]
 
-TESTO:
-${testoStrippato}`,
+Se nessun paziente trovato: []
+
+Non aggiungere altro testo, solo il JSON.
+
+HTML:
+${htmlTroncato}`,
       }],
     });
 
@@ -238,7 +264,7 @@ ${testoStrippato}`,
     }
   }
 
-  if (!estratti.length) return { error: 'Nessun paziente riconosciuto. Prova a caricare uno screenshot (JPG/PNG) della pagina.' };
+  if (!estratti.length) return { error: 'Nessun paziente riconosciuto nel file HTML. Prova a caricare uno screenshot (JPG/PNG) della pagina, oppure verifica che il file contenga codici GSO (formato GSO_XXXXXXXXX).' };
 
   const delQuery = supabase.from('pazienti').delete().eq('org_id', orgId);
   if (uoAttivaId) delQuery.eq('unita_operativa_id', uoAttivaId);
