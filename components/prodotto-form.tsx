@@ -96,7 +96,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
           quantita_consegnata: isNaN(qCons) ? null : qCons,
           data_consegna: vals.data_consegna || null,
           alert_esaurimento: vals.alert_esaurimento,
-        } as any,
+        },
         prodotto?.id,
       );
       if (res && 'error' in res) { setError(res.error ?? 'Errore.'); return; }

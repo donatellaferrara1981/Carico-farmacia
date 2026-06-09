@@ -17,6 +17,9 @@ export interface ProdottoFormData {
   note: string;
   ciclo_totale?: number | null;
   data_inizio_ciclo?: string | null;
+  quantita_consegnata?: number | null;
+  data_consegna?: string | null;
+  alert_esaurimento?: boolean;
 }
 
 export async function upsertProdottoAction(
@@ -45,6 +48,9 @@ export async function upsertProdottoAction(
     note: data.note.trim() || null,
     ciclo_totale: data.ciclo_totale ?? null,
     data_inizio_ciclo: data.data_inizio_ciclo || null,
+    quantita_consegnata: data.quantita_consegnata ?? null,
+    data_consegna: data.data_consegna || null,
+    alert_esaurimento: data.alert_esaurimento !== false,
   };
 
   if (!id && uoAttivaId) {
