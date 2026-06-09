@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
-import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw, Save, FileEdit, Trash2, Check } from 'lucide-react';
+import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw, Save, FileEdit, Trash2, Check, ScanBarcode } from 'lucide-react';
 import { FORME_FARMACEUTICHE, type FormaFarmaceutica, type Prodotto } from '@/lib/prodotti';
 import { upsertProdottoAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import type { CategoriaArticolo } from '@/lib/types';
+import { BarcodeScanner, type ScannedData } from '@/components/barcode-scanner';
 
 function NoteWidget({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -106,6 +107,13 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
   const [showConsegna, setShowConsegna] = useState(
     !!(prodotto as any)?.quantita_consegnata || !!(prodotto as any)?.data_consegna,
   );
+  const [showScanner, setShowScanner] = useState(false);
+
+  function onScan(data: ScannedData) {
+    setShowScanner(false);
+    if (data.data_scadenza) set('data_scadenza', data.data_scadenza);
+    setDirty(true);
+  }
 
   // Dragging
   const panelRef = useRef<HTMLDivElement>(null);
@@ -306,7 +314,14 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
                   placeholder={sogliaSuggerita ? `suggerito: ${sogliaSuggerita}` : 'es. 5'} />
               </div>
               <div>
-                <label className="label-xs !text-[10px]">Scadenza farmaco</label>
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="label-xs !text-[10px]">Scadenza farmaco</label>
+                  <button type="button" onClick={() => setShowScanner(true)}
+                    title="Scansiona codice a barre"
+                    className="flex items-center gap-0.5 text-[9px] text-forest hover:underline leading-none">
+                    <ScanBarcode className="w-3 h-3" /> scan
+                  </button>
+                </div>
                 <input type="date" className="input-base text-xs py-1" value={vals.data_scadenza}
                   onChange={e => set('data_scadenza', e.target.value)} />
               </div>
@@ -367,6 +382,10 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
 
         </form>
       </div>
+
+      {showScanner && (
+        <BarcodeScanner onResult={onScan} onClose={() => setShowScanner(false)} />
+      )}
     </>
   );
 }
