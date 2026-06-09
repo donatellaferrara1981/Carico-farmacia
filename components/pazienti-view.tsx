@@ -1,9 +1,17 @@
 'use client';
 
 import { useState, useRef, useTransition, useEffect } from 'react';
-import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer } from 'lucide-react';
+import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
+import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
+
+export interface TerapiaPaziente {
+  id: string;
+  principio_attivo: string;
+  dosaggio: string | null;
+  posologia: string | null;
+}
 
 export interface Paziente {
   id: string;
@@ -13,6 +21,13 @@ export interface Paziente {
   piano: 'terra' | 'primo' | null;
   unita_operativa_id: string | null;
   data_aggiornamento: string;
+  terapie?: TerapiaPaziente[];
+}
+
+export interface ProdottoSuggestion {
+  id: string;
+  principio_attivo: string;
+  dosaggio: string | null;
 }
 
 interface Props {
@@ -20,11 +35,12 @@ interface Props {
   orgId: string;
   orgName: string;
   uoNome: string | null;
+  prodotti?: ProdottoSuggestion[];
 }
 
 const STORAGE_KEY = 'carico_selezione';
 
-export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
+export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }: Props) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -225,6 +241,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
               key={sala}
               sala={sala}
               pazienti={bySala[sala].sort((a, b) => a.numero_letto - b.numero_letto)}
+              prodotti={prodotti}
             />
           ))}
         </div>
@@ -259,13 +276,16 @@ function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle, bySa
     const selezionate = sale.filter((s) => selezione[s]);
     const blocchi = selezionate.map((sala) => {
       const paz = (bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto);
-      const righe = paz.map((p) =>
-        `<tr>
+      const righe = paz.map((p) => {
+        const farmaci = p.terapie && p.terapie.length > 0
+          ? p.terapie.map((t) => [t.principio_attivo, t.dosaggio, t.posologia].filter(Boolean).join(' ')).join(' · ')
+          : '&nbsp;';
+        return `<tr>
           <td style="width:50px;text-align:center;font-weight:600;color:#374151">${p.numero_letto}</td>
           <td style="font-weight:500">${p.nominativo}</td>
-          <td style="width:200px;border-bottom:1px solid #d1d5db">&nbsp;</td>
-        </tr>`
-      ).join('');
+          <td style="width:200px;border-bottom:1px solid #d1d5db">${farmaci}</td>
+        </tr>`;
+      }).join('');
       return `
         <div style="break-inside:avoid;margin-bottom:20px">
           <div style="background:#1f3d2b;color:white;padding:6px 10px;border-radius:6px 6px 0 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">
@@ -397,8 +417,9 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
 
 // ── Card compatta per sala ───────────────────────────────────────────────────
 
-function SalaCard({ sala, pazienti }: { sala: string; pazienti: Paziente[] }) {
+function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Paziente[]; prodotti: ProdottoSuggestion[] }) {
   const [pending, startTransition] = useTransition();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function handleDelete(id: string) {
     startTransition(async () => { await eliminaPazienteAction(id); });
@@ -414,19 +435,127 @@ function SalaCard({ sala, pazienti }: { sala: string; pazienti: Paziente[] }) {
       </div>
       <div className="divide-y divide-line/50">
         {pazienti.map((p) => (
-          <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 group hover:bg-bg-soft/40">
-            <span className="w-7 text-right text-[11px] font-mono text-ink-mute shrink-0">{p.numero_letto}</span>
-            <span className="flex-1 text-xs font-medium text-ink truncate">{p.nominativo}</span>
-            <button
-              onClick={() => handleDelete(p.id)}
-              disabled={pending}
-              className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+          <div key={p.id}>
+            <div className="flex items-center gap-2 px-3 py-1.5 group hover:bg-bg-soft/40">
+              <span className="w-7 text-right text-[11px] font-mono text-ink-mute shrink-0">{p.numero_letto}</span>
+              <span className="flex-1 text-xs font-medium text-ink truncate">{p.nominativo}</span>
+              <button
+                onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                className="p-1 rounded text-ink-mute hover:text-forest hover:bg-forest/10 transition-colors"
+                title="Terapie"
+              >
+                {expandedId === p.id
+                  ? <ChevronUp className="w-3 h-3" />
+                  : <ChevronDown className="w-3 h-3" />}
+              </button>
+              <button
+                onClick={() => handleDelete(p.id)}
+                disabled={pending}
+                className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+            {expandedId === p.id && (
+              <TerapiePanel paziente={p} prodotti={prodotti} />
+            )}
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Pannello terapie ─────────────────────────────────────────────────────────
+
+function TerapiePanel({ paziente, prodotti }: { paziente: Paziente; prodotti: ProdottoSuggestion[] }) {
+  const [pending, startTransition] = useTransition();
+  const [principio, setPrincipio] = useState('');
+  const [dosaggio, setDosaggio] = useState('');
+  const [posologia, setPosologia] = useState('');
+  const listId = `prodotti-${paziente.id}`;
+
+  function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!principio.trim()) return;
+    startTransition(async () => {
+      const match = prodotti.find((p) => p.principio_attivo === principio);
+      await assegnaTerapiaAction(paziente.id, principio.trim(), dosaggio.trim(), posologia.trim(), match?.id);
+      setPrincipio('');
+      setDosaggio('');
+      setPosologia('');
+    });
+  }
+
+  function handleRemove(id: string) {
+    startTransition(async () => { await rimuoviTerapiaAction(id); });
+  }
+
+  return (
+    <div className="bg-bg-soft/60 border-t border-line/50 px-3 py-2 space-y-1.5">
+      {/* Lista terapie assegnate */}
+      {(paziente.terapie ?? []).length === 0 ? (
+        <p className="text-[10px] text-ink-mute italic">Nessuna terapia assegnata</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {(paziente.terapie ?? []).map((t) => (
+            <li key={t.id} className="flex items-center gap-1.5 group/t">
+              <span className="flex-1 text-xs text-ink">
+                <span className="font-medium">{t.principio_attivo}</span>
+                {t.dosaggio && <span className="text-ink-soft"> {t.dosaggio}</span>}
+                {t.posologia && <span className="text-ink-mute"> · {t.posologia}</span>}
+              </span>
+              <button
+                onClick={() => handleRemove(t.id)}
+                disabled={pending}
+                className="p-0.5 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors opacity-0 group-hover/t:opacity-100"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Form aggiunta */}
+      <form onSubmit={handleAdd} className="flex items-center gap-1 pt-1">
+        <datalist id={listId}>
+          {prodotti.map((p) => (
+            <option key={p.id} value={p.principio_attivo} />
+          ))}
+        </datalist>
+        <input
+          type="text"
+          list={listId}
+          placeholder="Principio attivo"
+          value={principio}
+          onChange={(e) => setPrincipio(e.target.value)}
+          className="input-base text-xs py-1 flex-[2] min-w-0"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Dosaggio"
+          value={dosaggio}
+          onChange={(e) => setDosaggio(e.target.value)}
+          className="input-base text-xs py-1 flex-1 min-w-0"
+        />
+        <input
+          type="text"
+          placeholder="Posologia"
+          value={posologia}
+          onChange={(e) => setPosologia(e.target.value)}
+          className="input-base text-xs py-1 flex-1 min-w-0"
+        />
+        <button
+          type="submit"
+          disabled={pending || !principio.trim()}
+          className="p-1 rounded bg-forest text-white hover:bg-forest/90 disabled:opacity-40 transition-colors shrink-0"
+          title="Aggiungi terapia"
+        >
+          {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+        </button>
+      </form>
     </div>
   );
 }

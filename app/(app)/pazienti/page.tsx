@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { BackButton } from '@/components/back-button';
-import { PazientiView, type Paziente } from '@/components/pazienti-view';
+import { PazientiView, type Paziente, type TerapiaPaziente, type ProdottoSuggestion } from '@/components/pazienti-view';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import type { CurrentUserContext } from '@/lib/types';
 
@@ -50,7 +50,34 @@ export default async function PazientiPage() {
     .order('numero_letto');
   if (uoAttivaId) query.eq('unita_operativa_id', uoAttivaId);
 
-  const { data: pazienti } = await query;
+  const [{ data: pazientiRaw }, { data: terapieRaw }, { data: prodottiRaw }] = await Promise.all([
+    query,
+    supabase.from('terapie_pazienti').select('*').eq('org_id', org.id),
+    supabase.from('prodotti').select('id, principio_attivo, dosaggio').eq('org_id', org.id).order('principio_attivo'),
+  ]);
+
+  // Join terapie onto pazienti
+  const terapieByPaziente: Record<string, TerapiaPaziente[]> = {};
+  for (const t of terapieRaw ?? []) {
+    if (!terapieByPaziente[t.paziente_id]) terapieByPaziente[t.paziente_id] = [];
+    terapieByPaziente[t.paziente_id].push({
+      id: t.id,
+      principio_attivo: t.principio_attivo,
+      dosaggio: t.dosaggio ?? null,
+      posologia: t.posologia ?? null,
+    });
+  }
+
+  const pazienti: Paziente[] = (pazientiRaw ?? []).map((p) => ({
+    ...(p as Paziente),
+    terapie: terapieByPaziente[p.id] ?? [],
+  }));
+
+  const prodotti: ProdottoSuggestion[] = (prodottiRaw ?? []).map((p) => ({
+    id: p.id,
+    principio_attivo: p.principio_attivo,
+    dosaggio: p.dosaggio ?? null,
+  }));
 
   return (
     <div className="min-h-screen bg-bg">
@@ -64,10 +91,11 @@ export default async function PazientiPage() {
           </p>
         </div>
         <PazientiView
-          pazienti={(pazienti ?? []) as Paziente[]}
+          pazienti={pazienti}
           orgId={org.id}
           orgName={org.name}
           uoNome={uoNome}
+          prodotti={prodotti}
         />
       </main>
     </div>
