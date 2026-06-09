@@ -8,6 +8,7 @@ import {
 import { formaLabel } from '@/lib/prodotti';
 import { CAT_LABELS, type CategoriaArticolo } from '@/lib/types';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
+import { classificaFarmaco, isAltoCosto, CLASSE_LABEL, type ClasseAntibiotico } from '@/lib/antibiotici';
 
 // Palette colori
 const COLORS = ['#1f3d2b','#2d5a3d','#b8842a','#c0392b','#4a7c59','#e8a838','#6b9e7a','#d4956a'];
@@ -22,6 +23,13 @@ interface Prodotto {
   consumo_giornaliero: number;
   unita_operativa_id: string | null;
 }
+
+interface Gara {
+  id: string;
+  descrizione: string;
+  prezzo_unitario: number | null;
+  unita_misura: string | null;
+}
 interface Documento {
   id: string;
   nome_file: string;
@@ -33,21 +41,23 @@ interface Documento {
 }
 interface UnitaOperativa { id: string; nome: string; }
 
-type TipoGrafico = 'barre' | 'linea' | 'torta' | 'gantt' | 'scorte' | 'consumo';
+type TipoGrafico = 'barre' | 'linea' | 'torta' | 'gantt' | 'scorte' | 'consumo' | 'antibiotici';
 
 const TABS: { id: TipoGrafico; label: string }[] = [
-  { id: 'scorte',  label: 'Scorte' },
-  { id: 'consumo', label: 'Consumo/die' },
-  { id: 'barre',   label: 'Per categoria' },
-  { id: 'torta',   label: 'Distribuzione forme' },
-  { id: 'linea',   label: 'Caricamenti nel tempo' },
-  { id: 'gantt',   label: 'Gantt turni' },
+  { id: 'scorte',       label: 'Scorte' },
+  { id: 'consumo',      label: 'Consumo/die' },
+  { id: 'antibiotici',  label: '🦠 Antibiotici' },
+  { id: 'barre',        label: 'Per categoria' },
+  { id: 'torta',        label: 'Distribuzione forme' },
+  { id: 'linea',        label: 'Caricamenti nel tempo' },
+  { id: 'gantt',        label: 'Gantt turni' },
 ];
 
-export function GraficiView({ prodotti, documenti, unita }: {
+export function GraficiView({ prodotti, documenti, unita, gare = [] }: {
   prodotti: Prodotto[];
   documenti: Documento[];
   unita: UnitaOperativa[];
+  gare?: Gara[];
 }) {
   const [tab, setTab] = useState<TipoGrafico>('scorte');
 
@@ -109,12 +119,13 @@ export function GraficiView({ prodotti, documenti, unita }: {
       </div>
 
       <div className="card">
-        {tab === 'scorte'  && <GraficoScorte prodotti={prodotti} />}
-        {tab === 'consumo' && <GraficoConsumo prodotti={prodotti} />}
-        {tab === 'barre'   && <GraficoCategorie prodotti={prodotti} />}
-        {tab === 'torta'   && <GraficoForme prodotti={prodotti} />}
-        {tab === 'linea'   && <GraficoCaricamenti documenti={documenti} />}
-        {tab === 'gantt'   && <GraficoGantt documenti={documenti} unita={unita} />}
+        {tab === 'scorte'      && <GraficoScorte prodotti={prodotti} />}
+        {tab === 'consumo'     && <GraficoConsumo prodotti={prodotti} />}
+        {tab === 'antibiotici' && <StudioAntibiotici prodotti={prodotti} gare={gare} />}
+        {tab === 'barre'       && <GraficoCategorie prodotti={prodotti} />}
+        {tab === 'torta'       && <GraficoForme prodotti={prodotti} />}
+        {tab === 'linea'       && <GraficoCaricamenti documenti={documenti} />}
+        {tab === 'gantt'       && <GraficoGantt documenti={documenti} unita={unita} />}
       </div>
     </div>
   );
@@ -356,5 +367,190 @@ function Empty({ msg }: { msg?: string }) {
     <div className="text-center py-16 text-ink-mute">
       <p className="text-sm">{msg ?? 'Nessun dato disponibile ancora.'}</p>
     </div>
+  );
+}
+
+/* ── Studio Antibiotici / Antivirali ── */
+function norm(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9àèìòù\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function prezzoGara(pa: string, gare: Gara[]): number | null {
+  const n = norm(pa);
+  const found = gare.find((g) => {
+    const dn = norm(g.descrizione);
+    return dn.includes(n) || n.split(' ').filter((w) => w.length > 4).some((w) => dn.includes(w));
+  });
+  return found?.prezzo_unitario ?? null;
+}
+
+function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gara[] }) {
+  const [vista, setVista] = useState<'consumo' | 'classe' | 'costo'>('consumo');
+
+  const abxProdotti = prodotti
+    .map((p) => {
+      const info = classificaFarmaco(p.principio_attivo);
+      if (!info.isAntibiotico) return null;
+      const altoCosto = isAltoCosto(p.principio_attivo);
+      const prezzo = prezzoGara(p.principio_attivo, gare);
+      const costoGiornaliero = prezzo != null && p.consumo_giornaliero > 0
+        ? prezzo * p.consumo_giornaliero : null;
+      const costoMensile = costoGiornaliero != null ? costoGiornaliero * 30 : null;
+      return { ...p, classe: info.classe!, altoCosto, prezzo, costoGiornaliero, costoMensile };
+    })
+    .filter(Boolean) as (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; costoGiornaliero: number | null; costoMensile: number | null })[];
+
+  if (!abxProdotti.length) {
+    return <Empty msg="Nessun antibiotico/antivirale riconosciuto nel magazzino. Carica farmaci per avviare lo studio." />;
+  }
+
+  const totaleMensile = abxProdotti.reduce((s, p) => s + (p.costoMensile ?? 0), 0);
+  const altoCostoN = abxProdotti.filter((p) => p.altoCosto).length;
+
+  // Dati grafico per consumo
+  const datoConsumo = abxProdotti
+    .filter((p) => p.consumo_giornaliero > 0)
+    .sort((a, b) => b.consumo_giornaliero - a.consumo_giornaliero)
+    .slice(0, 20)
+    .map((p) => ({
+      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
+      consumo: p.consumo_giornaliero,
+      fill: p.altoCosto ? '#c0392b' : p.classe === 'carbapenemi' || p.classe === 'glicopeptidi' || p.classe === 'polimixine' || p.classe === 'ossazolidinoni' ? '#b8842a' : '#1f3d2b',
+    }));
+
+  // Dati grafico per classe
+  const byClasse: Record<string, number> = {};
+  for (const p of abxProdotti) {
+    const label = CLASSE_LABEL[p.classe];
+    byClasse[label] = (byClasse[label] ?? 0) + 1;
+  }
+  const datoClasse = Object.entries(byClasse).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
+
+  // Dati grafico per costo mensile
+  const datoCosto = abxProdotti
+    .filter((p) => p.costoMensile != null && p.costoMensile > 0)
+    .sort((a, b) => (b.costoMensile ?? 0) - (a.costoMensile ?? 0))
+    .slice(0, 15)
+    .map((p) => ({
+      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
+      costo: Math.round(p.costoMensile!),
+      fill: p.altoCosto ? '#c0392b' : '#b8842a',
+    }));
+
+  return (
+    <>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <h3 className="font-semibold text-ink">Studio consumo antibiotici / antivirali</h3>
+        <div className="flex gap-1.5">
+          {(['consumo', 'classe', 'costo'] as const).map((v) => (
+            <button key={v} onClick={() => setVista(v)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${vista === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}>
+              {v === 'consumo' ? 'Consumo/die' : v === 'classe' ? 'Per classe' : 'Costo stimato'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI bar */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-red-700">{abxProdotti.length}</p>
+          <p className="text-xs text-red-500 mt-0.5">Antibiotici in magazzino</p>
+        </div>
+        <div className="rounded-lg bg-amber/10 border border-amber/30 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-amber-700">{altoCostoN}</p>
+          <p className="text-xs text-amber-600 mt-0.5">Ad alto costo / last-resort</p>
+        </div>
+        <div className="rounded-lg bg-forest-tint border border-forest/20 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-forest">{totaleMensile > 0 ? `€ ${totaleMensile.toLocaleString('it-IT', { maximumFractionDigits: 0 })}` : '—'}</p>
+          <p className="text-xs text-forest/70 mt-0.5">Costo mensile stimato</p>
+        </div>
+      </div>
+
+      {/* Grafici */}
+      {vista === 'consumo' && (
+        datoConsumo.length === 0 ? <Empty msg="Imposta il consumo/die nei prodotti per visualizzare il grafico." /> :
+        <>
+          <p className="text-xs text-ink-mute mb-3">Rosso = alto costo/last-resort · Ambra = classe critica · Verde = altri</p>
+          <ResponsiveContainer width="100%" height={Math.max(300, datoConsumo.length * 30)}>
+            <BarChart data={datoConsumo} layout="vertical" margin={{ left: 20, right: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} />
+              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v) => [`${v} pz/die`, 'Consumo']} />
+              <Bar dataKey="consumo" radius={[0, 4, 4, 0]}>
+                {datoConsumo.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      )}
+
+      {vista === 'classe' && (
+        <ResponsiveContainer width="100%" height={320}>
+          <PieChart>
+            <Pie data={datoClasse} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+              {datoClasse.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={(v) => [`${v} prodotti`, '']} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+
+      {vista === 'costo' && (
+        datoCosto.length === 0 ? <Empty msg="Nessun prezzo disponibile. Inserisci i prezzi nelle gare d'appalto e imposta il consumo/die nei prodotti." /> :
+        <>
+          <p className="text-xs text-ink-mute mb-3">Costo mensile stimato (consumo/die × prezzo unitario da gara × 30 gg) · Rosso = alto costo</p>
+          <ResponsiveContainer width="100%" height={Math.max(300, datoCosto.length * 32)}>
+            <BarChart data={datoCosto} layout="vertical" margin={{ left: 20, right: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tickFormatter={(v) => `€${v}`} />
+              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v) => [`€ ${Number(v).toLocaleString('it-IT')}`, 'Costo/mese']} />
+              <Bar dataKey="costo" radius={[0, 4, 4, 0]}>
+                {datoCosto.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      )}
+
+      {/* Tabella dettaglio */}
+      <div className="mt-6 overflow-x-auto rounded-xl border border-line">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-bg-soft border-b border-line text-left">
+              <th className="px-3 py-2 font-medium text-ink-soft">Principio attivo</th>
+              <th className="px-3 py-2 font-medium text-ink-soft">Classe</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Scorta</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Consumo/die</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Prezzo unit.</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Costo/mese</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {abxProdotti.sort((a, b) => (b.costoMensile ?? 0) - (a.costoMensile ?? 0)).map((p) => (
+              <tr key={p.id} className={p.altoCosto ? 'bg-red-50' : 'bg-bg-card'}>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    {p.altoCosto && <span className="text-[9px] px-1 py-0.5 rounded-full bg-red-200 text-red-700 font-bold uppercase">ALTO COSTO</span>}
+                    <span className={`font-medium ${p.altoCosto ? 'text-red-700' : 'text-red-600'}`}>{p.principio_attivo}</span>
+                    {p.dosaggio && <span className="text-ink-mute">{p.dosaggio}</span>}
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-ink-soft">{CLASSE_LABEL[p.classe]}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink">{p.quantita}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink">{p.consumo_giornaliero > 0 ? p.consumo_giornaliero : '—'}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink-soft">{p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 2 })}` : '—'}</td>
+                <td className={`px-3 py-2 text-right tabular-nums font-semibold ${p.altoCosto ? 'text-red-700' : 'text-amber-700'}`}>
+                  {p.costoMensile != null ? `€ ${Math.round(p.costoMensile).toLocaleString('it-IT')}` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

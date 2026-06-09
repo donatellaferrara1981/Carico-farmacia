@@ -28,11 +28,12 @@ export default async function GraficiPage() {
     role: memberRes.data.role,
   };
 
-  const [uoAttivaId, { data: prodotti }, { data: documenti }, { data: unita }] = await Promise.all([
+  const [uoAttivaId, { data: prodotti }, { data: documenti }, { data: unita }, { data: gare }] = await Promise.all([
     getUoAttivaId(),
     supabase.from('prodotti').select('*').eq('org_id', org.id),
     supabase.from('documenti').select('*').eq('org_id', org.id).order('created_at', { ascending: false }),
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
+    supabase.from('gare_appalto').select('id,descrizione,prezzo_unitario,unita_misura').eq('org_id', org.id),
   ]);
 
   const uoAttiva = (unita ?? []).find((u: { id: string }) => u.id === uoAttivaId) ?? null;
@@ -53,6 +54,7 @@ export default async function GraficiPage() {
           prodotti={prodotti ?? []}
           documenti={documenti ?? []}
           unita={unita ?? []}
+          gare={gare ?? []}
         />
       </main>
     </div>

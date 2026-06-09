@@ -162,6 +162,26 @@ export function classificaFarmaco(principioAttivo: string): InfoAntibiotico {
   return { isAntibiotico: false, classe: null };
 }
 
+// Farmaci ad alto costo / last-resort in contesto ospedaliero
+const ALTO_COSTO_PATTERNS: RegExp[] = [
+  /meropenem/i, /imipenem/i, /ertapenem/i, /doripenem/i,       // carbapenemi
+  /vancomicin/i, /teicoplanin/i, /dalbavancin/i, /oritavancin/i, // glicopeptidi
+  /linezolid/i, /tedizolid/i,                                   // ossazolidinoni
+  /colistin/i, /polimixina/i, /polymyxin/i,                     // polimixine (last resort)
+  /daptomicin/i,                                                 // lipopeptidi
+  /ceftoloz/i, /ceftazidim.*avibactam/i, /cefiderocol/i,        // BL nuovi generazione
+  /tigeciclina/i, /omadaciclin/i, /eravaciclin/i,               // tetracicline nuove
+  /caspofungin/i, /micafungin/i, /anidulafungin/i,              // echinocandine
+  /voriconazol/i, /posaconazol/i, /isavuconazol/i,              // azoli sistemici
+  /amfotericin/i, /amfotericina/i,                              // amfotericina B
+  /ganciclovir/i, /valganciclovir/i, /foscarnet/i, /cidofovir/i, /remdesivir/i, // antivirali critici
+  /fidaxomicin/i,
+];
+
+export function isAltoCosto(principioAttivo: string): boolean {
+  return ALTO_COSTO_PATTERNS.some((p) => p.test(principioAttivo));
+}
+
 export const CLASSE_LABEL: Record<ClasseAntibiotico, string> = {
   'beta-lattamici':  'Beta-lattamici',
   'aminoglicosidi':  'Aminoglicosidi',
