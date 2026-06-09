@@ -9,6 +9,7 @@ import { formaLabel } from '@/lib/prodotti';
 import { CAT_LABELS, type CategoriaArticolo } from '@/lib/types';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 import { classificaFarmaco, isAltoCosto, CLASSE_LABEL, type ClasseAntibiotico } from '@/lib/antibiotici';
+import { RelazioneAntibioticiModal, type AbxProdotto } from '@/components/relazione-antibiotici-modal';
 
 // Palette colori
 const COLORS = ['#1f3d2b','#2d5a3d','#b8842a','#c0392b','#4a7c59','#e8a838','#6b9e7a','#d4956a'];
@@ -394,77 +395,13 @@ function diffGiorni(dal: string, al: string) {
   return Math.max(1, Math.ceil((new Date(al).getTime() - new Date(dal).getTime()) / 86400000) + 1);
 }
 
-function generaRelazioneHtml(
-  abxProdotti: (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; consumoPeriodo: number; costoPeriodo: number | null })[],
-  dal: string, al: string, giorni: number, orgName: string,
-) {
-  const totCosto = abxProdotti.reduce((s, p) => s + (p.costoPeriodo ?? 0), 0);
-  const altoCostoN = abxProdotti.filter(p => p.altoCosto).length;
-
-  const byClasse: Record<string, { n: number; consumo: number; costo: number }> = {};
-  for (const p of abxProdotti) {
-    const l = CLASSE_LABEL[p.classe];
-    if (!byClasse[l]) byClasse[l] = { n: 0, consumo: 0, costo: 0 };
-    byClasse[l].n++;
-    byClasse[l].consumo += p.consumoPeriodo;
-    byClasse[l].costo += p.costoPeriodo ?? 0;
-  }
-
-  const righeTabella = abxProdotti
-    .sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0))
-    .map(p => `
-      <tr style="${p.altoCosto ? 'background:#fef2f2' : ''}">
-        <td>${p.altoCosto ? '<span style="background:#fecaca;color:#991b1b;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:700;margin-right:4px">ALTO COSTO</span>' : ''}<strong style="color:${p.altoCosto ? '#991b1b' : '#b91c1c'}">${p.principio_attivo}</strong>${p.dosaggio ? ` <span style="color:#6b7280">${p.dosaggio}</span>` : ''}</td>
-        <td>${CLASSE_LABEL[p.classe]}</td>
-        <td style="text-align:right">${p.consumo_giornaliero > 0 ? p.consumo_giornaliero : '—'}</td>
-        <td style="text-align:right"><strong>${p.consumoPeriodo > 0 ? p.consumoPeriodo : '—'}</strong></td>
-        <td style="text-align:right">${p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 4 })}` : '—'}</td>
-        <td style="text-align:right;font-weight:600;color:${p.altoCosto ? '#991b1b' : '#92400e'}">${p.costoPeriodo != null && p.costoPeriodo > 0 ? `€ ${Math.round(p.costoPeriodo).toLocaleString('it-IT')}` : '—'}</td>
-      </tr>`).join('');
-
-  const righeClasse = Object.entries(byClasse).sort((a, b) => b[1].costo - a[1].costo).map(([cl, v]) => `
-    <tr>
-      <td><strong>${cl}</strong></td>
-      <td style="text-align:right">${v.n}</td>
-      <td style="text-align:right">${v.consumo}</td>
-      <td style="text-align:right;font-weight:600">${v.costo > 0 ? `€ ${Math.round(v.costo).toLocaleString('it-IT')}` : '—'}</td>
-    </tr>`).join('');
-
-  const corpo = `
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:20px">
-      <p style="font-size:13px;color:#374151;margin:0 0 8px">
-        <strong>Periodo di analisi:</strong> ${fmt(dal)} — ${fmt(al)} (${giorni} giorni)<br>
-        <strong>Prodotti analizzati:</strong> ${abxProdotti.length} antibiotici/antivirali · <strong style="color:#991b1b">${altoCostoN} ad alto costo / last-resort</strong>
-        ${totCosto > 0 ? `<br><strong>Costo totale stimato nel periodo:</strong> <span style="font-size:18px;color:#991b1b">€ ${Math.round(totCosto).toLocaleString('it-IT')}</span>` : ''}
-      </p>
-    </div>
-
-    <h2 style="font-size:14px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px">Riepilogo per classe terapeutica</h2>
-    <table>
-      <thead><tr><th>Classe</th><th style="text-align:right">N° farmaci</th><th style="text-align:right">Consumo tot.</th><th style="text-align:right">Costo periodo</th></tr></thead>
-      <tbody>${righeClasse}</tbody>
-    </table>
-
-    <h2 style="font-size:14px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px">Dettaglio per principio attivo</h2>
-    <table>
-      <thead><tr><th>Principio attivo</th><th>Classe</th><th style="text-align:right">Consumo/die</th><th style="text-align:right">Consumo periodo</th><th style="text-align:right">Prezzo unit.</th><th style="text-align:right">Costo periodo</th></tr></thead>
-      <tbody>${righeTabella}</tbody>
-    </table>
-    <p style="margin-top:16px;font-size:10px;color:#9ca3af">* Consumo periodo = consumo/die × ${giorni} giorni. Costo stimato da prezzi gare d'appalto. Dati a scopo gestionale interno.</p>
-  `;
-
-  return htmlBase(
-    `Studio consumo antibiotici — ${orgName}`,
-    `Periodo: ${fmt(dal)} — ${fmt(al)} · ${giorni} giorni`,
-    corpo,
-  );
-}
 
 function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; gare: Gara[]; orgName: string }) {
   const [vista, setVista] = useState<'consumo' | 'classe' | 'costo'>('consumo');
   const [dal, setDal] = useState(unMeseFa());
   const [al, setAl] = useState(oggi());
   const [presetRange, setPresetRange] = useState<'7' | '30' | '90' | 'custom'>('30');
+  const [showRelazione, setShowRelazione] = useState(false);
 
   function applicaPreset(p: '7' | '30' | '90' | 'custom') {
     setPresetRange(p);
@@ -489,7 +426,7 @@ function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; 
       const costoPeriodo = prezzo != null && consumoPeriodo > 0 ? prezzo * consumoPeriodo : null;
       return { ...p, classe: info.classe!, altoCosto, prezzo, consumoPeriodo, costoPeriodo };
     })
-    .filter(Boolean) as (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; consumoPeriodo: number; costoPeriodo: number | null })[];
+    .filter(Boolean) as AbxProdotto[];
 
   if (!abxProdotti.length) {
     return <Empty msg="Nessun antibiotico/antivirale riconosciuto nel magazzino. Carica farmaci per avviare lo studio." />;
@@ -569,17 +506,11 @@ function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; 
             ))}
           </div>
           <button
-            onClick={() => {
-              const html = generaRelazioneHtml(abxProdotti, dal, al, giorni, orgName);
-              const blob = new Blob([html], { type: 'text/html' });
-              const url = URL.createObjectURL(blob);
-              const w = window.open(url, '_blank');
-              w?.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
-            }}
-            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+            onClick={() => setShowRelazione(true)}
+            className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            Stampa relazione
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Genera relazione
           </button>
         </div>
       </div>
@@ -651,6 +582,15 @@ function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; 
             </BarChart>
           </ResponsiveContainer>
         </>
+      )}
+
+      {showRelazione && (
+        <RelazioneAntibioticiModal
+          prodotti={abxProdotti}
+          dal={dal} al={al} giorni={giorni}
+          orgName={orgName}
+          onClose={() => setShowRelazione(false)}
+        />
       )}
 
       {/* Tabella dettaglio */}
