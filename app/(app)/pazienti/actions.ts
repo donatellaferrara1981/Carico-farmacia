@@ -14,9 +14,10 @@ interface PazienteEstratto {
 
 function derivaPiano(sala: string): 'terra' | 'primo' | null {
   const s = sala.toUpperCase();
-  if (s.includes('PIANO TERRA')) return 'terra';
-  if (s.includes('1 PIANO') || s.includes('PRIMO')) return 'primo';
-  return null;
+  if (s.includes('PIANO TERRA') || s.includes('TERRA')) return 'terra';
+  if (s.includes('1 PIANO') || s.includes('PRIMO') || s.includes('1°') || s.includes('FIRST')) return 'primo';
+  // Sale senza indicazione di piano: default primo (es. "Sala Lunga" è tipicamente al piano 1)
+  return 'primo';
 }
 
 // ── Estrai pazienti da JPEG/PNG ──────────────────────────────────────────────

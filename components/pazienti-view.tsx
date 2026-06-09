@@ -236,6 +236,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
           saleTerra={saleTerra}
           salePrimo={salePrimo}
           selezione={selezione}
+          bySala={bySala}
           onToggle={toggleSala}
         />
       )}
@@ -249,21 +250,62 @@ interface CaricoProps {
   saleTerra: string[];
   salePrimo: string[];
   selezione: Record<string, boolean>;
+  bySala: Record<string, Paziente[]>;
   onToggle: (sala: string) => void;
 }
 
-function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle }: CaricoProps) {
-  function printSale(sale: string[], titolo: string) {
-    const righe = sale
-      .filter((s) => selezione[s])
-      .map((s) => `<li style="padding:4px 0;border-bottom:1px solid #e5e7eb">${s}</li>`)
-      .join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titolo}</title>
-<style>body{font-family:sans-serif;padding:20px;font-size:14px}h1{font-size:16px;margin-bottom:12px}ul{list-style:none;padding:0;margin:0}</style>
-</head><body><h1>${titolo}</h1><ul>${righe || '<li>Nessuna sala selezionata</li>'}</ul></body></html>`;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.print(); }
+function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle, bySala }: CaricoProps) {
+  function stampaFoglioCaricoHtml(sale: string[], titolo: string, data: string) {
+    const selezionate = sale.filter((s) => selezione[s]);
+    const blocchi = selezionate.map((sala) => {
+      const paz = (bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto);
+      const righe = paz.map((p) =>
+        `<tr>
+          <td style="width:50px;text-align:center;font-weight:600;color:#374151">${p.numero_letto}</td>
+          <td style="font-weight:500">${p.nominativo}</td>
+          <td style="width:200px;border-bottom:1px solid #d1d5db">&nbsp;</td>
+        </tr>`
+      ).join('');
+      return `
+        <div style="break-inside:avoid;margin-bottom:20px">
+          <div style="background:#1f3d2b;color:white;padding:6px 10px;border-radius:6px 6px 0 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">
+            ${sala} <span style="font-weight:400;opacity:.7;margin-left:8px">${paz.length} pz</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="background:#f3f4f6">
+                <th style="padding:4px 8px;text-align:center;font-size:10px;color:#6b7280">Letto</th>
+                <th style="padding:4px 8px;text-align:left;font-size:10px;color:#6b7280">Paziente</th>
+                <th style="padding:4px 8px;text-align:left;font-size:10px;color:#6b7280">Farmaci / Note</th>
+              </tr>
+            </thead>
+            <tbody>${righe}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
+<title>${titolo}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;color:#111;padding:16px;font-size:12px}
+  h1{font-size:14px;font-weight:700;margin-bottom:2px}
+  .sub{font-size:10px;color:#6b7280;margin-bottom:16px}
+  td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+  @media print{@page{size:A4;margin:1.2cm}body{padding:0}}
+</style></head><body>
+<h1>${titolo}</h1>
+<div class="sub">Data: ${data} · Sale selezionate: ${selezionate.length} · Totale pazienti: ${selezionate.reduce((n, s) => n + (bySala[s]?.length ?? 0), 0)}</div>
+${blocchi || '<p style="color:#9ca3af">Nessuna sala selezionata.</p>'}
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const w    = window.open(url, '_blank');
+    if (w) w.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
   }
+
+  const oggi = new Date().toLocaleDateString('it-IT');
 
   return (
     <div className="space-y-4">
@@ -277,16 +319,18 @@ function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle }: Ca
           sottotitolo="Piano Terra"
           sale={saleTerra}
           selezione={selezione}
+          bySala={bySala}
           onToggle={onToggle}
-          onPrint={() => printSale(saleTerra, 'Carico Lunedì — Piano Terra')}
+          onPrint={() => stampaFoglioCaricoHtml(saleTerra, 'Foglio Carico Lunedì — Piano Terra', oggi)}
         />
         <CaricoCard
           titolo="Carico Giovedì"
           sottotitolo="Primo Piano"
           sale={salePrimo}
           selezione={selezione}
+          bySala={bySala}
           onToggle={onToggle}
-          onPrint={() => printSale(salePrimo, 'Carico Giovedì — Primo Piano')}
+          onPrint={() => stampaFoglioCaricoHtml(salePrimo, 'Foglio Carico Giovedì — Primo Piano', oggi)}
         />
       </div>
     </div>
@@ -298,11 +342,12 @@ interface CaricoCardProps {
   sottotitolo: string;
   sale: string[];
   selezione: Record<string, boolean>;
+  bySala: Record<string, Paziente[]>;
   onToggle: (sala: string) => void;
   onPrint: () => void;
 }
 
-function CaricoCard({ titolo, sottotitolo, sale, selezione, onToggle, onPrint }: CaricoCardProps) {
+function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, onPrint }: CaricoCardProps) {
   const selezionate = sale.filter((s) => selezione[s]).length;
 
   return (
@@ -341,6 +386,7 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, onToggle, onPrint }:
                 className="w-3.5 h-3.5 accent-forest"
               />
               <span className="text-xs font-medium text-ink flex-1">{sala}</span>
+              <span className="text-[10px] text-ink-mute">{bySala[sala]?.length ?? 0} pz</span>
             </label>
           ))}
         </div>
