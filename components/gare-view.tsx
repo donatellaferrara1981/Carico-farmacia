@@ -403,9 +403,9 @@ function GaraRow({ gara: g, onEdit }: { gara: Gara; onEdit: () => void }) {
         <ScadenzaBadge data={g.data_scadenza} />
       </td>
       <td className="px-3 py-2.5">
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onEdit} className="p-1 text-ink-mute hover:text-forest"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={handleDelete} disabled={pending} className="p-1 text-ink-mute hover:text-abx">
+        <div className="flex items-center gap-1">
+          <button onClick={onEdit} title="Modifica" className="p-1.5 rounded-md text-ink-mute hover:text-forest hover:bg-forest/10 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+          <button onClick={handleDelete} disabled={pending} title="Elimina" className="p-1.5 rounded-md text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors">
             {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
           </button>
         </div>

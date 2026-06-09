@@ -213,7 +213,7 @@ function SalaCard({ sala, pazienti }: { sala: string; pazienti: Paziente[] }) {
             <button
               onClick={() => handleDelete(p.id)}
               disabled={pending}
-              className="opacity-0 group-hover:opacity-100 p-0.5 text-ink-mute hover:text-abx transition-all"
+              className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
             >
               <Trash2 className="w-3 h-3" />
             </button>
