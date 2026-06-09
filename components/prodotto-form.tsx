@@ -104,6 +104,11 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
     });
   }
 
+  // Auto-soglia 14 gg: se soglia_minima è vuota e consumo_giornaliero è valorizzato
+  const consGioNum = parseFloat(vals.consumo_giornaliero);
+  const sogliaSuggerita = consGioNum > 0 ? Math.ceil(consGioNum * 14) : null;
+  const sogliaVuota = vals.soglia_minima === '' || vals.soglia_minima === '0';
+
   // Calcola data esaurimento stimata
   const qCons = parseInt(vals.quantita_consegnata, 10);
   const consGio = parseFloat(vals.consumo_giornaliero);
@@ -219,9 +224,18 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             {/* Soglia + scadenza */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="label-xs !text-[10px]">Soglia alert scorta</label>
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="label-xs !text-[10px]">Soglia alert scorta</label>
+                  {sogliaSuggerita && sogliaVuota && (
+                    <button type="button" onClick={() => set('soglia_minima', String(sogliaSuggerita))}
+                      className="text-[9px] text-forest hover:underline leading-none">
+                      = {sogliaSuggerita} (14 gg)
+                    </button>
+                  )}
+                </div>
                 <input type="number" min={0} className="input-base text-xs py-1" value={vals.soglia_minima}
-                  onChange={e => set('soglia_minima', e.target.value)} placeholder="es. 5" />
+                  onChange={e => set('soglia_minima', e.target.value)}
+                  placeholder={sogliaSuggerita ? `suggerito: ${sogliaSuggerita}` : 'es. 5'} />
               </div>
               <div>
                 <label className="label-xs !text-[10px]">Scadenza farmaco</label>

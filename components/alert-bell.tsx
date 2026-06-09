@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { Bell, X, AlertTriangle, Calendar, Package, Maximize2, Minimize2, GripHorizontal, Trash2, Clock } from 'lucide-react';
-import { archiaviaAvvisoAction, archiviaTuttiAction, azzeraAvvisiAction } from '@/app/(app)/avvisi/actions';
+import { Bell, X, Calendar, Package, Maximize2, Minimize2, GripHorizontal, Trash2, Clock } from 'lucide-react';
+import { archiaviaAvvisoAction, archiviaTuttiAction } from '@/app/(app)/avvisi/actions';
 
 export interface AlertItem {
   id: string;
@@ -29,61 +29,51 @@ function AlertRow({ alert: a, onDismiss }: { alert: AlertItem; onDismiss: () => 
     });
   }
 
+  const badge = () => {
+    if (a.tipo === 'scorta')
+      return <span className={`text-[10px] font-bold tabular-nums ${a.quantita === 0 ? 'text-abx' : 'text-amber'}`}>{a.quantita === 0 ? 'ESAUR.' : `${a.quantita} pz`}</span>;
+    if (a.tipo === 'scadenza')
+      return <span className={`text-[10px] font-bold tabular-nums ${(a.giorni_alla_scadenza ?? 99) <= 3 ? 'text-abx' : 'text-amber'}`}>{a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza}gg`}</span>;
+    return <span className="text-[10px] font-bold tabular-nums text-abx">{a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza}gg`}</span>;
+  };
+
   return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-line/40 hover:bg-bg-soft/40 group">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-ink truncate">
+    <tr className="border-b border-line/30 hover:bg-bg-soft/40">
+      <td className="pl-2.5 pr-1 py-1 max-w-0 w-full">
+        <p className="text-[11px] font-medium text-ink truncate leading-tight">
           {a.principio_attivo}
           {a.nome_commerciale && <span className="font-normal text-ink-mute"> · {a.nome_commerciale}</span>}
         </p>
-        <p className="text-[10px] text-ink-mute">{a.dosaggio ?? ''}{a.dosaggio && a.categoria ? ' · ' : ''}{a.categoria}</p>
-      </div>
-
-      <div className="flex items-center gap-1.5 shrink-0">
-        {a.tipo === 'scorta' && (
-          <span className={`text-xs font-bold ${a.quantita === 0 ? 'text-abx' : 'text-amber'}`}>
-            {a.quantita === 0 ? 'ESAURITO' : `${a.quantita} pz`}
-          </span>
-        )}
-        {a.tipo === 'scadenza' && (
-          <div className="text-right">
-            <span className={`text-xs font-bold block ${(a.giorni_alla_scadenza ?? 99) <= 3 ? 'text-abx' : 'text-amber'}`}>
-              {a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza} gg`}
-            </span>
-            <span className="text-[10px] text-ink-mute">{a.data_scadenza}</span>
-          </div>
-        )}
-        {a.tipo === 'esaurimento' && (
-          <div className="text-right">
-            <span className="text-xs font-bold block text-abx">
-              {a.giorni_alla_scadenza === 0 ? 'OGGI' : `${a.giorni_alla_scadenza} gg`}
-            </span>
-            <span className="text-[10px] text-ink-mute">esaur. {a.data_esaurimento}</span>
-          </div>
-        )}
-
-        <button
-          onClick={dismiss}
-          disabled={pending}
-          title="Archivia notifica"
-          className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
-        >
-          {pending ? <span className="w-3 h-3 block border-2 border-current border-t-transparent rounded-full animate-spin" /> : <X className="w-3 h-3" />}
+        {a.dosaggio && <p className="text-[9px] text-ink-mute leading-tight">{a.dosaggio}</p>}
+      </td>
+      <td className="px-1 py-1 text-right shrink-0">{badge()}</td>
+      <td className="pl-1 pr-1.5 py-1 shrink-0">
+        <button onClick={dismiss} disabled={pending} title="Archivia"
+          className="p-0.5 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors">
+          {pending
+            ? <span className="w-2.5 h-2.5 block border border-current border-t-transparent rounded-full animate-spin" />
+            : <X className="w-2.5 h-2.5" />}
         </button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
+const SECTION_META = {
+  esaurimento: { label: 'Esaurimento imminente', icon: Clock,   color: 'text-abx',        bg: 'bg-abx/10'     },
+  scorta:      { label: 'Scorte basse',          icon: Package, color: 'text-amber',       bg: 'bg-amber/10'   },
+  scadenza:    { label: 'Scadenze',              icon: Calendar,color: 'text-purple-600',  bg: 'bg-purple-50'  },
+} as const;
+
 export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
-  const [open, setOpen]         = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [pos, setPos]           = useState<{ x: number; y: number } | null>(null);
-  const [alerts, setAlerts]     = useState(initialAlerts);
-  const [clearPending, startClear] = useTransition();
-  const dragging                = useRef(false);
-  const dragStart               = useRef({ mx: 0, my: 0, px: 0, py: 0 });
-  const panelRef                = useRef<HTMLDivElement>(null);
+  const [open, setOpen]             = useState(false);
+  const [expanded, setExpanded]     = useState(false);
+  const [pos, setPos]               = useState<{ x: number; y: number } | null>(null);
+  const [alerts, setAlerts]         = useState(initialAlerts);
+  const [clearPending, startClear]  = useTransition();
+  const dragging                    = useRef(false);
+  const dragStart                   = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+  const panelRef                    = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setAlerts(initialAlerts); }, [initialAlerts]);
   useEffect(() => { if (!open) { setPos(null); setExpanded(false); } }, [open]);
@@ -98,9 +88,7 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
 
   const onDragMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
-    const dx = e.clientX - dragStart.current.mx;
-    const dy = e.clientY - dragStart.current.my;
-    setPos({ x: dragStart.current.px + dx, y: dragStart.current.py + dy });
+    setPos({ x: dragStart.current.px + (e.clientX - dragStart.current.mx), y: dragStart.current.py + (e.clientY - dragStart.current.my) });
   }, []);
 
   const onDragEnd = useCallback(() => { dragging.current = false; }, []);
@@ -116,16 +104,19 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
     });
   }
 
-  const scorte    = alerts.filter(a => a.tipo === 'scorta');
-  const scadenze  = alerts.filter(a => a.tipo === 'scadenza');
-  const esaur     = alerts.filter(a => a.tipo === 'esaurimento');
-  const count     = alerts.length;
+  const groups = (['esaurimento', 'scorta', 'scadenza'] as const).map(tipo => ({
+    tipo,
+    items: alerts.filter(a => a.tipo === tipo),
+    meta: SECTION_META[tipo],
+  })).filter(g => g.items.length > 0);
+
+  const count = alerts.length;
 
   const panelStyle = pos
     ? { position: 'fixed' as const, left: pos.x, top: pos.y, right: 'auto', zIndex: 50 }
     : { position: 'absolute' as const, right: 0, top: 40, zIndex: 50 };
 
-  const width = expanded ? 'w-[92vw] sm:w-[480px]' : 'w-[92vw] sm:w-80';
+  const width = expanded ? 'w-[92vw] sm:w-[420px]' : 'w-72 sm:w-72';
 
   return (
     <div className="relative">
@@ -146,99 +137,75 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
         <>
           {!pos && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
 
-          <div
-            ref={panelRef}
-            style={panelStyle}
-            className={`${width} bg-bg-card rounded-2xl shadow-2xl border border-line overflow-hidden transition-[width] duration-150`}
-          >
-            {/* Barra titolo draggable */}
-            <div
-              className="flex items-center gap-2 px-3 py-2.5 border-b border-line bg-bg-soft cursor-grab active:cursor-grabbing select-none"
-              onPointerDown={onDragStart}
-              onPointerMove={onDragMove}
-              onPointerUp={onDragEnd}
-            >
-              <GripHorizontal className="w-4 h-4 text-ink-mute shrink-0" />
-              <h3 className="font-semibold text-sm text-ink flex-1">
-                Notifiche {count > 0 && <span className="text-abx">({count})</span>}
-              </h3>
+          <div ref={panelRef} style={panelStyle}
+            className={`${width} bg-bg-card rounded-xl shadow-2xl border border-line overflow-hidden transition-[width] duration-150`}>
+
+            {/* Header — grip separato dai pulsanti */}
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-line bg-bg-soft shrink-0">
+              <div
+                className="flex items-center gap-1.5 flex-1 min-w-0 cursor-grab active:cursor-grabbing select-none"
+                onPointerDown={onDragStart}
+                onPointerMove={onDragMove}
+                onPointerUp={onDragEnd}
+              >
+                <GripHorizontal className="w-3.5 h-3.5 text-ink-mute shrink-0" />
+                <span className="text-xs font-semibold text-ink truncate">
+                  Notifiche {count > 0 && <span className="text-abx">({count})</span>}
+                </span>
+              </div>
+
               {count > 0 && (
-                <button
-                  onClick={azzeraTutto}
-                  disabled={clearPending}
-                  title="Azzera tutte le notifiche"
-                  className="flex items-center gap-1 px-2 py-0.5 rounded text-xs text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Azzera tutto
+                <button onClick={azzeraTutto} disabled={clearPending} title="Azzera tutto"
+                  className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors shrink-0">
+                  {clearPending
+                    ? <span className="w-3 h-3 block border border-current border-t-transparent rounded-full animate-spin" />
+                    : <Trash2 className="w-3 h-3" />}
                 </button>
               )}
-              <button onClick={() => setExpanded(!expanded)} className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors" title={expanded ? 'Riduci' : 'Espandi'}>
-                {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              <button onClick={() => setExpanded(v => !v)} title={expanded ? 'Riduci' : 'Espandi'}
+                className="p-1 rounded text-ink-mute hover:text-ink hover:bg-bg transition-colors shrink-0">
+                {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
               </button>
-              <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors">
-                <X className="w-3.5 h-3.5" />
+              <button onClick={() => setOpen(false)}
+                className="p-1 rounded text-ink-mute hover:text-ink hover:bg-bg transition-colors shrink-0">
+                <X className="w-3 h-3" />
               </button>
             </div>
 
             {/* Contenuto */}
-            <div className={`overflow-y-auto ${expanded ? 'max-h-[70vh]' : 'max-h-72'}`}>
+            <div className={`overflow-y-auto ${expanded ? 'max-h-[70vh]' : 'max-h-64'}`}>
               {count === 0 ? (
-                <div className="px-4 py-6 text-center">
-                  <Bell className="w-7 h-7 mx-auto mb-2 text-ink-mute opacity-30" />
-                  <p className="text-sm text-ink-mute">Nessuna notifica attiva</p>
+                <div className="px-4 py-5 text-center">
+                  <Bell className="w-6 h-6 mx-auto mb-2 text-ink-mute opacity-30" />
+                  <p className="text-xs text-ink-mute">Nessuna notifica attiva</p>
                 </div>
               ) : (
-                <>
-                  {/* Esaurimento scorta consegnata */}
-                  {esaur.length > 0 && (
-                    <section>
-                      <div className="px-3 py-1.5 bg-abx/10 border-b border-abx/20 sticky top-0">
-                        <p className="text-xs font-semibold text-abx flex items-center gap-1.5">
-                          <Clock className="w-3 h-3" /> Esaurimento scorta imminente ({esaur.length})
+                groups.map(({ tipo, items, meta }) => {
+                  const Icon = meta.icon;
+                  return (
+                    <section key={tipo}>
+                      <div className={`px-2.5 py-1 ${meta.bg} border-b border-line/40 sticky top-0`}>
+                        <p className={`text-[10px] font-semibold ${meta.color} flex items-center gap-1`}>
+                          <Icon className="w-2.5 h-2.5" /> {meta.label} ({items.length})
                         </p>
                       </div>
-                      {esaur.map(a => (
-                        <AlertRow key={`${a.id}-esaur`} alert={a} onDismiss={() => dismissOne(a.id, a.tipo)} />
-                      ))}
+                      <table className="w-full">
+                        <tbody>
+                          {items.map(a => (
+                            <AlertRow key={`${a.id}-${tipo}`} alert={a} onDismiss={() => dismissOne(a.id, a.tipo)} />
+                          ))}
+                        </tbody>
+                      </table>
                     </section>
-                  )}
-
-                  {/* Scorte basse */}
-                  {scorte.length > 0 && (
-                    <section>
-                      <div className="px-3 py-1.5 bg-amber/10 border-b border-amber/20 sticky top-0">
-                        <p className="text-xs font-semibold text-amber flex items-center gap-1.5">
-                          <Package className="w-3 h-3" /> Scorte esaurite / in esaurimento ({scorte.length})
-                        </p>
-                      </div>
-                      {scorte.map(a => (
-                        <AlertRow key={`${a.id}-scorta`} alert={a} onDismiss={() => dismissOne(a.id, a.tipo)} />
-                      ))}
-                    </section>
-                  )}
-
-                  {/* Scadenze */}
-                  {scadenze.length > 0 && (
-                    <section>
-                      <div className="px-3 py-1.5 bg-purple-50 border-b border-purple-100 sticky top-0">
-                        <p className="text-xs font-semibold text-purple-700 flex items-center gap-1.5">
-                          <Calendar className="w-3 h-3" /> Scadenze imminenti ({scadenze.length})
-                        </p>
-                      </div>
-                      {scadenze.map(a => (
-                        <AlertRow key={`${a.id}-scad`} alert={a} onDismiss={() => dismissOne(a.id, a.tipo)} />
-                      ))}
-                    </section>
-                  )}
-                </>
+                  );
+                })
               )}
             </div>
 
-            <div className="px-3 py-2 border-t border-line bg-bg-soft flex items-center justify-between text-[10px] text-ink-mute">
-              <span>{count > 0 ? 'Usa ✕ per archiviare la singola notifica' : 'Tutte le notifiche sono in archivio'}</span>
-              <Link href="/avvisi" onClick={() => setOpen(false)} className="underline underline-offset-2 hover:text-ink transition-colors">
-                storico archiviati
+            <div className="px-2.5 py-1.5 border-t border-line bg-bg-soft flex items-center justify-between text-[9px] text-ink-mute">
+              <span>✕ per archiviare · 🗑 azzera tutto</span>
+              <Link href="/avvisi" onClick={() => setOpen(false)} className="underline underline-offset-2 hover:text-ink">
+                storico
               </Link>
             </div>
           </div>
