@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useTransition } from 'react';
-import { Upload, Users, Bed, Loader2, Plus, Trash2, RefreshCw, X } from 'lucide-react';
-import { estraiPazientiDaImmagineAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
+import { useState, useRef, useTransition, useEffect } from 'react';
+import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer } from 'lucide-react';
+import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface Paziente {
@@ -10,6 +10,7 @@ export interface Paziente {
   sala: string;
   numero_letto: number;
   nominativo: string;
+  piano: 'terra' | 'primo' | null;
   unita_operativa_id: string | null;
   data_aggiornamento: string;
 }
@@ -21,10 +22,13 @@ interface Props {
   uoNome: string | null;
 }
 
+const STORAGE_KEY = 'carico_selezione';
+
 export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [selezione, setSelezione] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Raggruppa per sala
@@ -39,20 +43,61 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
     ? new Date(pazienti[0].data_aggiornamento).toLocaleString('it-IT')
     : null;
 
+  // Sale per piano
+  const saleTerra = sale.filter((s) => {
+    const p = pazienti.find((paz) => paz.sala === s);
+    return p?.piano === 'terra';
+  });
+  const salePrimo = sale.filter((s) => {
+    const p = pazienti.find((paz) => paz.sala === s);
+    return p?.piano === 'primo';
+  });
+
+  // Load/persist selezione
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setSelezione(JSON.parse(saved));
+    } catch { /* ignore */ }
+  }, []);
+
+  function toggleSala(sala: string) {
+    setSelezione((prev) => {
+      const next = { ...prev, [sala]: !prev[sala] };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
   function handleFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const b64 = (reader.result as string).split(',')[1];
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpeg';
-      const mediaType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      startTransition(async () => {
-        setMsg(null);
-        const res = await estraiPazientiDaImmagineAction(b64, mediaType as 'image/jpeg' | 'image/png' | 'image/webp', orgId);
-        if ('error' in res) setMsg({ type: 'err', text: res.error ?? 'Errore sconosciuto.' });
-        else setMsg({ type: 'ok', text: `${res.count} pazienti caricati con successo.` });
-      });
-    };
-    reader.readAsDataURL(file);
+    const isHtml = file.name.toLowerCase().endsWith('.html') || file.type === 'text/html';
+    if (isHtml) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = reader.result as string;
+        startTransition(async () => {
+          setMsg(null);
+          const res = await estraiPazientiDaHtmlAction(text, orgId);
+          if ('error' in res) setMsg({ type: 'err', text: res.error ?? 'Errore sconosciuto.' });
+          else setMsg({ type: 'ok', text: `${res.count} pazienti caricati con successo.` });
+        });
+      };
+      reader.readAsText(file, 'utf-8');
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const b64 = (reader.result as string).split(',')[1];
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpeg';
+        const mediaType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+        startTransition(async () => {
+          setMsg(null);
+          const res = await estraiPazientiDaImmagineAction(b64, mediaType as 'image/jpeg' | 'image/png' | 'image/webp', orgId);
+          if ('error' in res) setMsg({ type: 'err', text: res.error ?? 'Errore sconosciuto.' });
+          else setMsg({ type: 'ok', text: `${res.count} pazienti caricati con successo.` });
+        });
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -101,7 +146,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,text/html,.html"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
         />
@@ -116,7 +161,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
               <Upload className="w-8 h-8 text-ink-mute" />
               <div>
                 <p className="text-sm font-medium text-ink">Carica mappa posti letto</p>
-                <p className="text-xs text-ink-soft mt-1">JPEG o PNG · trascina qui o clicca</p>
+                <p className="text-xs text-ink-soft mt-1">JPEG, PNG o HTML · trascina qui o clicca</p>
               </div>
             </>
           )}
@@ -181,6 +226,122 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome }: Props) {
               sala={sala}
               pazienti={bySala[sala].sort((a, b) => a.numero_letto - b.numero_letto)}
             />
+          ))}
+        </div>
+      )}
+
+      {/* Carico farmacia schedule */}
+      {(saleTerra.length > 0 || salePrimo.length > 0) && (
+        <CaricoFarmaciaSection
+          saleTerra={saleTerra}
+          salePrimo={salePrimo}
+          selezione={selezione}
+          onToggle={toggleSala}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Carico Farmacia Section ──────────────────────────────────────────────────
+
+interface CaricoProps {
+  saleTerra: string[];
+  salePrimo: string[];
+  selezione: Record<string, boolean>;
+  onToggle: (sala: string) => void;
+}
+
+function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle }: CaricoProps) {
+  function printSale(sale: string[], titolo: string) {
+    const righe = sale
+      .filter((s) => selezione[s])
+      .map((s) => `<li style="padding:4px 0;border-bottom:1px solid #e5e7eb">${s}</li>`)
+      .join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${titolo}</title>
+<style>body{font-family:sans-serif;padding:20px;font-size:14px}h1{font-size:16px;margin-bottom:12px}ul{list-style:none;padding:0;margin:0}</style>
+</head><body><h1>${titolo}</h1><ul>${righe || '<li>Nessuna sala selezionata</li>'}</ul></body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Calendar className="w-4 h-4 text-forest" />
+        Carico farmacia settimanale
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CaricoCard
+          titolo="Carico Lunedì"
+          sottotitolo="Piano Terra"
+          sale={saleTerra}
+          selezione={selezione}
+          onToggle={onToggle}
+          onPrint={() => printSale(saleTerra, 'Carico Lunedì — Piano Terra')}
+        />
+        <CaricoCard
+          titolo="Carico Giovedì"
+          sottotitolo="Primo Piano"
+          sale={salePrimo}
+          selezione={selezione}
+          onToggle={onToggle}
+          onPrint={() => printSale(salePrimo, 'Carico Giovedì — Primo Piano')}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface CaricoCardProps {
+  titolo: string;
+  sottotitolo: string;
+  sale: string[];
+  selezione: Record<string, boolean>;
+  onToggle: (sala: string) => void;
+  onPrint: () => void;
+}
+
+function CaricoCard({ titolo, sottotitolo, sale, selezione, onToggle, onPrint }: CaricoCardProps) {
+  const selezionate = sale.filter((s) => selezione[s]).length;
+
+  return (
+    <div className="rounded-xl border border-line overflow-hidden bg-bg-card">
+      <div className="px-3 py-2 bg-forest/10 border-b border-forest/20 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-bold text-forest uppercase tracking-wide">{titolo}</h3>
+          <p className="text-[10px] text-forest/70">{sottotitolo}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-forest bg-forest/10 px-2 py-0.5 rounded-full">
+            {selezionate}/{sale.length}
+          </span>
+          <button
+            onClick={onPrint}
+            className="p-1 rounded text-forest hover:bg-forest/20 transition-colors"
+            title="Stampa/condividi sale selezionate"
+          >
+            <Printer className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {sale.length === 0 ? (
+        <div className="px-3 py-4 text-xs text-ink-mute text-center">Nessuna sala</div>
+      ) : (
+        <div className="divide-y divide-line/50">
+          {sale.map((sala) => (
+            <label
+              key={sala}
+              className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-soft/40 transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={!!selezione[sala]}
+                onChange={() => onToggle(sala)}
+                className="w-3.5 h-3.5 accent-forest"
+              />
+              <span className="text-xs font-medium text-ink flex-1">{sala}</span>
+            </label>
           ))}
         </div>
       )}
