@@ -138,6 +138,32 @@ const ENTRIES: EntryAntibiotico[] = [
   { pattern: /oseltamivir/i,           classe: 'antivirali' },
   { pattern: /remdesivir/i,            classe: 'antivirali' },
 
+  // ── Nomi commerciali nota AIFA / uso ospedaliero ───────────────
+  { pattern: /zavicefta/i,             classe: 'beta-lattamici' },  // ceftazidima/avibactam
+  { pattern: /zerbaxa/i,               classe: 'beta-lattamici' },  // ceftolozano/tazobactam
+  { pattern: /fetcroja/i,              classe: 'beta-lattamici' },  // cefiderocol
+  { pattern: /recarbrio/i,             classe: 'carbapenemi'    },  // imipenem/cilastatina/relebactam
+  { pattern: /vabomere/i,              classe: 'carbapenemi'    },  // meropenem/vaborbactam
+  { pattern: /xerava/i,                classe: 'tetracicline'   },  // eravacicline
+  { pattern: /nuzyra/i,                classe: 'tetracicline'   },  // omadacicline
+  { pattern: /zinforo/i,               classe: 'beta-lattamici' },  // ceftarolina
+  { pattern: /orbactiv/i,              classe: 'glicopeptidi'   },  // oritavancin
+  { pattern: /dalvance/i,              classe: 'glicopeptidi'   },  // dalbavancin
+  { pattern: /sivextro/i,              classe: 'ossazolidinoni' },  // tedizolid
+  { pattern: /cresemba/i,              classe: 'antifungini'    },  // isavuconazolo
+  { pattern: /noxafil/i,               classe: 'antifungini'    },  // posaconazolo
+  { pattern: /vfend/i,                 classe: 'antifungini'    },  // voriconazolo
+  { pattern: /ecalta/i,                classe: 'antifungini'    },  // anidulafungin
+  { pattern: /mycamine/i,              classe: 'antifungini'    },  // micafungin
+  { pattern: /cancidas/i,              classe: 'antifungini'    },  // caspofungin
+  { pattern: /abelcet/i,               classe: 'antifungini'    },  // amfotericina B lipidica
+  { pattern: /ambisome/i,              classe: 'antifungini'    },  // amfotericina B liposomiale
+  { pattern: /veklury/i,               classe: 'antivirali'     },  // remdesivir
+  { pattern: /tamiflu/i,               classe: 'antivirali'     },  // oseltamivir
+  { pattern: /valcyte/i,               classe: 'antivirali'     },  // valganciclovir
+  { pattern: /cymevene/i,              classe: 'antivirali'     },  // ganciclovir
+  { pattern: /dificlir/i,              classe: 'altri'          },  // fidaxomicin
+
   // ── Altri antibiotici ──────────────────────────────────────────
   { pattern: /daptomicin/i,            classe: 'altri' },
   { pattern: /rifampicin/i,            classe: 'altri' },
@@ -176,6 +202,11 @@ const ALTO_COSTO_PATTERNS: RegExp[] = [
   /amfotericin/i, /amfotericina/i,                              // amfotericina B
   /ganciclovir/i, /valganciclovir/i, /foscarnet/i, /cidofovir/i, /remdesivir/i, // antivirali critici
   /fidaxomicin/i,
+  // nomi commerciali
+  /zavicefta/i, /zerbaxa/i, /fetcroja/i, /recarbrio/i, /vabomere/i,
+  /xerava/i, /nuzyra/i, /orbactiv/i, /dalvance/i, /sivextro/i,
+  /cresemba/i, /noxafil/i, /ecalta/i, /mycamine/i, /cancidas/i, /abelcet/i, /ambisome/i,
+  /veklury/i, /cymevene/i, /valcyte/i, /dificlir/i,
 ];
 
 export function isAltoCosto(principioAttivo: string): boolean {
