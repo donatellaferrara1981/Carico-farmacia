@@ -1,10 +1,78 @@
 'use client';
 
 import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
-import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw, Save } from 'lucide-react';
+import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw, Save, FileEdit, Trash2, Check } from 'lucide-react';
 import { FORME_FARMACEUTICHE, type FormaFarmaceutica, type Prodotto } from '@/lib/prodotti';
 import { upsertProdottoAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import type { CategoriaArticolo } from '@/lib/types';
+
+function NoteWidget({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState(value);
+
+  function openEdit() { setDraft(value); setEditing(true); }
+  function save()     { onChange(draft.trim()); setEditing(false); }
+  function remove()   { onChange(''); setEditing(false); }
+  function cancel()   { setEditing(false); }
+
+  if (editing) {
+    return (
+      <div className="rounded-lg border border-forest/40 bg-forest/5 p-2 space-y-1.5">
+        <textarea
+          autoFocus
+          rows={3}
+          className="w-full text-xs bg-transparent border-none outline-none resize-none text-ink placeholder:text-ink-mute"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          placeholder="Scrivi una nota…"
+        />
+        <div className="flex items-center gap-1 justify-end">
+          <button type="button" onClick={cancel}
+            className="p-1 rounded text-ink-mute hover:text-ink hover:bg-bg transition-colors">
+            <X className="w-3 h-3" />
+          </button>
+          {value && (
+            <button type="button" onClick={remove}
+              className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+          <button type="button" onClick={save}
+            className="p-1 rounded text-forest hover:bg-forest/10 transition-colors">
+            <Check className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (value) {
+    return (
+      <div className="flex items-start gap-1.5 rounded-lg border border-line bg-bg-soft px-2.5 py-1.5">
+        <FileEdit className="w-3 h-3 text-ink-mute mt-0.5 shrink-0" />
+        <p className="text-[11px] text-ink flex-1 whitespace-pre-wrap leading-snug">{value}</p>
+        <div className="flex gap-0.5 shrink-0">
+          <button type="button" onClick={openEdit}
+            className="p-0.5 rounded text-ink-mute hover:text-ink hover:bg-bg transition-colors">
+            <FileEdit className="w-3 h-3" />
+          </button>
+          <button type="button" onClick={remove}
+            className="p-0.5 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={openEdit}
+      className="flex items-center gap-1.5 text-[10px] text-ink-mute hover:text-ink transition-colors py-0.5">
+      <FileEdit className="w-3.5 h-3.5" />
+      Aggiungi nota
+    </button>
+  );
+}
 
 interface Props {
   orgId: string;
@@ -244,12 +312,8 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
               </div>
             </div>
 
-            {/* Note */}
-            <div>
-              <label className="label-xs !text-[10px]">Note</label>
-              <textarea rows={2} className="input-base text-sm py-1.5 resize-none" value={vals.note}
-                onChange={e => set('note', e.target.value)} placeholder="Note aggiuntive…" />
-            </div>
+            {/* Note inline */}
+            <NoteWidget value={vals.note} onChange={v => set('note', v)} />
 
             {/* ── Sezione consegna farmacia ── */}
             <div className="rounded-lg border border-line overflow-hidden">
