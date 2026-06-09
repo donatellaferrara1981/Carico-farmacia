@@ -42,24 +42,30 @@ interface Documento {
 }
 interface UnitaOperativa { id: string; nome: string; }
 
-type TipoGrafico = 'barre' | 'linea' | 'torta' | 'gantt' | 'scorte' | 'consumo' | 'antibiotici';
+interface TerapiaIca { id: string; principio_attivo: string; dosaggio: string | null; posologia: string | null; paziente_id: string; }
+interface PazienteIca { id: string; nominativo: string; sala: string; numero_letto: number; piano: string | null; }
+
+type TipoGrafico = 'barre' | 'linea' | 'torta' | 'gantt' | 'scorte' | 'consumo' | 'antibiotici' | 'ica';
 
 const TABS: { id: TipoGrafico; label: string }[] = [
   { id: 'scorte',       label: 'Scorte' },
   { id: 'consumo',      label: 'Consumo/die' },
   { id: 'antibiotici',  label: '🦠 Antibiotici' },
+  { id: 'ica',          label: '🏥 ICA' },
   { id: 'barre',        label: 'Per categoria' },
   { id: 'torta',        label: 'Distribuzione forme' },
   { id: 'linea',        label: 'Caricamenti nel tempo' },
   { id: 'gantt',        label: 'Gantt turni' },
 ];
 
-export function GraficiView({ prodotti, documenti, unita, gare = [], orgName = '' }: {
+export function GraficiView({ prodotti, documenti, unita, gare = [], orgName = '', terapiePazienti = [], pazientiIca = [] }: {
   prodotti: Prodotto[];
   documenti: Documento[];
   unita: UnitaOperativa[];
   gare?: Gara[];
   orgName?: string;
+  terapiePazienti?: TerapiaIca[];
+  pazientiIca?: PazienteIca[];
 }) {
   const [tab, setTab] = useState<TipoGrafico>('scorte');
 
@@ -124,6 +130,7 @@ export function GraficiView({ prodotti, documenti, unita, gare = [], orgName = '
         {tab === 'scorte'      && <GraficoScorte prodotti={prodotti} />}
         {tab === 'consumo'     && <GraficoConsumo prodotti={prodotti} />}
         {tab === 'antibiotici' && <StudioAntibiotici prodotti={prodotti} gare={gare} orgName={orgName} />}
+        {tab === 'ica'         && <StudioIca terapie={terapiePazienti} pazienti={pazientiIca} orgName={orgName} />}
         {tab === 'barre'       && <GraficoCategorie prodotti={prodotti} />}
         {tab === 'torta'       && <GraficoForme prodotti={prodotti} />}
         {tab === 'linea'       && <GraficoCaricamenti documenti={documenti} />}
@@ -369,6 +376,204 @@ function Empty({ msg }: { msg?: string }) {
     <div className="text-center py-16 text-ink-mute">
       <p className="text-sm">{msg ?? 'Nessun dato disponibile ancora.'}</p>
     </div>
+  );
+}
+
+/* ── Studio ICA ── */
+function StudioIca({ terapie, pazienti, orgName }: { terapie: TerapiaIca[]; pazienti: PazienteIca[]; orgName: string }) {
+  // Filtra solo terapie antibiotiche
+  const terapieAbx = terapie.filter((t) => classificaFarmaco(t.principio_attivo).isAntibiotico);
+
+  // Paziente IDs in terapia antibiotica
+  const pazIdSet = new Set(terapieAbx.map((t) => t.paziente_id));
+  const pazientiInTerapia = pazienti.filter((p) => pazIdSet.has(p.id));
+
+  // Sale coinvolte
+  const saleSet = new Set(pazientiInTerapia.map((p) => p.sala));
+  const saleN = saleSet.size;
+
+  // % pazienti su antibiotico
+  const percPaz = pazienti.length > 0 ? Math.round((pazientiInTerapia.length / pazienti.length) * 100) : 0;
+
+  // Antibiotici ad alto costo
+  const altoCostoSet = new Set(terapieAbx.filter((t) => isAltoCosto(t.principio_attivo)).map((t) => t.principio_attivo.toLowerCase()));
+
+  // Bar chart data: per sala, conteggio per classe
+  const classiUsate = new Set<string>();
+  const bySala: Record<string, Record<string, number>> = {};
+  for (const t of terapieAbx) {
+    const paz = pazienti.find((p) => p.id === t.paziente_id);
+    if (!paz) continue;
+    const classe = classificaFarmaco(t.principio_attivo).classe ?? 'altri';
+    const label = CLASSE_LABEL[classe as ClasseAntibiotico] ?? classe;
+    classiUsate.add(label);
+    if (!bySala[paz.sala]) bySala[paz.sala] = {};
+    bySala[paz.sala][label] = (bySala[paz.sala][label] ?? 0) + 1;
+  }
+  const classiArr = [...classiUsate];
+  const barData = Object.entries(bySala).map(([sala, counts]) => ({ sala, ...counts }));
+
+  // Tabella per sala
+  const saleRows = [...new Set(pazienti.map((p) => p.sala))].sort().map((sala) => {
+    const pazSala = pazienti.filter((p) => p.sala === sala);
+    const inTerapia = pazSala.filter((p) => pazIdSet.has(p.id));
+    const terapieSala = terapieAbx.filter((t) => inTerapia.some((p) => p.id === t.paziente_id));
+    const farmaci = [...new Set(terapieSala.map((t) => t.principio_attivo))].join(', ');
+    const piano = pazSala[0]?.piano ?? '—';
+    return { sala, piano, totali: pazSala.length, inTerapia: inTerapia.length, farmaci };
+  });
+
+  // Tabella per paziente in terapia
+  const righeParzienti = pazientiInTerapia.sort((a, b) => a.sala.localeCompare(b.sala)).map((p) => {
+    const tPaz = terapieAbx.filter((t) => t.paziente_id === p.id);
+    return { paziente: p, terapie: tPaz };
+  });
+
+  function apriReportIca() {
+    const now = new Date().toLocaleDateString('it-IT');
+    const rows1 = saleRows.map((r) =>
+      `<tr><td>${r.sala}</td><td>${r.piano}</td><td style="text-align:right">${r.totali}</td><td style="text-align:right">${r.inTerapia}</td><td>${r.farmaci || '—'}</td></tr>`
+    ).join('');
+    const rows2 = righeParzienti.flatMap(({ paziente: p, terapie: ts }) =>
+      ts.map((t) =>
+        `<tr><td>${p.numero_letto}</td><td>${p.nominativo}</td><td>${p.sala}</td><td>${t.principio_attivo}${t.dosaggio ? ' ' + t.dosaggio : ''}</td><td>${t.posologia ?? '—'}</td><td>${isAltoCosto(t.principio_attivo) ? '<span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:bold">ALTO COSTO</span>' : ''}</td></tr>`
+      )
+    ).join('');
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Report ICA — ${orgName}</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}h1{font-size:18px;margin-bottom:4px}h2{font-size:14px;margin-top:24px;margin-bottom:8px;color:#1f3d2b}p.sub{color:#666;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;font-weight:600;padding:6px 8px;text-align:left;border-bottom:2px solid #d1d5db}td{padding:5px 8px;border-bottom:1px solid #e5e7eb}.disclaimer{margin-top:32px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:10px;color:#92400e}@media print{.no-print{display:none}}</style></head>
+<body>
+<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:6px 14px;background:#1f3d2b;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Stampa</button>
+<h1>Report ICA — Infezioni Correlate all'Assistenza</h1>
+<p class="sub">${orgName} · Generato il ${now}</p>
+<h2>Distribuzione per sala</h2>
+<table><thead><tr><th>Sala</th><th>Piano</th><th style="text-align:right">Paz. totali</th><th style="text-align:right">In terapia Ab</th><th>Antibiotici in uso</th></tr></thead><tbody>${rows1}</tbody></table>
+<h2>Pazienti in terapia antibiotica</h2>
+<table><thead><tr><th>Letto</th><th>Paziente</th><th>Sala</th><th>Farmaco</th><th>Posologia</th><th></th></tr></thead><tbody>${rows2}</tbody></table>
+<div class="disclaimer"><strong>Nota sulla privacy:</strong> Il presente documento contiene dati personali e sanitari. Deve essere trattato come documento riservato, conservato e smaltito secondo le normative vigenti (Reg. UE 2016/679 – GDPR). Non distribuire senza autorizzazione del responsabile del trattamento.</div>
+</body></html>`;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
+  if (terapie.length === 0 && pazienti.length === 0) {
+    return <Empty msg="Nessun dato ICA disponibile. Assicurati di aver caricato pazienti e terapie." />;
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <h3 className="font-semibold text-ink">Infezioni Correlate all'Assistenza (ICA)</h3>
+        <button onClick={apriReportIca} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+          Genera report ICA
+        </button>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-blue-700">{pazientiInTerapia.length}</p>
+          <p className="text-xs text-blue-500 mt-0.5">Pazienti in terapia antibiotica</p>
+        </div>
+        <div className="rounded-lg bg-bg-card border border-line px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-ink">{saleN}</p>
+          <p className="text-xs text-ink-mute mt-0.5">Sale coinvolte</p>
+        </div>
+        <div className="rounded-lg bg-amber/10 border border-amber/30 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-amber-700">{percPaz}%</p>
+          <p className="text-xs text-amber-600 mt-0.5">% pazienti su antibiotico</p>
+        </div>
+        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-red-700">{altoCostoSet.size}</p>
+          <p className="text-xs text-red-500 mt-0.5">Antibiotici ad alto costo in uso</p>
+        </div>
+      </div>
+
+      {/* Bar chart antibiotici per sala */}
+      {barData.length > 0 && (
+        <>
+          <h4 className="text-sm font-medium text-ink mb-2">Antibiotici per sala</h4>
+          <ResponsiveContainer width="100%" height={Math.max(220, barData.length * 40)}>
+            <BarChart data={barData} margin={{ left: 8, right: 16, bottom: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="sala" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {classiArr.map((cl, i) => (
+                <Bar key={cl} dataKey={cl} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === classiArr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </>
+      )}
+
+      {/* Tabella per sala */}
+      <h4 className="text-sm font-medium text-ink mt-5 mb-2">Riepilogo per sala</h4>
+      <div className="overflow-x-auto rounded-xl border border-line mb-5">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-bg-soft border-b border-line text-left">
+              <th className="px-3 py-2 font-medium text-ink-soft">Sala</th>
+              <th className="px-3 py-2 font-medium text-ink-soft">Piano</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Paz. totali</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">In terapia Ab</th>
+              <th className="px-3 py-2 font-medium text-ink-soft">Antibiotici in uso</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {saleRows.map((r) => (
+              <tr key={r.sala} className="bg-bg-card">
+                <td className="px-3 py-1.5 font-medium text-ink">{r.sala}</td>
+                <td className="px-3 py-1.5 text-ink-soft">{r.piano}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-ink">{r.totali}</td>
+                <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${r.inTerapia > 0 ? 'text-blue-700' : 'text-ink-mute'}`}>{r.inTerapia}</td>
+                <td className="px-3 py-1.5 text-ink-soft">{r.farmaci || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Tabella per paziente */}
+      <h4 className="text-sm font-medium text-ink mt-5 mb-2">Pazienti in terapia antibiotica</h4>
+      {righeParzienti.length === 0 ? (
+        <p className="text-xs text-ink-mute py-4 text-center">Nessun paziente in terapia antibiotica.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-line">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-bg-soft border-b border-line text-left">
+                <th className="px-3 py-2 font-medium text-ink-soft">Letto</th>
+                <th className="px-3 py-2 font-medium text-ink-soft">Paziente</th>
+                <th className="px-3 py-2 font-medium text-ink-soft">Sala</th>
+                <th className="px-3 py-2 font-medium text-ink-soft">Farmaco</th>
+                <th className="px-3 py-2 font-medium text-ink-soft">Posologia</th>
+                <th className="px-3 py-2 font-medium text-ink-soft"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {righeParzienti.flatMap(({ paziente: p, terapie: ts }) =>
+                ts.map((t, ti) => (
+                  <tr key={`${p.id}-${t.id}`} className={isAltoCosto(t.principio_attivo) ? 'bg-red-50' : 'bg-bg-card'}>
+                    <td className="px-3 py-1.5 tabular-nums text-ink-soft">{ti === 0 ? p.numero_letto : ''}</td>
+                    <td className="px-3 py-1.5 font-medium text-ink">{ti === 0 ? p.nominativo : ''}</td>
+                    <td className="px-3 py-1.5 text-ink-soft">{ti === 0 ? p.sala : ''}</td>
+                    <td className="px-3 py-1.5 text-ink">{t.principio_attivo}{t.dosaggio ? ` ${t.dosaggio}` : ''}</td>
+                    <td className="px-3 py-1.5 text-ink-soft">{t.posologia ?? '—'}</td>
+                    <td className="px-3 py-1.5">
+                      {isAltoCosto(t.principio_attivo) && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-200 text-red-700 font-bold uppercase whitespace-nowrap">Alto costo</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 

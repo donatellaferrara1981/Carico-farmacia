@@ -28,12 +28,14 @@ export default async function GraficiPage() {
     role: memberRes.data.role,
   };
 
-  const [uoAttivaId, { data: prodotti }, { data: documenti }, { data: unita }, { data: gare }] = await Promise.all([
+  const [uoAttivaId, { data: prodotti }, { data: documenti }, { data: unita }, { data: gare }, { data: terapiePazienti }, { data: pazientiIca }] = await Promise.all([
     getUoAttivaId(),
     supabase.from('prodotti').select('*').eq('org_id', org.id),
     supabase.from('documenti').select('*').eq('org_id', org.id).order('created_at', { ascending: false }),
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
     supabase.from('gare_appalto').select('id,descrizione,prezzo_unitario,unita_misura').eq('org_id', org.id),
+    supabase.from('terapie_pazienti').select('id, principio_attivo, dosaggio, posologia, paziente_id, prodotto_id').eq('org_id', org.id),
+    supabase.from('pazienti').select('id, nominativo, sala, numero_letto, piano').eq('org_id', org.id),
   ]);
 
   const uoAttiva = (unita ?? []).find((u: { id: string }) => u.id === uoAttivaId) ?? null;
@@ -56,6 +58,8 @@ export default async function GraficiPage() {
           unita={unita ?? []}
           gare={gare ?? []}
           orgName={org.name}
+          terapiePazienti={terapiePazienti ?? []}
+          pazientiIca={pazientiIca ?? []}
         />
       </main>
     </div>
