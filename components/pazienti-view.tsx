@@ -86,19 +86,22 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
   }
 
   function handleFile(file: File) {
-    const isHtml = file.name.toLowerCase().endsWith('.html') || file.type === 'text/html';
+    const isHtml = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm') || file.type === 'text/html';
     if (isHtml) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const text = reader.result as string;
-        startTransition(async () => {
-          setMsg(null);
-          const res = await estraiPazientiDaHtmlAction(text, orgId);
-          if ('error' in res) setMsg({ type: 'err', text: res.error ?? 'Errore sconosciuto.' });
-          else setMsg({ type: 'ok', text: `${res.count} pazienti caricati con successo.` });
-        });
-      };
-      reader.readAsText(file, 'utf-8');
+      // Prova UTF-8; se contiene caratteri sostitutivi (�) riprova con ISO-8859-1
+      const tryRead = (encoding: string) => new Promise<string>((resolve) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.readAsText(file, encoding);
+      });
+      startTransition(async () => {
+        setMsg(null);
+        let text = await tryRead('utf-8');
+        if (text.includes('�')) text = await tryRead('iso-8859-1');
+        const res = await estraiPazientiDaHtmlAction(text, orgId);
+        if ('error' in res) setMsg({ type: 'err', text: res.error ?? 'Errore sconosciuto.' });
+        else setMsg({ type: 'ok', text: `${(res as { count: number }).count} pazienti caricati con successo.` });
+      });
     } else {
       const reader = new FileReader();
       reader.onload = () => {

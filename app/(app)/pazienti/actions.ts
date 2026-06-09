@@ -97,6 +97,92 @@ Se non trovi pazienti: []`,
   return { ok: true, count: nuovi.length };
 }
 
+// ── Stripping HTML → testo pulito ───────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#\d+;/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * Parser diretto per il gestionale posti-letto IRCCS/MEG.
+ * Cerca: intestazioni sala → "posto letto N" → nome paziente (ALL CAPS) → GSO code.
+ * I letti vuoti non hanno GSO code: vengono ignorati.
+ */
+function parsePostiLettoHtml(html: string): PazienteEstratto[] {
+  const testo = stripHtml(html);
+  const risultati: PazienteEstratto[] = [];
+
+  // Segmenta per sala: cerca intestazioni di sezione in maiuscolo
+  // Pattern: parole come "STANZA", "SALA", "PIANO", seguite da altri token maiuscoli
+  // Usiamo i GSO code come ancora: GSO_YYYYNNNNNNNNN
+  // Intorno a ogni GSO recuperiamo il nome (maiuscolo) e il numero letto
+
+  // 1. Trova tutte le posizioni dei GSO
+  const gsoReg = /GSO[_\s](\d{10,})/gi;
+  // 2. Identifica intestazioni sala: blocchi ALL CAPS ≥ 3 parole
+  const salaReg = /\b([A-ZÀÈÌÒÙ][A-ZÀÈÌÒÙ\s]{3,}(?:PIANO\s*TERRA|PIANO|\d°?\s*PIANO|LARGA|LUNGA|GRANDE|PICCOLA|LUNG[AO])[A-ZÀÈÌÒÙ\s]*)\b/g;
+
+  // Costruiamo una mappa posizione→sala dalla serie di match
+  const salaMarkers: Array<{ pos: number; sala: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = salaReg.exec(testo)) !== null) {
+    const nome = m[0].replace(/\s+/g, ' ').trim();
+    if (nome.length > 3) salaMarkers.push({ pos: m.index, sala: nome });
+  }
+
+  function salaAtPos(pos: number): string {
+    let sala = 'REPARTO';
+    for (const mk of salaMarkers) {
+      if (mk.pos <= pos) sala = mk.sala;
+    }
+    return sala;
+  }
+
+  // Per ogni GSO recupera il contesto precedente (500 char) per trovare letto e nome
+  while ((m = gsoReg.exec(testo)) !== null) {
+    const gsoPos = m.index;
+    const ctx = testo.slice(Math.max(0, gsoPos - 500), gsoPos);
+
+    // Numero letto: "posto letto N" (case-insensitive)
+    const lettoM = /posto\s+letto\s+(\d+)/i.exec(ctx);
+    if (!lettoM) continue;
+    const numeroLetto = parseInt(lettoM[1], 10);
+
+    // Nome paziente: blocco ALL CAPS (2-4 parole, no numeri) più recente nel contesto
+    const nomeReg = /\b([A-ZÀÈÌÒÙÄËÏÖÜ']{2,}(?:\s+[A-ZÀÈÌÒÙÄËÏÖÜ']{2,}){1,3})\b/g;
+    let nomeM: RegExpExecArray | null;
+    let ultimoNome = '';
+    while ((nomeM = nomeReg.exec(ctx)) !== null) {
+      const candidato = nomeM[1].trim();
+      // Esclude parole di sistema / UI
+      if (/^(MISTO|MISTA|LETTO|POSTO|PIANO|STANZA|SALA|CARICO|REPARTO|GRANDE|PICCOLA|TERRA|PRIMO|LUNGA|LARGO)$/.test(candidato)) continue;
+      ultimoNome = candidato;
+    }
+
+    if (!ultimoNome) continue;
+
+    risultati.push({
+      sala: salaAtPos(gsoPos),
+      numero_letto: numeroLetto,
+      nominativo: ultimoNome,
+    });
+  }
+
+  return risultati;
+}
+
 // ── Estrai pazienti da HTML ──────────────────────────────────────────────────
 
 export async function estraiPazientiDaHtmlAction(
@@ -109,31 +195,43 @@ export async function estraiPazientiDaHtmlAction(
 
   const uoAttivaId = await getUoAttivaId();
 
-  const truncated = htmlText.slice(0, 50000);
+  // 1. Prova parser diretto
+  let estratti: PazienteEstratto[] = parsePostiLettoHtml(htmlText);
 
-  const anthropic = new Anthropic();
-  const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 4096,
-    messages: [{
-      role: 'user',
-      content: `This is an HTML export from a hospital bed management system. Extract all patients (occupied beds). For each return: sala (room name from section headers), numero_letto (bed number as integer), nominativo (patient full name in uppercase). Return ONLY a JSON array, no extra text. Example: [{"sala":"PIANO TERRA GCA1","numero_letto":1,"nominativo":"ROSSI MARIO"}]. If no patients found: []
+  // 2. Fallback Claude se il parser non trova abbastanza (< 3 pazienti)
+  if (estratti.length < 3) {
+    const testoStrippato = stripHtml(htmlText).slice(0, 40000);
+    const anthropic = new Anthropic();
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: `Sei un assistente ospedaliero. Questo testo è estratto da una pagina HTML del gestionale posti letto di un reparto ospedaliero italiano.
 
-HTML:
-${truncated}`,
-    }],
-  });
+Il formato tipico è: nome stanza/sala (in maiuscolo), poi "posto letto N", poi nome paziente in MAIUSCOLO (cognome nome), poi un codice GSO.
+I letti vuoti NON hanno nome paziente né codice GSO.
 
-  const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
-  let estratti: PazienteEstratto[];
-  try {
-    const m = raw.match(/\[[\s\S]*\]/);
-    estratti = m ? JSON.parse(m[0]) : [];
-  } catch {
-    return { error: `Risposta non interpretabile: ${raw.slice(0, 200)}` };
+Estrai TUTTI i pazienti ricoverati. Restituisci SOLO un array JSON:
+[{"sala":"NOME SALA","numero_letto":1,"nominativo":"COGNOME NOME"}]
+
+Se nessun paziente: []
+
+TESTO:
+${testoStrippato}`,
+      }],
+    });
+
+    const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : '';
+    try {
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) estratti = JSON.parse(match[0]);
+    } catch {
+      return { error: `Risposta non interpretabile: ${raw.slice(0, 200)}` };
+    }
   }
 
-  if (!estratti.length) return { error: 'Nessun paziente riconosciuto nell\'HTML.' };
+  if (!estratti.length) return { error: 'Nessun paziente riconosciuto. Prova a caricare uno screenshot (JPG/PNG) della pagina.' };
 
   const delQuery = supabase.from('pazienti').delete().eq('org_id', orgId);
   if (uoAttivaId) delQuery.eq('unita_operativa_id', uoAttivaId);
