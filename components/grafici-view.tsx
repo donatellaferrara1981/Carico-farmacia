@@ -53,11 +53,12 @@ const TABS: { id: TipoGrafico; label: string }[] = [
   { id: 'gantt',        label: 'Gantt turni' },
 ];
 
-export function GraficiView({ prodotti, documenti, unita, gare = [] }: {
+export function GraficiView({ prodotti, documenti, unita, gare = [], orgName = '' }: {
   prodotti: Prodotto[];
   documenti: Documento[];
   unita: UnitaOperativa[];
   gare?: Gara[];
+  orgName?: string;
 }) {
   const [tab, setTab] = useState<TipoGrafico>('scorte');
 
@@ -121,7 +122,7 @@ export function GraficiView({ prodotti, documenti, unita, gare = [] }: {
       <div className="card">
         {tab === 'scorte'      && <GraficoScorte prodotti={prodotti} />}
         {tab === 'consumo'     && <GraficoConsumo prodotti={prodotti} />}
-        {tab === 'antibiotici' && <StudioAntibiotici prodotti={prodotti} gare={gare} />}
+        {tab === 'antibiotici' && <StudioAntibiotici prodotti={prodotti} gare={gare} orgName={orgName} />}
         {tab === 'barre'       && <GraficoCategorie prodotti={prodotti} />}
         {tab === 'torta'       && <GraficoForme prodotti={prodotti} />}
         {tab === 'linea'       && <GraficoCaricamenti documenti={documenti} />}
@@ -384,8 +385,99 @@ function prezzoGara(pa: string, gare: Gara[]): number | null {
   return found?.prezzo_unitario ?? null;
 }
 
-function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gara[] }) {
+function oggi() { return new Date().toISOString().slice(0, 10); }
+function unMeseFa() {
+  const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
+}
+function fmt(iso: string) { return new Date(iso).toLocaleDateString('it-IT'); }
+function diffGiorni(dal: string, al: string) {
+  return Math.max(1, Math.ceil((new Date(al).getTime() - new Date(dal).getTime()) / 86400000) + 1);
+}
+
+function generaRelazioneHtml(
+  abxProdotti: (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; consumoPeriodo: number; costoPeriodo: number | null })[],
+  dal: string, al: string, giorni: number, orgName: string,
+) {
+  const totCosto = abxProdotti.reduce((s, p) => s + (p.costoPeriodo ?? 0), 0);
+  const altoCostoN = abxProdotti.filter(p => p.altoCosto).length;
+
+  const byClasse: Record<string, { n: number; consumo: number; costo: number }> = {};
+  for (const p of abxProdotti) {
+    const l = CLASSE_LABEL[p.classe];
+    if (!byClasse[l]) byClasse[l] = { n: 0, consumo: 0, costo: 0 };
+    byClasse[l].n++;
+    byClasse[l].consumo += p.consumoPeriodo;
+    byClasse[l].costo += p.costoPeriodo ?? 0;
+  }
+
+  const righeTabella = abxProdotti
+    .sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0))
+    .map(p => `
+      <tr style="${p.altoCosto ? 'background:#fef2f2' : ''}">
+        <td>${p.altoCosto ? '<span style="background:#fecaca;color:#991b1b;font-size:8px;padding:1px 4px;border-radius:4px;font-weight:700;margin-right:4px">ALTO COSTO</span>' : ''}<strong style="color:${p.altoCosto ? '#991b1b' : '#b91c1c'}">${p.principio_attivo}</strong>${p.dosaggio ? ` <span style="color:#6b7280">${p.dosaggio}</span>` : ''}</td>
+        <td>${CLASSE_LABEL[p.classe]}</td>
+        <td style="text-align:right">${p.consumo_giornaliero > 0 ? p.consumo_giornaliero : '—'}</td>
+        <td style="text-align:right"><strong>${p.consumoPeriodo > 0 ? p.consumoPeriodo : '—'}</strong></td>
+        <td style="text-align:right">${p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 4 })}` : '—'}</td>
+        <td style="text-align:right;font-weight:600;color:${p.altoCosto ? '#991b1b' : '#92400e'}">${p.costoPeriodo != null && p.costoPeriodo > 0 ? `€ ${Math.round(p.costoPeriodo).toLocaleString('it-IT')}` : '—'}</td>
+      </tr>`).join('');
+
+  const righeClasse = Object.entries(byClasse).sort((a, b) => b[1].costo - a[1].costo).map(([cl, v]) => `
+    <tr>
+      <td><strong>${cl}</strong></td>
+      <td style="text-align:right">${v.n}</td>
+      <td style="text-align:right">${v.consumo}</td>
+      <td style="text-align:right;font-weight:600">${v.costo > 0 ? `€ ${Math.round(v.costo).toLocaleString('it-IT')}` : '—'}</td>
+    </tr>`).join('');
+
+  const corpo = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:20px">
+      <p style="font-size:13px;color:#374151;margin:0 0 8px">
+        <strong>Periodo di analisi:</strong> ${fmt(dal)} — ${fmt(al)} (${giorni} giorni)<br>
+        <strong>Prodotti analizzati:</strong> ${abxProdotti.length} antibiotici/antivirali · <strong style="color:#991b1b">${altoCostoN} ad alto costo / last-resort</strong>
+        ${totCosto > 0 ? `<br><strong>Costo totale stimato nel periodo:</strong> <span style="font-size:18px;color:#991b1b">€ ${Math.round(totCosto).toLocaleString('it-IT')}</span>` : ''}
+      </p>
+    </div>
+
+    <h2 style="font-size:14px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px">Riepilogo per classe terapeutica</h2>
+    <table>
+      <thead><tr><th>Classe</th><th style="text-align:right">N° farmaci</th><th style="text-align:right">Consumo tot.</th><th style="text-align:right">Costo periodo</th></tr></thead>
+      <tbody>${righeClasse}</tbody>
+    </table>
+
+    <h2 style="font-size:14px;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px">Dettaglio per principio attivo</h2>
+    <table>
+      <thead><tr><th>Principio attivo</th><th>Classe</th><th style="text-align:right">Consumo/die</th><th style="text-align:right">Consumo periodo</th><th style="text-align:right">Prezzo unit.</th><th style="text-align:right">Costo periodo</th></tr></thead>
+      <tbody>${righeTabella}</tbody>
+    </table>
+    <p style="margin-top:16px;font-size:10px;color:#9ca3af">* Consumo periodo = consumo/die × ${giorni} giorni. Costo stimato da prezzi gare d'appalto. Dati a scopo gestionale interno.</p>
+  `;
+
+  return htmlBase(
+    `Studio consumo antibiotici — ${orgName}`,
+    `Periodo: ${fmt(dal)} — ${fmt(al)} · ${giorni} giorni`,
+    corpo,
+  );
+}
+
+function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; gare: Gara[]; orgName: string }) {
   const [vista, setVista] = useState<'consumo' | 'classe' | 'costo'>('consumo');
+  const [dal, setDal] = useState(unMeseFa());
+  const [al, setAl] = useState(oggi());
+  const [presetRange, setPresetRange] = useState<'7' | '30' | '90' | 'custom'>('30');
+
+  function applicaPreset(p: '7' | '30' | '90' | 'custom') {
+    setPresetRange(p);
+    if (p === 'custom') return;
+    const days = parseInt(p);
+    const fine = new Date();
+    const inizio = new Date();
+    inizio.setDate(fine.getDate() - days + 1);
+    setDal(inizio.toISOString().slice(0, 10));
+    setAl(fine.toISOString().slice(0, 10));
+  }
+
+  const giorni = diffGiorni(dal, al);
 
   const abxProdotti = prodotti
     .map((p) => {
@@ -393,32 +485,30 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
       if (!info.isAntibiotico) return null;
       const altoCosto = isAltoCosto(p.principio_attivo);
       const prezzo = prezzoGara(p.principio_attivo, gare);
-      const costoGiornaliero = prezzo != null && p.consumo_giornaliero > 0
-        ? prezzo * p.consumo_giornaliero : null;
-      const costoMensile = costoGiornaliero != null ? costoGiornaliero * 30 : null;
-      return { ...p, classe: info.classe!, altoCosto, prezzo, costoGiornaliero, costoMensile };
+      const consumoPeriodo = p.consumo_giornaliero > 0 ? Math.round(p.consumo_giornaliero * giorni) : 0;
+      const costoPeriodo = prezzo != null && consumoPeriodo > 0 ? prezzo * consumoPeriodo : null;
+      return { ...p, classe: info.classe!, altoCosto, prezzo, consumoPeriodo, costoPeriodo };
     })
-    .filter(Boolean) as (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; costoGiornaliero: number | null; costoMensile: number | null })[];
+    .filter(Boolean) as (Prodotto & { classe: ClasseAntibiotico; altoCosto: boolean; prezzo: number | null; consumoPeriodo: number; costoPeriodo: number | null })[];
 
   if (!abxProdotti.length) {
     return <Empty msg="Nessun antibiotico/antivirale riconosciuto nel magazzino. Carica farmaci per avviare lo studio." />;
   }
 
-  const totaleMensile = abxProdotti.reduce((s, p) => s + (p.costoMensile ?? 0), 0);
+  const totaleCosto = abxProdotti.reduce((s, p) => s + (p.costoPeriodo ?? 0), 0);
+  const totalConsumo = abxProdotti.reduce((s, p) => s + p.consumoPeriodo, 0);
   const altoCostoN = abxProdotti.filter((p) => p.altoCosto).length;
 
-  // Dati grafico per consumo
   const datoConsumo = abxProdotti
-    .filter((p) => p.consumo_giornaliero > 0)
-    .sort((a, b) => b.consumo_giornaliero - a.consumo_giornaliero)
+    .filter((p) => p.consumoPeriodo > 0)
+    .sort((a, b) => b.consumoPeriodo - a.consumoPeriodo)
     .slice(0, 20)
     .map((p) => ({
       nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      consumo: p.consumo_giornaliero,
+      consumo: p.consumoPeriodo,
       fill: p.altoCosto ? '#c0392b' : p.classe === 'carbapenemi' || p.classe === 'glicopeptidi' || p.classe === 'polimixine' || p.classe === 'ossazolidinoni' ? '#b8842a' : '#1f3d2b',
     }));
 
-  // Dati grafico per classe
   const byClasse: Record<string, number> = {};
   for (const p of abxProdotti) {
     const label = CLASSE_LABEL[p.classe];
@@ -426,44 +516,91 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
   }
   const datoClasse = Object.entries(byClasse).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
 
-  // Dati grafico per costo mensile
   const datoCosto = abxProdotti
-    .filter((p) => p.costoMensile != null && p.costoMensile > 0)
-    .sort((a, b) => (b.costoMensile ?? 0) - (a.costoMensile ?? 0))
+    .filter((p) => p.costoPeriodo != null && p.costoPeriodo > 0)
+    .sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0))
     .slice(0, 15)
     .map((p) => ({
       nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      costo: Math.round(p.costoMensile!),
+      costo: Math.round(p.costoPeriodo!),
       fill: p.altoCosto ? '#c0392b' : '#b8842a',
     }));
 
   return (
     <>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h3 className="font-semibold text-ink">Studio consumo antibiotici / antivirali</h3>
-        <div className="flex gap-1.5">
-          {(['consumo', 'classe', 'costo'] as const).map((v) => (
-            <button key={v} onClick={() => setVista(v)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${vista === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}>
-              {v === 'consumo' ? 'Consumo/die' : v === 'classe' ? 'Per classe' : 'Costo stimato'}
+      {/* ── Selettore periodo ── */}
+      <div className="rounded-xl border border-line bg-bg-soft px-4 py-3 mb-5">
+        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2">Periodo di analisi</p>
+        <div className="flex flex-wrap gap-2 items-center">
+          {([['7', '7 giorni'], ['30', '30 giorni'], ['90', '3 mesi'], ['custom', 'Personalizzato']] as const).map(([v, label]) => (
+            <button key={v} onClick={() => applicaPreset(v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${presetRange === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40 hover:text-ink'}`}>
+              {label}
             </button>
           ))}
+          <div className="flex items-center gap-2 ml-1">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-ink-mute">Dal</label>
+              <input type="date" value={dal} max={al} onChange={e => { setDal(e.target.value); setPresetRange('custom'); }}
+                className="input-base py-1 text-xs w-36" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-ink-mute">Al</label>
+              <input type="date" value={al} min={dal} max={oggi()} onChange={e => { setAl(e.target.value); setPresetRange('custom'); }}
+                className="input-base py-1 text-xs w-36" />
+            </div>
+            <span className="text-xs text-ink-mute font-medium">{giorni} giorni</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <h3 className="font-semibold text-ink">
+          Studio consumo antibiotici / antivirali
+          <span className="ml-2 text-xs font-normal text-ink-mute">{fmt(dal)} — {fmt(al)}</span>
+        </h3>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            {(['consumo', 'classe', 'costo'] as const).map((v) => (
+              <button key={v} onClick={() => setVista(v)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${vista === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}>
+                {v === 'consumo' ? 'Consumo' : v === 'classe' ? 'Per classe' : 'Costo'}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              const html = generaRelazioneHtml(abxProdotti, dal, al, giorni, orgName);
+              const blob = new Blob([html], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              const w = window.open(url, '_blank');
+              w?.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
+            }}
+            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            Stampa relazione
+          </button>
         </div>
       </div>
 
       {/* KPI bar */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-center">
           <p className="text-2xl font-bold text-red-700">{abxProdotti.length}</p>
-          <p className="text-xs text-red-500 mt-0.5">Antibiotici in magazzino</p>
+          <p className="text-xs text-red-500 mt-0.5">Antibiotici</p>
         </div>
         <div className="rounded-lg bg-amber/10 border border-amber/30 px-3 py-2 text-center">
           <p className="text-2xl font-bold text-amber-700">{altoCostoN}</p>
-          <p className="text-xs text-amber-600 mt-0.5">Ad alto costo / last-resort</p>
+          <p className="text-xs text-amber-600 mt-0.5">Alto costo / last-resort</p>
+        </div>
+        <div className="rounded-lg bg-bg-card border border-line px-3 py-2 text-center">
+          <p className="text-2xl font-bold text-ink">{totalConsumo > 0 ? totalConsumo : '—'}</p>
+          <p className="text-xs text-ink-mute mt-0.5">Unità consumate ({giorni}gg)</p>
         </div>
         <div className="rounded-lg bg-forest-tint border border-forest/20 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-forest">{totaleMensile > 0 ? `€ ${totaleMensile.toLocaleString('it-IT', { maximumFractionDigits: 0 })}` : '—'}</p>
-          <p className="text-xs text-forest/70 mt-0.5">Costo mensile stimato</p>
+          <p className="text-2xl font-bold text-forest">{totaleCosto > 0 ? `€ ${Math.round(totaleCosto).toLocaleString('it-IT')}` : '—'}</p>
+          <p className="text-xs text-forest/70 mt-0.5">Costo stimato periodo</p>
         </div>
       </div>
 
@@ -471,13 +608,13 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
       {vista === 'consumo' && (
         datoConsumo.length === 0 ? <Empty msg="Imposta il consumo/die nei prodotti per visualizzare il grafico." /> :
         <>
-          <p className="text-xs text-ink-mute mb-3">Rosso = alto costo/last-resort · Ambra = classe critica · Verde = altri</p>
+          <p className="text-xs text-ink-mute mb-3">Consumo totale nel periodo selezionato · Rosso = alto costo · Ambra = classe critica</p>
           <ResponsiveContainer width="100%" height={Math.max(300, datoConsumo.length * 30)}>
-            <BarChart data={datoConsumo} layout="vertical" margin={{ left: 20, right: 40 }}>
+            <BarChart data={datoConsumo} layout="vertical" margin={{ left: 20, right: 60 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} />
+              <XAxis type="number" allowDecimals={false} label={{ value: 'unità', position: 'insideRight', offset: 10, fontSize: 10 }} />
               <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => [`${v} pz/die`, 'Consumo']} />
+              <Tooltip formatter={(v) => [`${v} unità`, `Consumo ${giorni}gg`]} />
               <Bar dataKey="consumo" radius={[0, 4, 4, 0]}>
                 {datoConsumo.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Bar>
@@ -499,15 +636,15 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
       )}
 
       {vista === 'costo' && (
-        datoCosto.length === 0 ? <Empty msg="Nessun prezzo disponibile. Inserisci i prezzi nelle gare d'appalto e imposta il consumo/die nei prodotti." /> :
+        datoCosto.length === 0 ? <Empty msg="Inserisci i prezzi nelle gare d'appalto e imposta il consumo/die nei prodotti." /> :
         <>
-          <p className="text-xs text-ink-mute mb-3">Costo mensile stimato (consumo/die × prezzo unitario da gara × 30 gg) · Rosso = alto costo</p>
+          <p className="text-xs text-ink-mute mb-3">Costo stimato nel periodo (consumo/die × {giorni} gg × prezzo da gara)</p>
           <ResponsiveContainer width="100%" height={Math.max(300, datoCosto.length * 32)}>
-            <BarChart data={datoCosto} layout="vertical" margin={{ left: 20, right: 60 }}>
+            <BarChart data={datoCosto} layout="vertical" margin={{ left: 20, right: 80 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tickFormatter={(v) => `€${v}`} />
+              <XAxis type="number" tickFormatter={(v) => `€${v.toLocaleString('it-IT')}`} tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => [`€ ${Number(v).toLocaleString('it-IT')}`, 'Costo/mese']} />
+              <Tooltip formatter={(v) => [`€ ${Number(v).toLocaleString('it-IT')}`, `Costo ${giorni}gg`]} />
               <Bar dataKey="costo" radius={[0, 4, 4, 0]}>
                 {datoCosto.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Bar>
@@ -523,17 +660,18 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
             <tr className="bg-bg-soft border-b border-line text-left">
               <th className="px-3 py-2 font-medium text-ink-soft">Principio attivo</th>
               <th className="px-3 py-2 font-medium text-ink-soft">Classe</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Scorta</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right">Scorta att.</th>
               <th className="px-3 py-2 font-medium text-ink-soft text-right">Consumo/die</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right bg-forest/5">Consumo {giorni}gg</th>
               <th className="px-3 py-2 font-medium text-ink-soft text-right">Prezzo unit.</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Costo/mese</th>
+              <th className="px-3 py-2 font-medium text-ink-soft text-right bg-red-50">Costo periodo</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {abxProdotti.sort((a, b) => (b.costoMensile ?? 0) - (a.costoMensile ?? 0)).map((p) => (
+            {abxProdotti.sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0)).map((p) => (
               <tr key={p.id} className={p.altoCosto ? 'bg-red-50' : 'bg-bg-card'}>
                 <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {p.altoCosto && <span className="text-[9px] px-1 py-0.5 rounded-full bg-red-200 text-red-700 font-bold uppercase">ALTO COSTO</span>}
                     <span className={`font-medium ${p.altoCosto ? 'text-red-700' : 'text-red-600'}`}>{p.principio_attivo}</span>
                     {p.dosaggio && <span className="text-ink-mute">{p.dosaggio}</span>}
@@ -542,13 +680,22 @@ function StudioAntibiotici({ prodotti, gare }: { prodotti: Prodotto[]; gare: Gar
                 <td className="px-3 py-2 text-ink-soft">{CLASSE_LABEL[p.classe]}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">{p.quantita}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">{p.consumo_giornaliero > 0 ? p.consumo_giornaliero : '—'}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink-soft">{p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 2 })}` : '—'}</td>
-                <td className={`px-3 py-2 text-right tabular-nums font-semibold ${p.altoCosto ? 'text-red-700' : 'text-amber-700'}`}>
-                  {p.costoMensile != null ? `€ ${Math.round(p.costoMensile).toLocaleString('it-IT')}` : '—'}
+                <td className="px-3 py-2 text-right tabular-nums font-semibold text-ink bg-forest/5">{p.consumoPeriodo > 0 ? p.consumoPeriodo : '—'}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink-soft">{p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 4 })}` : '—'}</td>
+                <td className={`px-3 py-2 text-right tabular-nums font-semibold bg-red-50 ${p.altoCosto ? 'text-red-700' : 'text-amber-700'}`}>
+                  {p.costoPeriodo != null && p.costoPeriodo > 0 ? `€ ${Math.round(p.costoPeriodo).toLocaleString('it-IT')}` : '—'}
                 </td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-line bg-bg-soft">
+              <td colSpan={4} className="px-3 py-2 text-xs font-semibold text-ink-soft">TOTALE</td>
+              <td className="px-3 py-2 text-right tabular-nums font-bold text-ink bg-forest/5">{totalConsumo > 0 ? totalConsumo : '—'}</td>
+              <td className="px-3 py-2"></td>
+              <td className="px-3 py-2 text-right tabular-nums font-bold text-red-700 bg-red-50">{totaleCosto > 0 ? `€ ${Math.round(totaleCosto).toLocaleString('it-IT')}` : '—'}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </>

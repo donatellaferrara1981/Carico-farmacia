@@ -55,6 +55,7 @@ export default async function GraficiPage() {
           documenti={documenti ?? []}
           unita={unita ?? []}
           gare={gare ?? []}
+          orgName={org.name}
         />
       </main>
     </div>
