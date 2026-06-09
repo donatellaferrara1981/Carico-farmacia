@@ -65,7 +65,7 @@ function AlertRow({ alert: a, onDismiss }: { alert: AlertItem; onDismiss: () => 
           onClick={dismiss}
           disabled={pending}
           title="Archivia notifica"
-          className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 opacity-0 group-hover:opacity-100 transition-all"
+          className="p-1 rounded text-ink-mute hover:text-abx hover:bg-abx/10 transition-colors"
         >
           {pending ? <span className="w-3 h-3 block border-2 border-current border-t-transparent rounded-full animate-spin" /> : <X className="w-3 h-3" />}
         </button>
@@ -236,7 +236,7 @@ export function AlertBell({ alerts: initialAlerts }: { alerts: AlertItem[] }) {
 
             {count > 0 && (
               <div className="px-3 py-2 border-t border-line bg-bg-soft text-[10px] text-ink-mute">
-                Passa su una notifica per archiviarla · "Azzera tutto" le rimuove tutte
+                Usa ✕ per archiviare la singola notifica · "Azzera tutto" le rimuove tutte
               </div>
             )}
           </div>
