@@ -130,27 +130,33 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
         className="w-[92vw] max-w-sm bg-bg-card rounded-xl shadow-2xl border border-line flex flex-col"
       >
         {/* Header draggabile */}
-        <div
-          className="flex items-center gap-2 px-3 py-2 border-b border-line bg-bg-soft rounded-t-xl cursor-grab active:cursor-grabbing select-none shrink-0"
-          onPointerDown={onDragStart}
-          onPointerMove={onDragMove}
-          onPointerUp={onDragEnd}
-        >
-          <GripHorizontal className="w-4 h-4 text-ink-mute shrink-0" />
-          <p className="text-sm font-semibold text-ink flex-1 truncate">
-            {prodotto ? prodotto.principio_attivo : 'Nuovo prodotto'}
-          </p>
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-bg-soft rounded-t-xl shrink-0">
+          <div
+            className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing select-none"
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+          >
+            <GripHorizontal className="w-4 h-4 text-ink-mute shrink-0" />
+            <p className="text-sm font-semibold text-ink flex-1 truncate">
+              {prodotto ? prodotto.principio_attivo : 'Nuovo prodotto'}
+            </p>
+          </div>
           {dirty && (
             <button
               type="button"
               onClick={resetForm}
               title="Annulla modifiche"
-              className="p-1 rounded hover:bg-bg-soft text-amber-500 hover:text-amber-600 transition-colors"
+              className="p-1 rounded hover:bg-bg-soft text-amber-500 hover:text-amber-600 transition-colors shrink-0"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={() => { if (!dirty || confirm('Hai modifiche non salvate. Uscire?')) onClose(); }} className="p-1 rounded hover:bg-bg-soft text-ink-mute">
+          <button
+            type="button"
+            onClick={() => { if (!dirty || confirm('Hai modifiche non salvate. Uscire?')) onClose(); }}
+            className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors shrink-0"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
