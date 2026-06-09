@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useRef, useCallback, useEffect } from 'react';
-import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { X, Loader2, GripHorizontal, ChevronDown, ChevronRight, RotateCcw, Save } from 'lucide-react';
 import { FORME_FARMACEUTICHE, type FormaFarmaceutica, type Prodotto } from '@/lib/prodotti';
 import { upsertProdottoAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import type { CategoriaArticolo } from '@/lib/types';
@@ -130,15 +130,15 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
         className="w-[92vw] max-w-sm bg-bg-card rounded-xl shadow-2xl border border-line flex flex-col"
       >
         {/* Header draggabile */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-bg-soft rounded-t-xl shrink-0">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b border-line bg-bg-soft rounded-t-xl shrink-0">
           <div
             className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing select-none"
             onPointerDown={onDragStart}
             onPointerMove={onDragMove}
             onPointerUp={onDragEnd}
           >
-            <GripHorizontal className="w-4 h-4 text-ink-mute shrink-0" />
-            <p className="text-sm font-semibold text-ink flex-1 truncate">
+            <GripHorizontal className="w-3.5 h-3.5 text-ink-mute shrink-0" />
+            <p className="text-xs font-semibold text-ink flex-1 truncate">
               {prodotto ? prodotto.principio_attivo : 'Nuovo prodotto'}
             </p>
           </div>
@@ -147,48 +147,57 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
               type="button"
               onClick={resetForm}
               title="Annulla modifiche"
-              className="p-1 rounded hover:bg-bg-soft text-amber-500 hover:text-amber-600 transition-colors shrink-0"
+              className="p-1 rounded hover:bg-bg text-amber-500 hover:text-amber-600 transition-colors shrink-0"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
             </button>
           )}
           <button
+            type="submit"
+            form="prodotto-form"
+            disabled={isPending}
+            title="Salva"
+            className="p-1 rounded hover:bg-bg text-forest hover:text-forest-dark transition-colors shrink-0"
+          >
+            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          </button>
+          <button
             type="button"
             onClick={() => { if (!dirty || confirm('Hai modifiche non salvate. Uscire?')) onClose(); }}
-            className="p-1 rounded hover:bg-bg-soft text-ink-mute hover:text-ink transition-colors shrink-0"
+            className="p-1 rounded hover:bg-bg text-ink-mute hover:text-ink transition-colors shrink-0"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Form compatto */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[80vh]">
-          <div className="px-3 py-3 space-y-2.5">
+        <form id="prodotto-form" onSubmit={handleSubmit} className="overflow-y-auto max-h-[80vh]">
+          <div className="px-2.5 py-2 space-y-1.5">
 
             {/* Principio attivo + nome commerciale */}
             <div>
-              <label className="label-xs">Principio attivo *</label>
-              <input className="input-base text-sm py-1.5" value={vals.principio_attivo}
+              <label className="label-xs !text-[10px]">Principio attivo *</label>
+              <input className="input-base text-xs py-1" value={vals.principio_attivo}
                 onChange={e => set('principio_attivo', e.target.value)} placeholder="es. Paracetamolo" required />
             </div>
             <div>
-              <label className="label-xs">Nome commerciale</label>
-              <input className="input-base text-sm py-1.5" value={vals.nome_commerciale}
+              <label className="label-xs !text-[10px]">Nome commerciale</label>
+              <input className="input-base text-xs py-1" value={vals.nome_commerciale}
                 onChange={e => set('nome_commerciale', e.target.value)} placeholder="es. Tachipirina" />
             </div>
 
             {/* Forma + dosaggio */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="label-xs">Forma *</label>
-                <select className="input-base text-sm py-1.5" value={vals.forma_farmaceutica}
+                <label className="label-xs !text-[10px]">Forma *</label>
+                <select className="input-base text-xs py-1" value={vals.forma_farmaceutica}
                   onChange={e => set('forma_farmaceutica', e.target.value)}>
                   {FORME_FARMACEUTICHE.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label-xs">Dosaggio</label>
-                <input className="input-base text-sm py-1.5" value={vals.dosaggio}
+                <label className="label-xs !text-[10px]">Dosaggio</label>
+                <input className="input-base text-xs py-1" value={vals.dosaggio}
                   onChange={e => set('dosaggio', e.target.value)} placeholder="es. 500 mg" />
               </div>
             </div>
@@ -196,13 +205,13 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             {/* Quantità + consumo */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="label-xs">Scorta attuale</label>
-                <input type="number" min={0} className="input-base text-sm py-1.5" value={vals.quantita}
+                <label className="label-xs !text-[10px]">Scorta attuale</label>
+                <input type="number" min={0} className="input-base text-xs py-1" value={vals.quantita}
                   onChange={e => set('quantita', e.target.value)} />
               </div>
               <div>
-                <label className="label-xs">Consumo/die</label>
-                <input type="number" min={0} step="0.5" className="input-base text-sm py-1.5" value={vals.consumo_giornaliero}
+                <label className="label-xs !text-[10px]">Consumo/die</label>
+                <input type="number" min={0} step="0.5" className="input-base text-xs py-1" value={vals.consumo_giornaliero}
                   onChange={e => set('consumo_giornaliero', e.target.value)} placeholder="pz/die" />
               </div>
             </div>
@@ -210,20 +219,20 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             {/* Soglia + scadenza */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="label-xs">Soglia alert scorta</label>
-                <input type="number" min={0} className="input-base text-sm py-1.5" value={vals.soglia_minima}
+                <label className="label-xs !text-[10px]">Soglia alert scorta</label>
+                <input type="number" min={0} className="input-base text-xs py-1" value={vals.soglia_minima}
                   onChange={e => set('soglia_minima', e.target.value)} placeholder="es. 5" />
               </div>
               <div>
-                <label className="label-xs">Scadenza farmaco</label>
-                <input type="date" className="input-base text-sm py-1.5" value={vals.data_scadenza}
+                <label className="label-xs !text-[10px]">Scadenza farmaco</label>
+                <input type="date" className="input-base text-xs py-1" value={vals.data_scadenza}
                   onChange={e => set('data_scadenza', e.target.value)} />
               </div>
             </div>
 
             {/* Note */}
             <div>
-              <label className="label-xs">Note</label>
+              <label className="label-xs !text-[10px]">Note</label>
               <textarea rows={2} className="input-base text-sm py-1.5 resize-none" value={vals.note}
                 onChange={e => set('note', e.target.value)} placeholder="Note aggiuntive…" />
             </div>
@@ -241,16 +250,16 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
               </button>
 
               {showConsegna && (
-                <div className="px-3 pb-3 pt-2 space-y-2.5 border-t border-line">
+                <div className="px-2.5 pb-2 pt-1.5 space-y-1.5 border-t border-line">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="label-xs">Qtà consegnata (pz)</label>
-                      <input type="number" min={0} className="input-base text-sm py-1.5" value={vals.quantita_consegnata}
+                      <label className="label-xs !text-[10px]">Qtà consegnata (pz)</label>
+                      <input type="number" min={0} className="input-base text-xs py-1" value={vals.quantita_consegnata}
                         onChange={e => set('quantita_consegnata', e.target.value)} placeholder="es. 30" />
                     </div>
                     <div>
-                      <label className="label-xs">Data consegna</label>
-                      <input type="date" className="input-base text-sm py-1.5" value={vals.data_consegna}
+                      <label className="label-xs !text-[10px]">Data consegna</label>
+                      <input type="date" className="input-base text-xs py-1" value={vals.data_consegna}
                         onChange={e => set('data_consegna', e.target.value)} />
                     </div>
                   </div>
@@ -278,17 +287,6 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             <p className="mx-3 mb-2 text-xs text-abx bg-abx/10 border border-abx/30 rounded-lg px-3 py-2">{error}</p>
           )}
 
-          {/* Footer azioni */}
-          <div className="flex gap-2 px-3 pb-3 pt-1">
-            {dirty ? (
-              <button type="button" onClick={resetForm} className="btn-ghost text-xs flex items-center gap-1.5">
-                <RotateCcw className="w-3 h-3" /> Annulla modifiche
-              </button>
-            ) : null}
-            <button type="submit" disabled={isPending} className="btn-primary text-xs flex-1">
-              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Salva'}
-            </button>
-          </div>
         </form>
       </div>
     </>
