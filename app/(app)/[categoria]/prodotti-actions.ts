@@ -85,7 +85,8 @@ export async function toggleNominativaAction(id: string, nominativa: boolean, ca
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
-  await supabase.from('prodotti').update({ nominativa }).eq('id', id);
+  // nominativa_manuale=true blocca la sovrascrittura automatica da sincronizzaNominativeAction
+  await supabase.from('prodotti').update({ nominativa, nominativa_manuale: true }).eq('id', id);
   revalidatePath(`/${categoria}`);
   return { ok: true };
 }

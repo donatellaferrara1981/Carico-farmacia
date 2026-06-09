@@ -93,3 +93,60 @@ export async function eliminaGaraAction(id: string) {
   revalidatePath('/gare');
   return { ok: true };
 }
+
+// ── Sincronizza flag nominativa in base alla copertura gare ──────────────────
+function normMatch(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9àèìòù\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isCopertoServer(
+  principioAttivo: string,
+  gare: { descrizione: string; data_scadenza: string | null }[],
+): boolean {
+  const pa = normMatch(principioAttivo);
+  const oggi = Date.now();
+  return gare.some(g => {
+    const nonScaduta = !g.data_scadenza || new Date(g.data_scadenza).getTime() > oggi;
+    if (!nonScaduta) return false;
+    const desc = normMatch(g.descrizione);
+    return desc.includes(pa) || pa.split(' ').filter(w => w.length > 4).some(w => desc.includes(w));
+  });
+}
+
+export async function sincronizzaNominativeAction() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const orgId = await getOrgId(supabase, user.id);
+  if (!orgId) return { error: 'Organizzazione non trovata.' };
+
+  const [{ data: prodotti }, { data: gare }] = await Promise.all([
+    supabase.from('prodotti').select('id, principio_attivo, nominativa, nominativa_manuale').eq('org_id', orgId),
+    supabase.from('gare_appalto').select('descrizione, data_scadenza').eq('org_id', orgId),
+  ]);
+
+  if (!prodotti || !gare) return { error: 'Errore nel caricamento dati.' };
+
+  // Aggiorna solo i prodotti che NON hanno il flag nominativa_manuale impostato
+  const aggiornamenti: { id: string; nominativa: boolean }[] = [];
+  for (const p of prodotti) {
+    if (p.nominativa_manuale) continue; // skip override manuale
+    const coperto = isCopertoServer(p.principio_attivo, gare);
+    const nuovoValore = !coperto;
+    if (p.nominativa !== nuovoValore) {
+      aggiornamenti.push({ id: p.id, nominativa: nuovoValore });
+    }
+  }
+
+  if (aggiornamenti.length > 0) {
+    for (const a of aggiornamenti) {
+      await supabase.from('prodotti').update({ nominativa: a.nominativa }).eq('id', a.id);
+    }
+  }
+
+  const nonInGara = prodotti.filter(p => !isCopertoServer(p.principio_attivo, gare)).length;
+  revalidatePath('/gare');
+  revalidatePath('/app');
+  return { ok: true, aggiornati: aggiornamenti.length, nonInGara, totale: prodotti.length };
+}

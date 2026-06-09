@@ -39,7 +39,7 @@ export default async function GarePage() {
       .order('data_scadenza', { ascending: true, nullsFirst: false }),
     supabase
       .from('prodotti')
-      .select('id, principio_attivo, forma_farmaceutica, dosaggio, categoria, quantita')
+      .select('id, principio_attivo, forma_farmaceutica, dosaggio, categoria, quantita, nominativa, nominativa_manuale')
       .eq('org_id', org.id)
       .order('principio_attivo'),
   ]);

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Search, FileText, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
-import { aggiungiGaraAction, modificaGaraAction, eliminaGaraAction } from '@/app/(app)/gare/actions';
+import { Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Search, FileText, CheckCircle2, XCircle, ShieldCheck, RefreshCw, Tag } from 'lucide-react';
+import { aggiungiGaraAction, modificaGaraAction, eliminaGaraAction, sincronizzaNominativeAction } from '@/app/(app)/gare/actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface Gara {
@@ -27,6 +27,8 @@ export interface ProdottoBase {
   dosaggio: string | null;
   categoria: string;
   quantita: number;
+  nominativa: boolean;
+  nominativa_manuale: boolean;
 }
 
 const CAT_LABEL: Record<string, string> = {
@@ -278,6 +280,17 @@ function CoperturaView({
   onCondividi: () => string;
   onStampa: () => string;
 }) {
+  const [syncPending, startSync] = useTransition();
+  const [syncResult, setSyncResult] = useState<{ aggiornati: number; nonInGara: number; totale: number } | null>(null);
+
+  function handleSync() {
+    setSyncResult(null);
+    startSync(async () => {
+      const res = await sincronizzaNominativeAction();
+      if ('ok' in res && res.ok) setSyncResult({ aggiornati: res.aggiornati, nonInGara: res.nonInGara, totale: res.totale });
+    });
+  }
+
   const totale = coperti.length + nonCoperti.length;
   const perc = totale > 0 ? Math.round((coperti.length / totale) * 100) : 0;
 
@@ -307,6 +320,40 @@ function CoperturaView({
         <div className="h-full bg-forest transition-all" style={{ width: `${perc}%` }} />
       </div>
 
+      {/* Sincronizza nominative */}
+      <div className="rounded-xl border border-amber/30 bg-amber/5 px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-start gap-2.5">
+          <Tag className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-700">Aggiorna flag nominativa automaticamente</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              I prodotti <strong>non coperti da gara</strong> verranno marcati come <em>nominativa</em>. Quelli in gara verranno deselezionati.
+              Le modifiche manuali che hai già fatto rimangono bloccate e non vengono sovrascritte.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncPending || totale === 0}
+          className="btn-secondary text-sm shrink-0 flex items-center gap-2"
+        >
+          {syncPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Sincronizza nominative
+        </button>
+      </div>
+
+      {/* Feedback sincronizzazione */}
+      {syncResult && (
+        <div className="rounded-lg border border-forest/30 bg-forest/5 px-4 py-3 text-sm text-forest">
+          <p className="font-semibold">Sincronizzazione completata</p>
+          <p className="text-xs mt-1 text-forest/80">
+            {syncResult.aggiornati} prodott{syncResult.aggiornati === 1 ? 'o aggiornato' : 'i aggiornati'} su {syncResult.totale} ·{' '}
+            <strong>{syncResult.nonInGara} nominativi</strong> (non in gara) ·{' '}
+            {syncResult.totale - syncResult.nonInGara} in gara
+          </p>
+        </div>
+      )}
+
       {/* Prodotti NON in gara */}
       {nonCoperti.length > 0 && (
         <div className="rounded-xl border border-abx/30 overflow-hidden">
@@ -319,7 +366,14 @@ function CoperturaView({
               <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-soft/40">
                 <XCircle className="w-3.5 h-3.5 text-abx shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-ink">{p.principio_attivo}{p.dosaggio ? ` ${p.dosaggio}` : ''}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs font-semibold text-ink">{p.principio_attivo}{p.dosaggio ? ` ${p.dosaggio}` : ''}</p>
+                    {p.nominativa && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${p.nominativa_manuale ? 'bg-amber/20 text-amber-700 border-amber/40' : 'bg-amber/10 text-amber-600 border-amber/30'}`}>
+                        {p.nominativa_manuale ? '★ nominativa' : '⚡ nominativa (auto)'}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-ink-mute capitalize">{p.categoria} · {p.forma_farmaceutica}</p>
                 </div>
                 <span className="text-[10px] text-ink-mute shrink-0">scorta: {p.quantita}</span>
