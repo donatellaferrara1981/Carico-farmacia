@@ -8,6 +8,7 @@ export const FORME_FARMACEUTICHE = [
   { value: 'supposta',         label: 'Supposta' },
   { value: 'cerotto',          label: 'Cerotto transdermico' },
   { value: 'collirio',         label: 'Collirio / Gocce' },
+  { value: 'vasetto',          label: 'Vasetto' },
   { value: 'altro',            label: 'Altro' },
 ] as const;
 

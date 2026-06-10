@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
+import { parseNutrizioniText } from '@/lib/parse-nutrizioni';
 import { inflateSync } from 'zlib';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import Anthropic from '@anthropic-ai/sdk';
@@ -100,7 +101,9 @@ export async function estraiProdottiDaPdfAction(
     return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
   }
 
-  const estratti = parseTerapiaText(testo);
+  const estratti = categoria === 'nutrizioni'
+    ? parseNutrizioniText(testo)
+    : parseTerapiaText(testo);
   if (!estratti.length) {
     const anteprima = testo.slice(0, 300).replace(/\n+/g, ' ↵ ');
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
