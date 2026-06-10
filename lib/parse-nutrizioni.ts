@@ -100,8 +100,9 @@ function classificaRiga(riga: string): Classificato {
 
 export function parseNutrizioniText(testo: string): ProdottoEstratto[] {
   const righe = testo.split('\n').map((r) => r.trim()).filter((r) => r.length > 2);
-  const prodotti: ProdottoEstratto[] = [];
-  const visti = new Set<string>();
+
+  // Conta le occorrenze per chiave (nome+forma) — ogni riga = 1 prescrizione/paziente
+  const conteggi = new Map<string, { prodotto: ProdottoEstratto; count: number }>();
 
   for (const rigaOriginale of righe) {
     if (SKIP_RE.test(rigaOriginale)) continue;
@@ -111,25 +112,29 @@ export function parseNutrizioniText(testo: string): ProdottoEstratto[] {
     if (!isRigaNutrizionale(riga)) continue;
 
     const { forma, dosaggio, nomeCompleto } = classificaRiga(riga);
-
     if (nomeCompleto.length < 3) continue;
 
-    // principio_attivo = nome + quantità uniti (requisito utente)
-    const principioAttivo = nomeCompleto;
-
-    const chiave = principioAttivo.toLowerCase().replace(/\s+/g, '') + forma;
-    if (visti.has(chiave)) continue;
-    visti.add(chiave);
-
-    prodotti.push({
-      principio_attivo: principioAttivo,
-      nome_commerciale: '',
-      forma_farmaceutica: forma,
-      dosaggio,
-      consumo_giornaliero: 1,
-      note: '',
-    });
+    const chiave = nomeCompleto.toLowerCase().replace(/\s+/g, '') + forma + dosaggio.toLowerCase().replace(/\s+/g, '');
+    const esistente = conteggi.get(chiave);
+    if (esistente) {
+      esistente.count++;
+    } else {
+      conteggi.set(chiave, {
+        count: 1,
+        prodotto: {
+          principio_attivo: nomeCompleto,
+          nome_commerciale: '',
+          forma_farmaceutica: forma,
+          dosaggio,
+          consumo_giornaliero: 1,
+          note: '',
+        },
+      });
+    }
   }
 
-  return prodotti;
+  return Array.from(conteggi.values()).map(({ prodotto, count }) => ({
+    ...prodotto,
+    consumo_giornaliero: count,
+  }));
 }

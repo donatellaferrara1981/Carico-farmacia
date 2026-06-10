@@ -122,19 +122,21 @@ export async function estraiProdottiDaPdfAction(
           },
           {
             type: 'text',
-            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prodotti per la nutrizione enterale/orale di un reparto ospedaliero italiano.
+            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali per pazienti di un reparto ospedaliero italiano. Ci sono più righe per lo stesso prodotto (una riga = un paziente che lo riceve).
 
-Estrai TUTTI i prodotti nutrizionali presenti. Per ogni prodotto indica:
+Il tuo compito:
+1. Leggi SOLO la colonna che contiene il nome del prodotto nutrizionale (ignorando colonne con nomi paziente, letto, sala, data, medico, note)
+2. Per ogni prodotto DISTINTO conta quante righe/prescrizioni ha (= quantità giornaliera totale del reparto)
+3. Classifica il tipo di confezionamento
+
+Per ogni prodotto unico restituisci:
 - nome: nome commerciale del prodotto (es. "Nutrison", "Ensure Plus", "Diason", "Isosource", "Fresubin")
-- volume: formato/volume (es. "500ml", "200ml", "125g") — includi l'unità di misura
-- tipo: classifica il prodotto in uno di questi tipi:
-  * "flacone" per liquidi in flacone/bottiglia (ml)
-  * "vasetto" per acqua gelificata (acqua gel), creme, budini, mousse
-  * "bustina" per polveri in bustina
-  * "altro" per tutto il resto
+- volume: formato/volume (es. "500ml", "200ml", "125g") — includi unità di misura
+- quantita: numero totale di prescrizioni con questo prodotto (conta le righe duplicate)
+- tipo: "flacone" per liquidi, "vasetto" per acqua gel/creme/budini/mousse, "bustina" per polveri
 
 Rispondi SOLO con un array JSON, nessun testo extra:
-[{"nome":"Nutrison","volume":"500ml","tipo":"flacone"},{"nome":"Acqua gel","volume":"125g","tipo":"vasetto"},...]
+[{"nome":"Nutrison","volume":"500ml","quantita":8,"tipo":"flacone"},{"nome":"Acqua gel","volume":"125g","quantita":3,"tipo":"vasetto"},...]
 
 Se nessun prodotto: []`,
           },
@@ -146,7 +148,7 @@ Se nessun prodotto: []`,
     try {
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
-        const items: { nome: string; volume: string; tipo: string }[] = JSON.parse(match[0]);
+        const items: { nome: string; volume: string; quantita?: number; tipo: string }[] = JSON.parse(match[0]);
         const formaMap: Record<string, string> = {
           flacone: 'flacone_infusione',
           vasetto: 'vasetto',
@@ -160,7 +162,7 @@ Se nessun prodotto: []`,
             nome_commerciale: '',
             forma_farmaceutica: (formaMap[i.tipo] ?? 'flacone_infusione') as import('@/lib/prodotti').FormaFarmaceutica,
             dosaggio: i.tipo === 'vasetto' ? 'vasetto' : (i.volume ?? ''),
-            consumo_giornaliero: 1,
+            consumo_giornaliero: typeof i.quantita === 'number' && i.quantita > 0 ? i.quantita : 1,
             note: '',
           }));
       }
@@ -199,11 +201,15 @@ Se nessun prodotto: []`,
     );
 
     if (match) {
-      // Incrementa il consumo giornaliero
+      // Per nutrizioni: sostituisce il consumo (= conteggio prescrizioni dal PDF)
+      // Per terapie: incrementa (somma visite successive)
+      const nuovoConsumo = categoria === 'nutrizioni'
+        ? p.consumo_giornaliero
+        : (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero;
       await supabase
         .from('prodotti')
         .update({
-          consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero,
+          consumo_giornaliero: nuovoConsumo,
           ...(p.nome_commerciale && !match.nome_commerciale ? { nome_commerciale: p.nome_commerciale } : {}),
         })
         .eq('id', match.id);
