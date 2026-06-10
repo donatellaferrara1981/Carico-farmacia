@@ -125,9 +125,10 @@ export async function estraiProdottiDaPdfAction(
             text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali per pazienti di un reparto ospedaliero italiano. Ci sono più righe per lo stesso prodotto (una riga = un paziente che lo riceve).
 
 Il tuo compito:
-1. Leggi SOLO la colonna che contiene il nome del prodotto nutrizionale (ignorando colonne con nomi paziente, letto, sala, data, medico, note)
-2. Per ogni prodotto DISTINTO conta quante righe/prescrizioni ha (= quantità giornaliera totale del reparto)
-3. Classifica il tipo di confezionamento
+1. Leggi SOLO la colonna che contiene il nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason", "Acqua gel")
+2. IGNORA completamente le colonne: indicazione, diagnosi, motivazione, patologia, note cliniche, nome paziente, letto, sala, data, medico
+3. Per ogni prodotto DISTINTO conta quante righe/prescrizioni ha (= quantità giornaliera totale del reparto)
+4. Classifica il tipo di confezionamento
 
 Per ogni prodotto unico restituisci:
 - nome: nome commerciale del prodotto (es. "Nutrison", "Ensure Plus", "Diason", "Isosource", "Fresubin")

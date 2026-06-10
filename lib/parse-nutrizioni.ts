@@ -20,10 +20,15 @@ const KEYWORD_GENERICI = [
 // Pattern per quantità nutrizionali (volume, peso)
 const QUANTITA_RE = /(\d+(?:[.,]\d+)?)\s*(ml|cl|dl|l\b|g\b|kg|kcal|kj)/i;
 
-// Righe da saltare: intestazioni, totali, metadati
-const SKIP_RE = /^(totale|tot\b|n\b|n°|cod(ice)?|descrizione|prodotto|quantità|qta|unità|data|fornitore|pagina|page|articolo|rep\.?|reparto|firma|emesso|stampato)/i;
+// Righe da saltare: intestazioni, totali, metadati, indicazioni cliniche
+const SKIP_RE = /^(totale|tot\b|n\b|n°|cod(ice)?|descrizione|prodotto|quantità|qta|unità|data|fornitore|pagina|page|articolo|rep\.?|reparto|firma|emesso|stampato|indicazione|indicaz\.?|diagnosi|motivazione|patologia|prescrizione|note\b)/i;
+
+// Contenuto di colonna "indicazione": testo clinico da non conteggiare come prodotto
+const INDICAZIONE_RE = /^(nutrizione|alimentazione|disfagia|malnutrizione|cachessia|anoressia|neoplasia|diabete|insufficienza|supporto nutrizionale|supplementazione|terapia nutrizionale|deficit)/i;
 
 function isRigaNutrizionale(riga: string): boolean {
+  // Escludi esplicitamente le indicazioni cliniche
+  if (INDICAZIONE_RE.test(riga.trim())) return false;
   const lower = riga.toLowerCase();
   if (KEYWORD_BRAND.some((k) => lower.includes(k))) return true;
   if (KEYWORD_GENERICI.some((k) => lower.includes(k))) return true;
