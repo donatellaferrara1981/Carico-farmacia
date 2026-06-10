@@ -101,12 +101,77 @@ export async function estraiProdottiDaPdfAction(
     return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
   }
 
-  const estratti = categoria === 'nutrizioni'
+  let estratti = categoria === 'nutrizioni'
     ? parseNutrizioniText(testo)
     : parseTerapiaText(testo);
+
+  // Fallback Claude per nutrizioni: se il parser regex trova < 3 prodotti
+  // invia il PDF direttamente a Claude per l'estrazione
+  if (categoria === 'nutrizioni' && estratti.length < 3) {
+    const base64Pdf = buffer.toString('base64');
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64Pdf },
+          },
+          {
+            type: 'text',
+            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prodotti per la nutrizione enterale/orale di un reparto ospedaliero italiano.
+
+Estrai TUTTI i prodotti nutrizionali presenti. Per ogni prodotto indica:
+- nome: nome commerciale del prodotto (es. "Nutrison", "Ensure Plus", "Diason", "Isosource", "Fresubin")
+- volume: formato/volume (es. "500ml", "200ml", "125g") — includi l'unità di misura
+- tipo: classifica il prodotto in uno di questi tipi:
+  * "flacone" per liquidi in flacone/bottiglia (ml)
+  * "vasetto" per acqua gelificata (acqua gel), creme, budini, mousse
+  * "bustina" per polveri in bustina
+  * "altro" per tutto il resto
+
+Rispondi SOLO con un array JSON, nessun testo extra:
+[{"nome":"Nutrison","volume":"500ml","tipo":"flacone"},{"nome":"Acqua gel","volume":"125g","tipo":"vasetto"},...]
+
+Se nessun prodotto: []`,
+          },
+        ],
+      }],
+    });
+
+    const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    try {
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        const items: { nome: string; volume: string; tipo: string }[] = JSON.parse(match[0]);
+        const formaMap: Record<string, string> = {
+          flacone: 'flacone_infusione',
+          vasetto: 'vasetto',
+          bustina: 'sciroppo',
+          altro: 'flacone_infusione',
+        };
+        estratti = items
+          .filter((i) => i.nome && i.nome.length > 1)
+          .map((i) => ({
+            principio_attivo: i.volume ? `${i.nome} ${i.volume}` : i.nome,
+            nome_commerciale: '',
+            forma_farmaceutica: (formaMap[i.tipo] ?? 'flacone_infusione') as import('@/lib/prodotti').FormaFarmaceutica,
+            dosaggio: i.tipo === 'vasetto' ? 'vasetto' : (i.volume ?? ''),
+            consumo_giornaliero: 1,
+            note: '',
+          }));
+      }
+    } catch {
+      // ignora errore parsing Claude, usa quello che abbiamo
+    }
+  }
+
   if (!estratti.length) {
     const anteprima = testo.slice(0, 300).replace(/\n+/g, ' ↵ ');
-    return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
+    return { error: `Testo estratto ma nessun prodotto riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
   // Carica i prodotti già presenti per questo org+categoria+sala+UO
