@@ -11,6 +11,7 @@ export interface TerapiaPaziente {
   principio_attivo: string;
   dosaggio: string | null;
   posologia: string | null;
+  tipo?: string;
 }
 
 export interface Paziente {
@@ -280,13 +281,19 @@ function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle, bySa
     const blocchi = selezionate.map((sala) => {
       const paz = (bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto);
       const righe = paz.map((p) => {
-        const farmaci = p.terapie && p.terapie.length > 0
-          ? p.terapie.map((t) => [t.principio_attivo, t.dosaggio, t.posologia].filter(Boolean).join(' ')).join(' · ')
+        const farmaci = (p.terapie ?? []).filter((t) => t.tipo !== 'nutrizione');
+        const nutrizioni = (p.terapie ?? []).filter((t) => t.tipo === 'nutrizione');
+        const farmaciTxt = farmaci.length > 0
+          ? farmaci.map((t) => [t.principio_attivo, t.dosaggio, t.posologia].filter(Boolean).join(' ')).join(' · ')
+          : '&nbsp;';
+        const nutrizioniTxt = nutrizioni.length > 0
+          ? nutrizioni.map((t) => t.posologia ? `${t.principio_attivo} ${t.posologia}` : t.principio_attivo).join(' · ')
           : '&nbsp;';
         return `<tr>
-          <td style="width:50px;text-align:center;font-weight:600;color:#374151">${p.numero_letto}</td>
+          <td style="width:40px;text-align:center;font-weight:600;color:#374151">${p.numero_letto}</td>
           <td style="font-weight:500">${p.nominativo}</td>
-          <td style="width:200px;border-bottom:1px solid #d1d5db">${farmaci}</td>
+          <td style="border-bottom:1px solid #d1d5db">${farmaciTxt}</td>
+          <td style="border-bottom:1px solid #d1d5db;color:#065f46">${nutrizioniTxt}</td>
         </tr>`;
       }).join('');
       return `
@@ -300,6 +307,7 @@ function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle, bySa
                 <th style="padding:4px 8px;text-align:center;font-size:10px;color:#6b7280">Letto</th>
                 <th style="padding:4px 8px;text-align:left;font-size:10px;color:#6b7280">Paziente</th>
                 <th style="padding:4px 8px;text-align:left;font-size:10px;color:#6b7280">Farmaci / Note</th>
+                <th style="padding:4px 8px;text-align:left;font-size:10px;color:#065f46">Nutrizioni</th>
               </tr>
             </thead>
             <tbody>${righe}</tbody>
