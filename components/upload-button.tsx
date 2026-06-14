@@ -8,6 +8,50 @@ import { SALE } from '@/lib/sale';
 
 const ACCEPT_FILE   = 'application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp';
 const ACCEPT_CAMERA = 'image/*';
+const MAX_BYTES = 900_000; // 900 KB — sotto il limite 1 MB di Next.js
+
+async function compressImage(file: File): Promise<File> {
+  // I PDF non si comprimono
+  if (file.type === 'application/pdf') return file;
+  if (file.size <= MAX_BYTES) return file;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      // Scala proporzionalmente fino a max 1600px
+      const maxDim = 1600;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      // Prova qualità decrescente finché sotto il limite
+      let quality = 0.85;
+      const tryCompress = () => {
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return; }
+          if (blob.size <= MAX_BYTES || quality <= 0.3) {
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          } else {
+            quality -= 0.15;
+            tryCompress();
+          }
+        }, 'image/jpeg', quality);
+      };
+      tryCompress();
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
+}
 
 interface FileItem {
   file: File;
@@ -52,8 +96,9 @@ export function UploadButton({
         updated[i] = { ...updated[i], status: 'uploading' };
         setQueue([...updated]);
 
+        const compressed = await compressImage(updated[i].file);
         const fd = new FormData();
-        fd.append('file', updated[i].file);
+        fd.append('file', compressed);
         fd.append('org_id', orgId);
         fd.append('categoria', categoria);
         if (useSala && salaId) fd.append('sala', salaId);
