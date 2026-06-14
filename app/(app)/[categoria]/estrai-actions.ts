@@ -73,6 +73,20 @@ export async function estraiProdottiDaPdfAction(
   orgId: string,
   categoria: string,
 ) {
+  try {
+    return await _estraiProdottiDaPdfAction(documentoId, storagePath, orgId, categoria);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `Errore interno: ${msg}` };
+  }
+}
+
+async function _estraiProdottiDaPdfAction(
+  documentoId: string,
+  storagePath: string,
+  orgId: string,
+  categoria: string,
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };

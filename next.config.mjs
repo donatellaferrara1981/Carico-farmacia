@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  serverExternalPackages: ['@anthropic-ai/sdk'],
   async headers() {
     return [
       {
