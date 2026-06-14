@@ -138,8 +138,9 @@ Regole:
 - tipo: "flacone" per liquidi, "vasetto" per acqua gel/creme/budini
 
 Normalizzazione nomi (usa SEMPRE il nome canonico a sinistra):
-- "Diason" → qualsiasi variante che contiene "Diason" (Nutrison Advanced Diason, Diason 500ml, ecc.) va chiamata "Diason" + dosaggio (es. "Diason 500ml")
+- "Diason" → qualsiasi variante che contiene "Diason" (Nutrison Advanced Diason, Diason 500ml, ecc.) → "Diason" + dosaggio (es. "Diason 500ml")
 - "Nutrison" → varianti senza "Diason" (Nutrison Energy, Nutrison Advanced, ecc.) → "Nutrison" + dosaggio
+- "Acqua gel" → qualsiasi variante (Acqua gelificata, Acqua Gel, AcquaGel, Gel d'acqua, ecc.) → "Acqua gel" + dosaggio (es. "Acqua gel 125g")
 - In generale: se due nomi si riferiscono chiaramente allo stesso prodotto, usa il nome più breve e riconoscibile
 
 OUTPUT: rispondi ESCLUSIVAMENTE con il JSON seguente, zero testo aggiuntivo prima o dopo:
