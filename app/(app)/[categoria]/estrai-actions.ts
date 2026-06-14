@@ -95,19 +95,9 @@ export async function estraiProdottiDaPdfAction(
   const arrayBuffer = await fileData.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const testo = await estraiTestoDaPdf(buffer);
-
-  if (!testo.trim()) {
-    return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
-  }
-
-  let estratti = categoria === 'nutrizioni'
-    ? parseNutrizioniText(testo)
-    : parseTerapiaText(testo);
-
-  // Fallback Claude per nutrizioni: se il parser regex trova < 3 prodotti
-  // invia il PDF direttamente a Claude per l'estrazione
-  if (categoria === 'nutrizioni' && estratti.length < 3) {
+  // Per nutrizioni: usa Claude direttamente sul PDF (struttura tabellare complessa)
+  // Per terapie/sanitario: estrai testo e usa parser regex
+  if (categoria === 'nutrizioni') {
     const base64Pdf = buffer.toString('base64');
     const anthropic = new Anthropic();
     const msg = await anthropic.messages.create({
@@ -122,35 +112,35 @@ export async function estraiProdottiDaPdfAction(
           },
           {
             type: 'text',
-            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali per pazienti di un reparto ospedaliero italiano. Ci sono più righe per lo stesso prodotto (una riga = un paziente che lo riceve).
+            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali di un reparto ospedaliero italiano. La tabella ha più righe per lo stesso prodotto (una riga = un paziente).
 
 Il tuo compito:
-1. Leggi SOLO la colonna che contiene il nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason", "Acqua gel")
-2. IGNORA completamente le colonne: indicazione, diagnosi, motivazione, patologia, note cliniche, nome paziente, letto, sala, data, medico
-3. Per ogni prodotto DISTINTO conta quante righe/prescrizioni ha (= quantità giornaliera totale del reparto)
-4. Classifica il tipo di confezionamento
+1. Identifica la colonna con il NOME DEL PRODOTTO nutrizionale (flaconi, vasetti, bustine — es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g", "Isosource Energy")
+2. IGNORA le colonne: indicazione clinica, diagnosi, patologia, nome paziente, letto, sala, data, medico, note
+3. Per ogni prodotto DISTINTO conta quante prescrizioni ha (righe con quel prodotto = quantità giornaliera del reparto)
+4. Includi nel nome anche il volume/formato se presente sulla stessa riga (es. "Nutrison 500ml" non solo "Nutrison")
 
-Per ogni prodotto unico restituisci:
-- nome: nome commerciale del prodotto (es. "Nutrison", "Ensure Plus", "Diason", "Isosource", "Fresubin")
-- volume: formato/volume (es. "500ml", "200ml", "125g") — includi unità di misura
-- quantita: numero totale di prescrizioni con questo prodotto (conta le righe duplicate)
-- tipo: "flacone" per liquidi, "vasetto" per acqua gel/creme/budini/mousse, "bustina" per polveri
+Per ogni prodotto distinto restituisci:
+- nome: nome completo con volume (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
+- quantita: numero totale di righe con quel prodotto
+- tipo: "flacone" per liquidi in bottiglia/flacone, "vasetto" per acqua gel/acqua gelificata/creme/budini/mousse, "bustina" per polveri in bustina
 
-Rispondi SOLO con un array JSON, nessun testo extra:
-[{"nome":"Nutrison","volume":"500ml","quantita":8,"tipo":"flacone"},{"nome":"Acqua gel","volume":"125g","quantita":3,"tipo":"vasetto"},...]
+Rispondi SOLO con array JSON:
+[{"nome":"Nutrison 500ml","quantita":5,"tipo":"flacone"},{"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}]
 
-Se nessun prodotto: []`,
+Se nessun prodotto nutrizionale trovato: []`,
           },
         ],
       }],
     });
 
     const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    let estratti: import('@/lib/parse-terapia').ProdottoEstratto[] = [];
     try {
       const match = raw.match(/\[[\s\S]*\]/);
       if (match) {
-        const items: { nome: string; volume: string; quantita?: number; tipo: string }[] = JSON.parse(match[0]);
-        const formaMap: Record<string, string> = {
+        const items: { nome: string; quantita?: number; tipo: string }[] = JSON.parse(match[0]);
+        const formaMap: Record<string, import('@/lib/prodotti').FormaFarmaceutica> = {
           flacone: 'flacone_infusione',
           vasetto: 'vasetto',
           bustina: 'sciroppo',
@@ -159,22 +149,80 @@ Se nessun prodotto: []`,
         estratti = items
           .filter((i) => i.nome && i.nome.length > 1)
           .map((i) => ({
-            principio_attivo: i.volume ? `${i.nome} ${i.volume}` : i.nome,
+            principio_attivo: i.nome,
             nome_commerciale: '',
-            forma_farmaceutica: (formaMap[i.tipo] ?? 'flacone_infusione') as import('@/lib/prodotti').FormaFarmaceutica,
-            dosaggio: i.tipo === 'vasetto' ? 'vasetto' : (i.volume ?? ''),
+            forma_farmaceutica: formaMap[i.tipo] ?? 'flacone_infusione',
+            dosaggio: i.tipo === 'vasetto' ? 'vasetto' : '',
             consumo_giornaliero: typeof i.quantita === 'number' && i.quantita > 0 ? i.quantita : 1,
             note: '',
           }));
       }
     } catch {
-      // ignora errore parsing Claude, usa quello che abbiamo
+      return { error: `Risposta Claude non interpretabile: ${raw.slice(0, 200)}` };
     }
+
+    if (!estratti.length) {
+      return { error: 'Nessun prodotto nutrizionale riconosciuto nel PDF.' };
+    }
+
+    // Salva / aggiorna prodotti
+    const { data: esistenti } = await supabase
+      .from('prodotti')
+      .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
+      .eq('org_id', orgId)
+      .eq('categoria', categoria);
+
+    const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const nuovi = [];
+    let aggiornati = 0;
+
+    for (const p of estratti) {
+      const match = (esistenti ?? []).find(
+        (e) =>
+          normalizza(e.principio_attivo) === normalizza(p.principio_attivo) &&
+          e.forma_farmaceutica === p.forma_farmaceutica,
+      );
+      if (match) {
+        await supabase.from('prodotti').update({ consumo_giornaliero: p.consumo_giornaliero }).eq('id', match.id);
+        aggiornati++;
+      } else {
+        nuovi.push({
+          org_id: orgId,
+          categoria,
+          principio_attivo: p.principio_attivo,
+          nome_commerciale: null,
+          forma_farmaceutica: p.forma_farmaceutica,
+          dosaggio: p.dosaggio || null,
+          quantita: 0,
+          consumo_giornaliero: p.consumo_giornaliero,
+          note: null,
+          ...(sala ? { sala } : {}),
+          ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
+        });
+      }
+    }
+
+    if (nuovi.length > 0) {
+      const { error: dbError } = await supabase.from('prodotti').insert(nuovi);
+      if (dbError) return { error: dbError.message };
+    }
+
+    revalidatePath(`/${categoria}`);
+    return { ok: true, count: nuovi.length, aggiornati };
   }
+
+  // Terapie / sanitario: estrai testo e usa parser regex
+  const testo = await estraiTestoDaPdf(buffer);
+
+  if (!testo.trim()) {
+    return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
+  }
+
+  const estratti = parseTerapiaText(testo);
 
   if (!estratti.length) {
     const anteprima = testo.slice(0, 300).replace(/\n+/g, ' ↵ ');
-    return { error: `Testo estratto ma nessun prodotto riconosciuto.\n\nAnteprima: "${anteprima}"` };
+    return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
   // Carica i prodotti già presenti per questo org+categoria+sala+UO
