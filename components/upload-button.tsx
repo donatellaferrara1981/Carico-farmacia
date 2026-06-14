@@ -28,8 +28,7 @@ export function UploadButton({
   const [salaId, setSalaId] = useState<string>('');
   const [isPending, startT] = useTransition();
 
-  // Sanitario non usa le sale
-  const useSala = categoria !== 'sanitario';
+  const useSala = true;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
