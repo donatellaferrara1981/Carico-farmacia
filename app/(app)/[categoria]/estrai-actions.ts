@@ -126,26 +126,16 @@ async function _estraiProdottiDaPdfAction(
           },
           {
             type: 'text',
-            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali di un reparto ospedaliero italiano.
+            text: `Estrai le prescrizioni nutrizionali da questo PDF ospedaliero italiano. La tabella ha colonne: dati paziente (COGNOME NOME, letto, sala) | nome prodotto nutrizionale | numero unità | indicazione clinica (ignora).
 
-La tabella ha questa struttura per colonne (da sinistra a destra):
-- Dati paziente: nome (COGNOME NOME in maiuscolo), numero letto, nome sala/stanza
-- Nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
-- Numero di flaconi/vasetti/unità (es. "2", "1", "3")
-- Eventuale indicazione clinica (disfagia, diabete, ecc.) — DA IGNORARE
+Regole:
+- Nome prodotto valido = marchio nutrizionale (Nutrison, Diason, Isosource, Ensure, Fresubin, Acqua gel, Fortimel, ecc.)
+- NON sono prodotti: "Fl vol. 500ml", "Fl (220ml/h)", indicazioni cliniche
+- Somma le unità per prodotto nell'array "prodotti"
+- Elenca ogni riga paziente nell'array "prescrizioni"
+- tipo: "flacone" per liquidi, "vasetto" per acqua gel/creme/budini
 
-Il tuo compito:
-1. Per ogni riga estrai: nominativo paziente, sala, numero letto, nome prodotto, numero unità
-2. Restituisci due array:
-   a) "prodotti": raggruppa per nome prodotto, SOMMA le unità totali del reparto
-   b) "prescrizioni": ogni riga del PDF con paziente + prodotto + unità
-
-ATTENZIONE — NON sono nomi prodotto:
-- Voci "Fl vol. 500 ml", "Fl (220 ml/h)", "Fl (durata: 1h)" — annotazioni di colonna
-- Indicazioni cliniche (disfagia, malnutrizione, diabete, ecc.)
-Un nome prodotto valido è sempre un marchio nutrizionale (Nutrison, Diason, Isosource, Ensure, Fresubin, Acqua gel, Fortimel, ecc.).
-
-Rispondi SOLO con JSON (nessun testo extra):
+OUTPUT: rispondi ESCLUSIVAMENTE con il JSON seguente, zero testo aggiuntivo prima o dopo:
 {
   "prodotti": [
     {"nome":"Nutrison 500ml","quantita":7,"tipo":"flacone"},
@@ -160,10 +150,15 @@ Rispondi SOLO con JSON (nessun testo extra):
 Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
           },
         ],
+      }, {
+        role: 'assistant',
+        content: '{',
       }],
     });
 
-    const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    const rawContent = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    // Il prefill '{' non viene incluso nel content restituito, lo aggiungiamo
+    const raw = '{' + rawContent;
     let estratti: import('@/lib/parse-terapia').ProdottoEstratto[] = [];
     type Prescrizione = { nominativo: string; sala: string; numero_letto: number; prodotto: string; quantita: number; tipo: string };
     let prescrizioni: Prescrizione[] = [];
