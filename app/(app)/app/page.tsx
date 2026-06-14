@@ -58,7 +58,7 @@ export default async function AppPage() {
       <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita} />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="font-display text-3xl font-semibold text-ink mb-1">
-          Benvenuta, {ctx.profile.full_name?.split(' ')[0]}
+          Benvenuta, {ctx.profile.full_name?.split(' ').at(-1)}
         </h1>
         <div className="flex items-center gap-3 mb-8">
           <p className="text-ink-soft text-sm">{ctx.organization.name}</p>
