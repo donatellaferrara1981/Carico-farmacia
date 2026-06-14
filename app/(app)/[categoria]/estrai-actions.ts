@@ -115,32 +115,35 @@ export async function estraiProdottiDaPdfAction(
             text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali di un reparto ospedaliero italiano.
 
 La tabella ha questa struttura per colonne (da sinistra a destra):
-- Dati paziente (nome, letto, sala, ecc.) — DA IGNORARE
-- Nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g") — COLONNA CHIAVE
-- Numero di flaconi/vasetti/unità (es. "2", "1", "3") — SOMMARE per prodotto
+- Dati paziente: nome (COGNOME NOME in maiuscolo), numero letto, nome sala/stanza
+- Nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
+- Numero di flaconi/vasetti/unità (es. "2", "1", "3")
 - Eventuale indicazione clinica (disfagia, diabete, ecc.) — DA IGNORARE
 
 Il tuo compito:
-1. Per ogni riga leggi: NOME PRODOTTO e NUMERO DI UNITÀ dalla colonna successiva al nome
-2. Raggruppa per nome prodotto e SOMMA i numeri di unità di tutte le righe con quel prodotto
-3. Includi il volume nel nome se presente (es. "Nutrison 500ml", non solo "Nutrison")
+1. Per ogni riga estrai: nominativo paziente, sala, numero letto, nome prodotto, numero unità
+2. Restituisci due array:
+   a) "prodotti": raggruppa per nome prodotto, SOMMA le unità totali del reparto
+   b) "prescrizioni": ogni riga del PDF con paziente + prodotto + unità
 
 ATTENZIONE — NON sono nomi prodotto:
-- Voci che iniziano con "Fl " o "Fl." seguite da volume/velocità/durata (es. "Fl vol. 500 ml", "Fl (220 ml/h)", "Fl (durata: 1h)") — queste sono annotazioni di colonna
+- Voci "Fl vol. 500 ml", "Fl (220 ml/h)", "Fl (durata: 1h)" — annotazioni di colonna
 - Indicazioni cliniche (disfagia, malnutrizione, diabete, ecc.)
-- Nomi di pazienti, date, numeri di letto
+Un nome prodotto valido è sempre un marchio nutrizionale (Nutrison, Diason, Isosource, Ensure, Fresubin, Acqua gel, Fortimel, ecc.).
 
-Un nome prodotto valido è sempre un marchio commerciale nutrizionale (Nutrison, Diason, Isosource, Ensure, Fresubin, Acqua gel, Fortimel, ecc.) eventualmente seguito dal volume.
+Rispondi SOLO con JSON (nessun testo extra):
+{
+  "prodotti": [
+    {"nome":"Nutrison 500ml","quantita":7,"tipo":"flacone"},
+    {"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}
+  ],
+  "prescrizioni": [
+    {"nominativo":"ROSSI MARIO","sala":"STANZA GRANDE PIANO TERRA","numero_letto":1,"prodotto":"Nutrison 500ml","quantita":2,"tipo":"flacone"},
+    {"nominativo":"BIANCHI ANNA","sala":"STANZA PICCOLA PIANO TERRA","numero_letto":3,"prodotto":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}
+  ]
+}
 
-Per ogni prodotto distinto restituisci:
-- nome: nome commerciale con volume (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
-- quantita: SOMMA totale delle unità di tutte le righe con quel prodotto
-- tipo: "flacone" per liquidi in bottiglia, "vasetto" per acqua gel/creme/budini/mousse, "bustina" per polveri
-
-Rispondi SOLO con array JSON:
-[{"nome":"Nutrison 500ml","quantita":7,"tipo":"flacone"},{"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}]
-
-Se nessun prodotto nutrizionale trovato: []`,
+Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
           },
         ],
       }],
@@ -148,10 +151,16 @@ Se nessun prodotto nutrizionale trovato: []`,
 
     const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
     let estratti: import('@/lib/parse-terapia').ProdottoEstratto[] = [];
+    type Prescrizione = { nominativo: string; sala: string; numero_letto: number; prodotto: string; quantita: number; tipo: string };
+    let prescrizioni: Prescrizione[] = [];
+
     try {
-      const match = raw.match(/\[[\s\S]*\]/);
+      const match = raw.match(/\{[\s\S]*\}/);
       if (match) {
-        const items: { nome: string; quantita?: number; tipo: string }[] = JSON.parse(match[0]);
+        const parsed = JSON.parse(match[0]);
+        const items: { nome: string; quantita?: number; tipo: string }[] = parsed.prodotti ?? [];
+        prescrizioni = parsed.prescrizioni ?? [];
+
         const formaMap: Record<string, import('@/lib/prodotti').FormaFarmaceutica> = {
           flacone: 'flacone_infusione',
           vasetto: 'vasetto',
@@ -177,7 +186,7 @@ Se nessun prodotto nutrizionale trovato: []`,
       return { error: 'Nessun prodotto nutrizionale riconosciuto nel PDF.' };
     }
 
-    // Salva / aggiorna prodotti
+    // 1. Salva / aggiorna totali prodotti
     const { data: esistenti } = await supabase
       .from('prodotti')
       .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
@@ -213,13 +222,51 @@ Se nessun prodotto nutrizionale trovato: []`,
         });
       }
     }
-
     if (nuovi.length > 0) {
       const { error: dbError } = await supabase.from('prodotti').insert(nuovi);
       if (dbError) return { error: dbError.message };
     }
 
+    // 2. Salva prescrizioni per paziente in terapie_pazienti (tipo='nutrizione')
+    if (prescrizioni.length > 0) {
+      // Carica pazienti esistenti per matchare sala+letto
+      const { data: pazienti } = await supabase
+        .from('pazienti')
+        .select('id, nominativo, sala, numero_letto')
+        .eq('org_id', orgId);
+
+      // Rimuovi le nutrizioni precedenti per questa org (aggiornamento completo)
+      await supabase.from('terapie_pazienti').delete().eq('org_id', orgId).eq('tipo', 'nutrizione');
+
+      const nuovePrescrizioni = [];
+      for (const pr of prescrizioni) {
+        // Cerca paziente per sala+letto (più affidabile) o per nome
+        let paziente = (pazienti ?? []).find(
+          (p) => p.numero_letto === pr.numero_letto && normalizza(p.sala) === normalizza(pr.sala)
+        );
+        if (!paziente && pr.nominativo) {
+          const cognome = pr.nominativo.split(' ')[0].toLowerCase();
+          paziente = (pazienti ?? []).find((p) => p.nominativo.toLowerCase().includes(cognome));
+        }
+        if (!paziente) continue;
+
+        nuovePrescrizioni.push({
+          org_id: orgId,
+          paziente_id: paziente.id,
+          principio_attivo: pr.prodotto,
+          dosaggio: pr.tipo === 'vasetto' ? 'vasetto' : null,
+          posologia: `${pr.quantita} ${pr.tipo === 'vasetto' ? 'vasetti' : 'fl'}/die`,
+          tipo: 'nutrizione',
+        });
+      }
+
+      if (nuovePrescrizioni.length > 0) {
+        await supabase.from('terapie_pazienti').insert(nuovePrescrizioni);
+      }
+    }
+
     revalidatePath(`/${categoria}`);
+    revalidatePath('/pazienti');
     return { ok: true, count: nuovi.length, aggiornati };
   }
 
