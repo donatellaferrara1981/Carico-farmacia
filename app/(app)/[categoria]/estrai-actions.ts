@@ -150,15 +150,10 @@ OUTPUT: rispondi ESCLUSIVAMENTE con il JSON seguente, zero testo aggiuntivo prim
 Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
           },
         ],
-      }, {
-        role: 'assistant',
-        content: '{',
       }],
     });
 
-    const rawContent = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
-    // Il prefill '{' non viene incluso nel content restituito, lo aggiungiamo
-    const raw = '{' + rawContent;
+    const raw = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
     let estratti: import('@/lib/parse-terapia').ProdottoEstratto[] = [];
     type Prescrizione = { nominativo: string; sala: string; numero_letto: number; prodotto: string; quantita: number; tipo: string };
     let prescrizioni: Prescrizione[] = [];
