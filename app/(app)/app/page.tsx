@@ -86,88 +86,61 @@ export default async function AppPage() {
         {/* Sezioni categoria — solo se UO selezionata */}
         {uoAttiva ? (
           <>
-            <div className="flex items-center gap-2 mb-3">
-              <h2 className="font-semibold text-ink">
-                Sezioni — <span className="text-forest">{uoAttiva.nome}</span>
-              </h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3 mb-4">
+            <p className="text-xs text-ink-mute mb-3 font-medium uppercase tracking-wide">{uoAttiva.nome}</p>
+
+            {/* Categoria principali — griglia compatta */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {(['terapie', 'nutrizioni', 'sanitario'] as const).map((cat) => (
                 <Link
                   key={cat}
                   href={`/${cat}`}
-                  className="card hover:border-forest/40 hover:shadow-sm transition-all group"
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group"
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-9 h-9 rounded-lg bg-forest-tint flex items-center justify-center group-hover:bg-forest/10 transition-colors text-xl">
-                      {CAT_ICONS[cat]}
-                    </div>
-                    <h3 className="font-semibold text-ink">{CAT_LABELS[cat]}</h3>
+                  <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10 transition-colors text-2xl">
+                    {CAT_ICONS[cat]}
                   </div>
-                  <p className="text-ink-mute text-sm">Prodotti, scorte e documenti</p>
-                  <p className="text-xs text-forest mt-1 font-medium">{uoAttiva.nome}</p>
+                  <span className="text-xs font-semibold text-ink">{CAT_LABELS[cat]}</span>
                 </Link>
               ))}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 mb-4">
-              <Link href="/calendario" className="card hover:border-forest/40 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-forest-tint flex items-center justify-center shrink-0 group-hover:bg-forest/10">
-                  <CalendarDays className="w-5 h-5 text-forest" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Calendario</h3>
-                  <p className="text-ink-mute text-sm">Piani fabbisogno salvati</p>
-                  <p className="text-xs text-forest mt-0.5 font-medium">{uoAttiva.nome}</p>
-                </div>
-              </Link>
-              <Link href="/grafici" className="card hover:border-forest/40 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-forest-tint flex items-center justify-center shrink-0 group-hover:bg-forest/10">
-                  <BarChart2 className="w-5 h-5 text-forest" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Grafici</h3>
-                  <p className="text-ink-mute text-sm">Scorte, consumi e analisi</p>
-                </div>
-              </Link>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <Link href="/pazienti" className="card hover:border-forest/40 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-forest-tint flex items-center justify-center shrink-0 group-hover:bg-forest/10">
+            {/* Altre sezioni — griglia compatta 3 colonne */}
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <Link href="/pazienti" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10">
                   <Users className="w-5 h-5 text-forest" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Pazienti ricoverati</h3>
-                  <p className="text-ink-mute text-sm">Carica mappa posti letto — OCR per sala</p>
-                </div>
+                <span className="text-xs font-semibold text-ink text-center">Pazienti</span>
               </Link>
-              <Link href="/gare" className="card hover:border-purple-300 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center shrink-0 group-hover:bg-purple-100">
-                  <Gavel className="w-5 h-5 text-purple-700" />
+              <Link href="/calendario" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10">
+                  <CalendarDays className="w-5 h-5 text-forest" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Gare d&apos;appalto</h3>
-                  <p className="text-ink-mute text-sm">Contratti regionali farmaci e sanitario</p>
-                </div>
+                <span className="text-xs font-semibold text-ink">Calendario</span>
               </Link>
-              <Link href="/germ-alert" className="card hover:border-red-200 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0 group-hover:bg-red-100">
-                  <Microscope className="w-5 h-5 text-red-600" />
+              <Link href="/grafici" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10">
+                  <BarChart2 className="w-5 h-5 text-forest" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Germ Alert</h3>
-                  <p className="text-ink-mute text-sm">Referti microbiologici · antibiogramma</p>
-                </div>
+                <span className="text-xs font-semibold text-ink">Grafici</span>
               </Link>
-              <Link href="/approvvigionamento" className="card hover:border-amber/40 hover:shadow-sm transition-all group flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-amber/10 flex items-center justify-center shrink-0 group-hover:bg-amber/20">
+              <Link href="/approvvigionamento" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-amber/40 hover:bg-amber/5 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-amber/10 flex items-center justify-center group-hover:bg-amber/20">
                   <ClipboardList className="w-5 h-5 text-amber" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-ink">Approvvigionamento</h3>
-                  <p className="text-ink-mute text-sm">Calcola ordini ed esporta in PDF o CSV</p>
+                <span className="text-xs font-semibold text-ink text-center">Ordini</span>
+              </Link>
+              <Link href="/gare" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-purple-300 hover:bg-purple-50 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center group-hover:bg-purple-100">
+                  <Gavel className="w-5 h-5 text-purple-700" />
                 </div>
+                <span className="text-xs font-semibold text-ink">Gare</span>
+              </Link>
+              <Link href="/germ-alert" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-red-200 hover:bg-red-50 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center group-hover:bg-red-100">
+                  <Microscope className="w-5 h-5 text-red-600" />
+                </div>
+                <span className="text-xs font-semibold text-ink">Germ Alert</span>
               </Link>
             </div>
           </>
