@@ -75,9 +75,10 @@ export function DocumentiList({
     startExtract(async () => {
       let totaleNuovi = 0;
       let totaleAggiornati = 0;
-      for (const doc of selezionati) {
+      for (let i = 0; i < selezionati.length; i++) {
+        const doc = selezionati[i];
         setExtractResult({ current: doc.nome_file });
-        const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria);
+        const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria, i === 0);
         if ('error' in res) {
           setExtractResult({ error: `${doc.nome_file}: ${res.error}` });
           return;

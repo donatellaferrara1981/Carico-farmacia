@@ -72,9 +72,10 @@ export async function estraiProdottiDaPdfAction(
   storagePath: string,
   orgId: string,
   categoria: string,
+  isFirstInBatch = true,
 ) {
   try {
-    return await _estraiProdottiDaPdfAction(documentoId, storagePath, orgId, categoria);
+    return await _estraiProdottiDaPdfAction(documentoId, storagePath, orgId, categoria, isFirstInBatch);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return { error: `Errore interno: ${msg}` };
@@ -86,6 +87,7 @@ async function _estraiProdottiDaPdfAction(
   storagePath: string,
   orgId: string,
   categoria: string,
+  isFirstInBatch: boolean,
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -191,6 +193,14 @@ Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
     }
 
     // 1. Salva / aggiorna totali prodotti
+    // Se è il primo PDF del batch, azzera i conteggi esistenti (fresh start)
+    if (isFirstInBatch) {
+      await supabase.from('prodotti')
+        .update({ consumo_giornaliero: 0 })
+        .eq('org_id', orgId)
+        .eq('categoria', categoria);
+    }
+
     const { data: esistenti } = await supabase
       .from('prodotti')
       .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
@@ -208,7 +218,8 @@ Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
           e.forma_farmaceutica === p.forma_farmaceutica,
       );
       if (match) {
-        await supabase.from('prodotti').update({ consumo_giornaliero: p.consumo_giornaliero }).eq('id', match.id);
+        // Nutrizioni: somma i fl dei vari PDF (notte + pom + mattina)
+        await supabase.from('prodotti').update({ consumo_giornaliero: (match.consumo_giornaliero ?? 0) + p.consumo_giornaliero }).eq('id', match.id);
         aggiornati++;
       } else {
         nuovi.push({
