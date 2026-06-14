@@ -112,21 +112,26 @@ export async function estraiProdottiDaPdfAction(
           },
           {
             type: 'text',
-            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali di un reparto ospedaliero italiano. La tabella ha più righe per lo stesso prodotto (una riga = un paziente).
+            text: `Sei un assistente ospedaliero. Questo PDF contiene una lista di prescrizioni nutrizionali di un reparto ospedaliero italiano.
+
+La tabella ha questa struttura per colonne (da sinistra a destra):
+- Dati paziente (nome, letto, sala, ecc.) — DA IGNORARE
+- Nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g") — COLONNA CHIAVE
+- Numero di flaconi/vasetti/unità (es. "2 fl", "1", "3") — SOMMARE per prodotto
+- Eventuale indicazione clinica (disfagia, diabete, ecc.) — DA IGNORARE
 
 Il tuo compito:
-1. Identifica la colonna con il NOME DEL PRODOTTO nutrizionale (flaconi, vasetti, bustine — es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g", "Isosource Energy")
-2. IGNORA le colonne: indicazione clinica, diagnosi, patologia, nome paziente, letto, sala, data, medico, note
-3. Per ogni prodotto DISTINTO conta quante prescrizioni ha (righe con quel prodotto = quantità giornaliera del reparto)
-4. Includi nel nome anche il volume/formato se presente sulla stessa riga (es. "Nutrison 500ml" non solo "Nutrison")
+1. Per ogni riga leggi: NOME PRODOTTO e NUMERO DI UNITÀ (fl/vasetti) dalla colonna successiva al nome
+2. Raggruppa per nome prodotto e SOMMA i numeri di unità di tutte le righe con quel prodotto
+3. Includi il volume nel nome se presente (es. "Nutrison 500ml", non solo "Nutrison")
 
 Per ogni prodotto distinto restituisci:
 - nome: nome completo con volume (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
-- quantita: numero totale di righe con quel prodotto
-- tipo: "flacone" per liquidi in bottiglia/flacone, "vasetto" per acqua gel/acqua gelificata/creme/budini/mousse, "bustina" per polveri in bustina
+- quantita: SOMMA totale dei flaconi/vasetti/unità di tutte le righe con quel prodotto
+- tipo: "flacone" per liquidi in bottiglia/flacone, "vasetto" per acqua gel/acqua gelificata/creme/budini/mousse, "bustina" per polveri
 
 Rispondi SOLO con array JSON:
-[{"nome":"Nutrison 500ml","quantita":5,"tipo":"flacone"},{"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}]
+[{"nome":"Nutrison 500ml","quantita":7,"tipo":"flacone"},{"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}]
 
 Se nessun prodotto nutrizionale trovato: []`,
           },
