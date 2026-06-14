@@ -117,18 +117,25 @@ export async function estraiProdottiDaPdfAction(
 La tabella ha questa struttura per colonne (da sinistra a destra):
 - Dati paziente (nome, letto, sala, ecc.) — DA IGNORARE
 - Nome del prodotto nutrizionale (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g") — COLONNA CHIAVE
-- Numero di flaconi/vasetti/unità (es. "2 fl", "1", "3") — SOMMARE per prodotto
+- Numero di flaconi/vasetti/unità (es. "2", "1", "3") — SOMMARE per prodotto
 - Eventuale indicazione clinica (disfagia, diabete, ecc.) — DA IGNORARE
 
 Il tuo compito:
-1. Per ogni riga leggi: NOME PRODOTTO e NUMERO DI UNITÀ (fl/vasetti) dalla colonna successiva al nome
+1. Per ogni riga leggi: NOME PRODOTTO e NUMERO DI UNITÀ dalla colonna successiva al nome
 2. Raggruppa per nome prodotto e SOMMA i numeri di unità di tutte le righe con quel prodotto
 3. Includi il volume nel nome se presente (es. "Nutrison 500ml", non solo "Nutrison")
 
+ATTENZIONE — NON sono nomi prodotto:
+- Voci che iniziano con "Fl " o "Fl." seguite da volume/velocità/durata (es. "Fl vol. 500 ml", "Fl (220 ml/h)", "Fl (durata: 1h)") — queste sono annotazioni di colonna
+- Indicazioni cliniche (disfagia, malnutrizione, diabete, ecc.)
+- Nomi di pazienti, date, numeri di letto
+
+Un nome prodotto valido è sempre un marchio commerciale nutrizionale (Nutrison, Diason, Isosource, Ensure, Fresubin, Acqua gel, Fortimel, ecc.) eventualmente seguito dal volume.
+
 Per ogni prodotto distinto restituisci:
-- nome: nome completo con volume (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
-- quantita: SOMMA totale dei flaconi/vasetti/unità di tutte le righe con quel prodotto
-- tipo: "flacone" per liquidi in bottiglia/flacone, "vasetto" per acqua gel/acqua gelificata/creme/budini/mousse, "bustina" per polveri
+- nome: nome commerciale con volume (es. "Nutrison 500ml", "Diason 500ml", "Acqua gel 125g")
+- quantita: SOMMA totale delle unità di tutte le righe con quel prodotto
+- tipo: "flacone" per liquidi in bottiglia, "vasetto" per acqua gel/creme/budini/mousse, "bustina" per polveri
 
 Rispondi SOLO con array JSON:
 [{"nome":"Nutrison 500ml","quantita":7,"tipo":"flacone"},{"nome":"Acqua gel 125g","quantita":3,"tipo":"vasetto"}]
