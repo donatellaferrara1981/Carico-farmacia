@@ -65,6 +65,7 @@ export default async function PazientiPage() {
       principio_attivo: t.principio_attivo,
       dosaggio: t.dosaggio ?? null,
       posologia: t.posologia ?? null,
+      tipo: t.tipo ?? 'terapia',
     });
   }
 
