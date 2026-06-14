@@ -270,7 +270,98 @@ Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
     return { ok: true, count: nuovi.length, aggiornati };
   }
 
-  // Terapie / sanitario: estrai testo e usa parser regex
+  // Sanitario: usa Claude per leggere liste di materiale ospedaliero
+  if (categoria === 'sanitario') {
+    const base64Pdf = buffer.toString('base64');
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64Pdf },
+          },
+          {
+            type: 'text',
+            text: `Sei un assistente per una farmacia ospedaliera italiana. Questo PDF contiene una lista di materiale sanitario (presidi, dispositivi medici, guanti, cateteri, garze, ecc.).
+
+Estrai ogni articolo presente nella lista. Per ogni articolo restituisci:
+- "nome": nome completo del prodotto (stringa, così come appare nella lista)
+- "codice": codice/cod. del prodotto se presente, altrimenti null
+- "quantita": quantità se indicata numericamente, altrimenti 1
+
+Rispondi SOLO con JSON (nessun testo extra):
+{"articoli":[
+  {"nome":"AGHI A FARFALLA 21G DA 19 A 20 MM","codice":"2100324021","quantita":1},
+  {"nome":"GARZA IDROFILA 20x20 10G","codice":"12400620220","quantita":1}
+]}
+
+Se nessun articolo trovato: {"articoli":[]}`,
+          },
+        ],
+      }],
+    });
+
+    const rawMsg = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    let articoli: Array<{ nome: string; codice: string | null; quantita: number }> = [];
+    try {
+      const match = rawMsg.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        articoli = parsed.articoli ?? [];
+      }
+    } catch {
+      return { error: `Risposta Claude non interpretabile: ${rawMsg.slice(0, 200)}` };
+    }
+
+    if (!articoli.length) return { error: 'Nessun articolo sanitario riconosciuto nel PDF.' };
+
+    const { data: esistenti } = await supabase
+      .from('prodotti')
+      .select('id, principio_attivo, nome_commerciale')
+      .eq('org_id', orgId)
+      .eq('categoria', 'sanitario');
+
+    const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const nuovi = [];
+    let aggiornati = 0;
+
+    for (const art of articoli) {
+      const match = (esistenti ?? []).find(
+        (e) => normalizza(e.principio_attivo) === normalizza(art.nome)
+      );
+      if (match) {
+        aggiornati++;
+      } else {
+        nuovi.push({
+          org_id: orgId,
+          categoria: 'sanitario',
+          principio_attivo: art.nome,
+          nome_commerciale: art.codice ? `cod. ${art.codice}` : null,
+          forma_farmaceutica: 'altro' as const,
+          dosaggio: null,
+          quantita: 0,
+          consumo_giornaliero: art.quantita ?? 1,
+          note: null,
+          ...(sala ? { sala } : {}),
+          ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
+        });
+      }
+    }
+
+    if (nuovi.length > 0) {
+      const { error: dbError } = await supabase.from('prodotti').insert(nuovi);
+      if (dbError) return { error: dbError.message };
+    }
+
+    revalidatePath('/sanitario');
+    return { ok: true, count: nuovi.length, aggiornati };
+  }
+
+  // Terapie: estrai testo e usa parser regex
   const testo = await estraiTestoDaPdf(buffer);
 
   if (!testo.trim()) {
@@ -393,20 +484,36 @@ export async function estraiProdottiDaImmagineAction(
         },
         {
           type: 'text',
-          text: `Sei un assistente per una farmacia ospedaliera italiana. Analizza questa immagine (potrebbe essere una lista di terapie, un foglio di richiesta farmaci, una lista pazienti con terapie, ecc.) ed estrai tutti i farmaci/prodotti presenti.
+          text: categoria === 'sanitario'
+            ? `Sei un assistente per una farmacia ospedaliera italiana. Questa immagine mostra una lista di materiale sanitario (presidi medici, guanti, cateteri, garze, dispositivi, aghi, ecc.).
 
-Per ogni farmaco restituisci SOLO un oggetto JSON nell'array, con questi campi:
+Estrai ogni articolo presente nell'elenco. Per ogni articolo restituisci SOLO un oggetto JSON nell'array:
+- principio_attivo: string (nome completo dell'articolo, così come appare nella lista, in MAIUSCOLO)
+- nome_commerciale: string | null (codice prodotto se presente, es. "cod. 2100324021", altrimenti null)
+- forma_farmaceutica: sempre "altro"
+- dosaggio: null
+- consumo_giornaliero: 1
+- note: null
+
+Includi TUTTI gli articoli della lista, anche quelli con X o segno di spunta accanto.
+Rispondi SOLO con array JSON valido, senza testo extra. Esempio:
+[{"principio_attivo":"AGHI A FARFALLA 21G DA 19 A 20 MM","nome_commerciale":"cod. 2100324021","forma_farmaceutica":"altro","dosaggio":null,"consumo_giornaliero":1,"note":null}]
+
+Se nessun articolo: []`
+            : `Sei un assistente per una farmacia ospedaliera italiana. Analizza questa immagine (lista terapie, richiesta farmaci, foglio paziente, ecc.) ed estrai tutti i farmaci presenti.
+
+Per ogni farmaco restituisci SOLO un oggetto JSON nell'array:
 - principio_attivo: string (nome del principio attivo, in italiano, maiuscolo iniziale)
 - nome_commerciale: string | null
 - forma_farmaceutica: una di: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
 - dosaggio: string | null (es. "500 mg", "1 g/100 ml")
-- consumo_giornaliero: number (unità al giorno per paziente, default 1 se non specificato)
+- consumo_giornaliero: number (unità al giorno, default 1)
 - note: string | null
 
-Rispondi SOLO con un array JSON valido, senza testo aggiuntivo. Esempio:
+Rispondi SOLO con array JSON valido, senza testo aggiuntivo. Esempio:
 [{"principio_attivo":"Amoxicillina","nome_commerciale":"Augmentin","forma_farmaceutica":"compressa","dosaggio":"875 mg","consumo_giornaliero":2,"note":null}]
 
-Se non trovi farmaci rispondi con array vuoto: []`,
+Se nessun farmaco: []`,
         },
       ],
     }],
