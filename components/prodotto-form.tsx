@@ -257,31 +257,40 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
 
             {/* Principio attivo + nome commerciale */}
             <div>
-              <label className="label-xs !text-[10px]">Principio attivo *</label>
+              <label className="label-xs !text-[10px]">
+                {categoria === 'sanitario' ? 'Nome articolo *' : 'Principio attivo *'}
+              </label>
               <input className="input-base text-xs py-1" value={vals.principio_attivo}
-                onChange={e => set('principio_attivo', e.target.value)} placeholder="es. Paracetamolo" required />
+                onChange={e => set('principio_attivo', e.target.value)}
+                placeholder={categoria === 'sanitario' ? 'es. GARZA IDROFILA 20x20' : 'es. Paracetamolo'}
+                required />
             </div>
             <div>
-              <label className="label-xs !text-[10px]">Nome commerciale</label>
+              <label className="label-xs !text-[10px]">
+                {categoria === 'sanitario' ? 'Codice / marca' : 'Nome commerciale'}
+              </label>
               <input className="input-base text-xs py-1" value={vals.nome_commerciale}
-                onChange={e => set('nome_commerciale', e.target.value)} placeholder="es. Tachipirina" />
+                onChange={e => set('nome_commerciale', e.target.value)}
+                placeholder={categoria === 'sanitario' ? 'es. cod. 12400620220' : 'es. Tachipirina'} />
             </div>
 
-            {/* Forma + dosaggio */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="label-xs !text-[10px]">Forma *</label>
-                <select className="input-base text-xs py-1" value={vals.forma_farmaceutica}
-                  onChange={e => set('forma_farmaceutica', e.target.value)}>
-                  {FORME_FARMACEUTICHE.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
+            {/* Forma + dosaggio — solo per farmaci */}
+            {categoria !== 'sanitario' && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label-xs !text-[10px]">Forma *</label>
+                  <select className="input-base text-xs py-1" value={vals.forma_farmaceutica}
+                    onChange={e => set('forma_farmaceutica', e.target.value)}>
+                    {FORME_FARMACEUTICHE.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-xs !text-[10px]">Dosaggio</label>
+                  <input className="input-base text-xs py-1" value={vals.dosaggio}
+                    onChange={e => set('dosaggio', e.target.value)} placeholder="es. 500 mg" />
+                </div>
               </div>
-              <div>
-                <label className="label-xs !text-[10px]">Dosaggio</label>
-                <input className="input-base text-xs py-1" value={vals.dosaggio}
-                  onChange={e => set('dosaggio', e.target.value)} placeholder="es. 500 mg" />
-              </div>
-            </div>
+            )}
 
             {/* Quantità + consumo */}
             <div className="grid grid-cols-2 gap-2">
@@ -298,7 +307,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
             </div>
 
             {/* Soglia + scadenza */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={categoria === 'sanitario' ? '' : 'grid grid-cols-2 gap-2'}>
               <div>
                 <div className="flex items-center justify-between mb-0.5">
                   <label className="label-xs !text-[10px]">Soglia alert scorta</label>
@@ -313,25 +322,27 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
                   onChange={e => set('soglia_minima', e.target.value)}
                   placeholder={sogliaSuggerita ? `suggerito: ${sogliaSuggerita}` : 'es. 5'} />
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-0.5">
-                  <label className="label-xs !text-[10px]">Scadenza farmaco</label>
-                  <button type="button" onClick={() => setShowScanner(true)}
-                    title="Scansiona codice a barre"
-                    className="flex items-center gap-0.5 text-[9px] text-forest hover:underline leading-none">
-                    <ScanBarcode className="w-3 h-3" /> scan
-                  </button>
+              {categoria !== 'sanitario' && (
+                <div>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="label-xs !text-[10px]">Scadenza farmaco</label>
+                    <button type="button" onClick={() => setShowScanner(true)}
+                      title="Scansiona codice a barre"
+                      className="flex items-center gap-0.5 text-[9px] text-forest hover:underline leading-none">
+                      <ScanBarcode className="w-3 h-3" /> scan
+                    </button>
+                  </div>
+                  <input type="date" className="input-base text-xs py-1" value={vals.data_scadenza}
+                    onChange={e => set('data_scadenza', e.target.value)} />
                 </div>
-                <input type="date" className="input-base text-xs py-1" value={vals.data_scadenza}
-                  onChange={e => set('data_scadenza', e.target.value)} />
-              </div>
+              )}
             </div>
 
             {/* Note inline */}
             <NoteWidget value={vals.note} onChange={v => set('note', v)} />
 
-            {/* ── Sezione consegna farmacia ── */}
-            <div className="rounded-lg border border-line overflow-hidden">
+            {/* ── Sezione consegna farmacia — solo per farmaci ── */}
+            {categoria !== 'sanitario' && <div className="rounded-lg border border-line overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowConsegna(v => !v)}
@@ -372,7 +383,7 @@ export function ProdottoForm({ orgId, categoria, prodotto, onClose }: Props) {
                   </label>
                 </div>
               )}
-            </div>
+            </div>}
 
           </div>
 
