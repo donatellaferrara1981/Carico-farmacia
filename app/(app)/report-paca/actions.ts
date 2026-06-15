@@ -83,3 +83,66 @@ export async function modificaVoceChecklistAction(voceId: string, nuovoTesto: st
   revalidatePath('/pazienti');
   return { ok: true };
 }
+
+export async function toggleVoceChecklistPacaAction(voceId: string, completata: boolean, completataDa: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  await supabase
+    .from('checklist_dimissione')
+    .update({
+      completata,
+      completata_da: completata ? completataDa : null,
+      completata_at: completata ? new Date().toISOString() : null,
+    })
+    .eq('id', voceId);
+
+  revalidatePath('/report-paca');
+  revalidatePath('/pazienti');
+  return { ok: true };
+}
+
+const VOCI_STANDARD_CHECKLIST = [
+  'Cartella clinica compilata e firmata',
+  'SDO compilata e validata',
+  'Epicrisi firmata dal medico responsabile',
+  'Lettera di dimissione redatta e firmata',
+  'Piano terapeutico alla dimissione allegato',
+  'Referti esami allegati',
+  'Immagini diagnostiche archiviate',
+  'Consensi informati archiviati',
+  'Ricette SSN emesse',
+  'Farmaci alla dimissione consegnati',
+  'Istruzioni scritte al paziente/familiari',
+  'Appuntamento follow-up programmato',
+];
+
+export async function inizializzaChecklistPacaAction(pazienteId: string, orgId: string, codiceSdo?: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { count } = await supabase
+    .from('checklist_dimissione')
+    .select('id', { count: 'exact', head: true })
+    .eq('paziente_id', pazienteId);
+
+  if ((count ?? 0) > 0) return { ok: true, existing: true };
+
+  const voci = VOCI_STANDARD_CHECKLIST.map((voce, i) => ({
+    org_id: orgId,
+    paziente_id: pazienteId,
+    codice_sdo: codiceSdo ?? null,
+    voce,
+    ordine: i,
+    completata: false,
+  }));
+
+  const { error } = await supabase.from('checklist_dimissione').insert(voci);
+  if (error) return { error: error.message };
+
+  revalidatePath('/report-paca');
+  revalidatePath('/pazienti');
+  return { ok: true };
+}
