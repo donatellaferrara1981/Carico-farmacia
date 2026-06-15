@@ -74,18 +74,39 @@ export function DocumentiList({
     if (!selezionati.length) return;
     setExtractResult(null);
     startExtract(async () => {
+      setExtractResult({ current: `Analisi ${selezionati.length} file…` });
+
+      // Immagini in parallelo, PDF in sequenza (per isFirstInBatch)
+      const immagini = selezionati.filter((d) => isImage(d.nome_file));
+      const pdfs     = selezionati.filter((d) => !isImage(d.nome_file));
+
+      const results = await Promise.all([
+        // Immagini tutte insieme
+        ...immagini.map((doc) =>
+          estraiProdottiDaImmagineAction(doc.id, doc.storage_path, orgId, categoria)
+            .then((res) => ({ doc, res }))
+        ),
+        // PDF in sequenza con Promise.resolve chain
+        (async () => {
+          const out = [];
+          for (let i = 0; i < pdfs.length; i++) {
+            const doc = pdfs[i];
+            const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria, i === 0);
+            out.push({ doc, res });
+          }
+          return out;
+        })(),
+      ]);
+
+      // Appiattisci risultati
+      const flat = [
+        ...(results.slice(0, immagini.length) as Array<{ doc: Documento; res: { ok?: boolean; count?: number; aggiornati?: number; error?: string } }>),
+        ...(results[immagini.length] as Array<{ doc: Documento; res: { ok?: boolean; count?: number; aggiornati?: number; error?: string } }>),
+      ];
+
       let totaleNuovi = 0;
       let totaleAggiornati = 0;
-      let pdfIndex = 0;
-      for (const doc of selezionati) {
-        setExtractResult({ current: doc.nome_file });
-        let res;
-        if (isImage(doc.nome_file)) {
-          res = await estraiProdottiDaImmagineAction(doc.id, doc.storage_path, orgId, categoria);
-        } else {
-          res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria, pdfIndex === 0);
-          pdfIndex++;
-        }
+      for (const { doc, res } of flat) {
         if ('error' in res) {
           setExtractResult({ error: `${doc.nome_file}: ${res.error}` });
           return;
