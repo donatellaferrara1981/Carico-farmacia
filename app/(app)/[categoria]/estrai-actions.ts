@@ -494,8 +494,8 @@ export async function estraiProdottiDaImmagineAction(
 
   const anthropic = new Anthropic();
   const message = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
     messages: [{
       role: 'user',
       content: [
@@ -506,21 +506,30 @@ export async function estraiProdottiDaImmagineAction(
         {
           type: 'text',
           text: categoria === 'sanitario'
-            ? `Sei un assistente per una farmacia ospedaliera italiana. Questa immagine mostra una lista di materiale sanitario (presidi medici, guanti, cateteri, garze, dispositivi, aghi, ecc.).
+            ? `Questa immagine è una foto di una lista stampata intitolata "Materiale Sanitario" di un reparto ospedaliero italiano.
 
-Estrai ogni articolo presente nell'elenco. Per ogni articolo restituisci SOLO un oggetto JSON nell'array:
-- principio_attivo: string (nome completo dell'articolo, così come appare nella lista, in MAIUSCOLO)
-- nome_commerciale: string | null (codice prodotto se presente, es. "cod. 2100324021", altrimenti null)
-- forma_farmaceutica: sempre "altro"
-- dosaggio: null
-- consumo_giornaliero: 1
-- note: null
+La lista è una tabella con righe di prodotti. Ogni riga contiene:
+- Il nome del prodotto (in MAIUSCOLO, es. "AGHI A FARFALLA 21G DA 19 A 20 MM")
+- Spesso un codice numerico alla fine (es. "COD 2100324021" o "cod. 2100324021" o solo il numero)
+- Alcune righe hanno una X manoscritta sul lato sinistro (includile comunque)
+- Alcune righe hanno numeri o note manoscritte nei margini (ignorali)
 
-Includi TUTTI gli articoli della lista, anche quelli con X o segno di spunta accanto.
-Rispondi SOLO con array JSON valido, senza testo extra. Esempio:
-[{"principio_attivo":"AGHI A FARFALLA 21G DA 19 A 20 MM","nome_commerciale":"cod. 2100324021","forma_farmaceutica":"altro","dosaggio":null,"consumo_giornaliero":1,"note":null}]
+Il tuo compito: leggi OGNI riga della lista e restituisci un array JSON con tutti gli articoli trovati.
 
-Se nessun articolo: []`
+Per ogni articolo:
+{
+  "principio_attivo": "NOME COMPLETO DEL PRODOTTO IN MAIUSCOLO",
+  "nome_commerciale": "cod. XXXXXX" oppure null se non c'è codice,
+  "forma_farmaceutica": "altro",
+  "dosaggio": null,
+  "consumo_giornaliero": 1,
+  "note": null
+}
+
+IMPORTANTE: includi TUTTI gli articoli della pagina, anche se sono molti. Non saltarne nessuno.
+
+Rispondi ESCLUSIVAMENTE con l'array JSON, zero testo prima o dopo:
+[{"principio_attivo":"AGHI A FARFALLA 21G DA 19 A 20 MM","nome_commerciale":"cod. 2100324021","forma_farmaceutica":"altro","dosaggio":null,"consumo_giornaliero":1,"note":null}]`
             : `Sei un assistente per una farmacia ospedaliera italiana. Analizza questa immagine (lista terapie, richiesta farmaci, foglio paziente, ecc.) ed estrai tutti i farmaci presenti.
 
 Per ogni farmaco restituisci SOLO un oggetto JSON nell'array:
@@ -557,7 +566,7 @@ Se nessun farmaco: []`,
     return { error: `Risposta non interpretabile: ${raw.slice(0, 200)}` };
   }
 
-  if (!estratti.length) return { error: 'Nessun farmaco riconosciuto nell\'immagine.' };
+  if (!estratti.length) return { error: `Nessun articolo riconosciuto. Risposta Claude: "${raw.slice(0, 150)}"` };
 
   const esistentiQuery = supabase
     .from('prodotti')
