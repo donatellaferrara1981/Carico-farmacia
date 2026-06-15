@@ -49,6 +49,7 @@ export function DocumentiList({
   const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; aggiornati?: number; error?: string; current?: string } | null>(null);
 
   const pdfDocs = documenti.filter((d) => !isImage(d.nome_file));
+  const allExtractable = documenti; // PDF + immagini
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -60,25 +61,31 @@ export function DocumentiList({
   }
 
   function toggleAll() {
-    if (selectedIds.size === pdfDocs.length) {
+    if (selectedIds.size === allExtractable.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(pdfDocs.map((d) => d.id)));
+      setSelectedIds(new Set(allExtractable.map((d) => d.id)));
     }
     setExtractResult(null);
   }
 
   function handleExtract() {
-    const selezionati = pdfDocs.filter((d) => selectedIds.has(d.id));
+    const selezionati = allExtractable.filter((d) => selectedIds.has(d.id));
     if (!selezionati.length) return;
     setExtractResult(null);
     startExtract(async () => {
       let totaleNuovi = 0;
       let totaleAggiornati = 0;
-      for (let i = 0; i < selezionati.length; i++) {
-        const doc = selezionati[i];
+      let pdfIndex = 0;
+      for (const doc of selezionati) {
         setExtractResult({ current: doc.nome_file });
-        const res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria, i === 0);
+        let res;
+        if (isImage(doc.nome_file)) {
+          res = await estraiProdottiDaImmagineAction(doc.id, doc.storage_path, orgId, categoria);
+        } else {
+          res = await estraiProdottiDaPdfAction(doc.id, doc.storage_path, orgId, categoria, pdfIndex === 0);
+          pdfIndex++;
+        }
         if ('error' in res) {
           setExtractResult({ error: `${doc.nome_file}: ${res.error}` });
           return;
@@ -106,7 +113,7 @@ export function DocumentiList({
     <div className="flex flex-col gap-3">
 
       {/* Pannello estrazione */}
-      {canDelete && pdfDocs.length > 0 && (
+      {canDelete && allExtractable.length > 0 && (
         <div className="bg-forest-tint border border-forest/20 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-forest flex items-center gap-2">
@@ -118,13 +125,13 @@ export function DocumentiList({
               onClick={toggleAll}
               className="text-xs text-forest underline"
             >
-              {selectedIds.size === pdfDocs.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
+              {selectedIds.size === allExtractable.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
             </button>
           </div>
-          <p className="text-xs text-ink-soft">Spunta uno o più PDF, poi premi Estrai.</p>
+          <p className="text-xs text-ink-soft">Seleziona uno o più file (PDF o foto), poi premi Estrai.</p>
 
           <div className="flex flex-col gap-2">
-            {pdfDocs.map((doc) => (
+            {allExtractable.map((doc) => (
               <label
                 key={doc.id}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -233,8 +240,6 @@ function DocRow({
   const [isPending, startDownload] = useTransition();
   const [isDeleting, startDelete] = useTransition();
   const [isViewing, startView] = useTransition();
-  const [isExtracting, startExtract] = useTransition();
-  const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; aggiornati?: number; error?: string } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const img = isImage(doc.nome_file);
@@ -250,14 +255,6 @@ function DocRow({
     startView(async () => {
       const res = await getDownloadUrlAction(doc.storage_path);
       if ('url' in res && res.url) setPreviewUrl(res.url);
-    });
-  }
-
-  function handleExtractImage() {
-    setExtractResult(null);
-    startExtract(async () => {
-      const res = await estraiProdottiDaImmagineAction(doc.id, doc.storage_path, orgId, categoria);
-      setExtractResult(res);
     });
   }
 
@@ -324,42 +321,6 @@ function DocRow({
           </div>
         </div>
 
-        {/* Estrai farmaci da immagine */}
-        {img && canDelete && (
-          <div className="border-t border-line px-4 py-2.5 flex items-center justify-between gap-3 bg-forest-tint/40">
-            <div className="flex items-center gap-2">
-              {isExtracting ? (
-                <span className="flex items-center gap-1.5 text-xs text-forest animate-pulse">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analisi immagine in corso…
-                </span>
-              ) : extractResult ? (
-                'ok' in extractResult ? (
-                  <span className="flex items-center gap-1 text-xs text-forest font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    {extractResult.count ? `${extractResult.count} nuov${extractResult.count === 1 ? 'o' : 'i'}` : ''}
-                    {extractResult.count && extractResult.aggiornati ? ' · ' : ''}
-                    {extractResult.aggiornati ? `${extractResult.aggiornati} aggiornati` : ''}
-                    {!extractResult.count && !extractResult.aggiornati ? 'Nessun nuovo prodotto' : ''}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-xs text-abx">
-                    <AlertCircle className="w-3.5 h-3.5" /> {extractResult.error}
-                  </span>
-                )
-              ) : (
-                <span className="text-xs text-ink-soft">Estrai farmaci da questa immagine con AI</span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={handleExtractImage}
-              disabled={isExtracting}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-forest text-white hover:bg-forest/90 transition-colors shrink-0 disabled:opacity-50"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Estrai
-            </button>
-          </div>
-        )}
       </div>
     </>
   );
