@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ArrowUpDown, Pencil, Check, X, Loader2 } from 'lucide-react';
-import { aggiornaOrdineSanitarioAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { ArrowUpDown, Pencil, Check, X, Loader2, Trash2 } from 'lucide-react';
+import { aggiornaOrdineSanitarioAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { ProdottoForm } from '@/components/prodotto-form';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
 
@@ -133,8 +133,16 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
   );
 }
 
-export function SanitarioView({ prodotti }: { prodotti: ProdottoConDocumenti[] }) {
+export function SanitarioView({ prodotti, orgId, canEdit }: { prodotti: ProdottoConDocumenti[]; orgId: string; canEdit: boolean }) {
   const [ordine, setOrdine] = useState<Ordine>('alfa');
+  const [svuotando, startSvuota] = useTransition();
+
+  function svuotaLista() {
+    if (!confirm(`Eliminare tutti i ${prodotti.length} articoli dalla lista sanitario? L'operazione non è reversibile.`)) return;
+    startSvuota(async () => {
+      await svuotaProdottiAction(orgId, 'sanitario');
+    });
+  }
 
   const ordinati = [...prodotti].sort((a, b) => {
     if (ordine === 'alfa') return a.principio_attivo.localeCompare(b.principio_attivo, 'it');
@@ -169,6 +177,16 @@ export function SanitarioView({ prodotti }: { prodotti: ProdottoConDocumenti[] }
           Per consumo
         </button>
         <span className="ml-auto text-[10px] text-ink-mute">{prodotti.length} articoli</span>
+        {canEdit && prodotti.length > 0 && (
+          <button
+            onClick={svuotaLista}
+            disabled={svuotando}
+            className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-0.5 rounded-full transition-colors disabled:opacity-40"
+          >
+            {svuotando ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Trash2 className="w-2.5 h-2.5" />}
+            Svuota lista
+          </button>
+        )}
       </div>
 
       {/* Intestazione colonne */}

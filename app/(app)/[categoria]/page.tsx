@@ -98,7 +98,7 @@ export default async function CategoriaPage({
             <div className="flex items-center justify-between gap-3">
               <UploadButton categoria={cat} orgId={org.id} />
             </div>
-            <SanitarioView prodotti={prodotti} />
+            <SanitarioView prodotti={prodotti} orgId={org.id} canEdit={canEdit} />
             {(docsLiberiRes.data ?? []).length > 0 && (
               <div>
                 <p className="text-xs text-ink-mute font-medium uppercase tracking-wide mb-2">Documenti</p>
