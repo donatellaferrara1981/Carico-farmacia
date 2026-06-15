@@ -57,6 +57,7 @@ export default async function GarePage() {
           gare={(gareRes.data ?? []) as Gara[]}
           prodotti={(prodottiRes.data ?? []) as ProdottoBase[]}
           orgName={org.name}
+          orgId={org.id}
         />
       </main>
     </div>

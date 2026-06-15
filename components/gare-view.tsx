@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Search, FileText, CheckCircle2, XCircle, ShieldCheck, RefreshCw, Tag } from 'lucide-react';
 import { aggiungiGaraAction, modificaGaraAction, eliminaGaraAction, sincronizzaNominativeAction } from '@/app/(app)/gare/actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
+import { GareCercaOnline } from '@/components/gare-cerca-online';
 
 export interface Gara {
   id: string;
@@ -77,7 +78,7 @@ function ScadenzaBadge({ data }: { data: string | null }) {
 
 type Tab = 'gare' | 'copertura';
 
-export function GareView({ gare, prodotti, orgName }: { gare: Gara[]; prodotti: ProdottoBase[]; orgName: string }) {
+export function GareView({ gare, prodotti, orgName, orgId }: { gare: Gara[]; prodotti: ProdottoBase[]; orgName: string; orgId: string }) {
   const [tab, setTab] = useState<Tab>('gare');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -214,6 +215,7 @@ export function GareView({ gare, prodotti, orgName }: { gare: Gara[]; prodotti: 
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <GareCercaOnline orgId={orgId} />
               <SharePrintBar titolo={`Gare d'appalto — ${orgName}`} testoCondivisione={testoCondivisione} generaHtml={generaHtml} />
               <button onClick={() => { setEditId(null); setShowForm(true); }} className="btn-primary text-sm">
                 <Plus className="w-4 h-4" /> Nuova gara
