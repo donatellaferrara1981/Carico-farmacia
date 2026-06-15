@@ -36,29 +36,35 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           )}
           <Link
             href="/pazienti"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
+            title="Pazienti"
+            className="group relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
           >
             <Users className="w-4 h-4" />
-            Pazienti
+            <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              Pazienti
+            </span>
           </Link>
         </div>
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-1 flex-1">
           {[
-            { href: '/grafici',            label: 'Grafici',    Icon: BarChart2     },
-            { href: '/calendario',         label: 'Calendario', Icon: CalendarDays  },
-            { href: '/gare',               label: 'Gare',        Icon: Gavel          },
-            { href: '/approvvigionamento', label: 'Ordini',      Icon: ClipboardList  },
-            { href: '/report-paca',        label: 'Report PACA', Icon: FileBarChart2  },
+            { href: '/grafici',            label: 'Grafici',     Icon: BarChart2     },
+            { href: '/calendario',         label: 'Calendario',  Icon: CalendarDays  },
+            { href: '/gare',               label: 'Gare',        Icon: Gavel         },
+            { href: '/approvvigionamento', label: 'Ordini',      Icon: ClipboardList },
+            { href: '/report-paca',        label: 'Report PACA', Icon: FileBarChart2 },
           ].map(({ href, label, Icon }) => (
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
+              title={label}
+              className="group relative flex items-center px-2.5 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
             >
               <Icon className="w-4 h-4" />
-              {label}
+              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                {label}
+              </span>
             </Link>
           ))}
         </nav>
