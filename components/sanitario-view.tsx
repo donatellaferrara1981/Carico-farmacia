@@ -79,14 +79,14 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
         </div>
 
         {/* Ordine questa settimana — cliccabile */}
-        <div className="shrink-0 w-16">
+        <div className="shrink-0 w-20">
           {editQty ? (
             <div className="flex items-center gap-1">
               <input
                 autoFocus
                 type="number"
                 min={0}
-                className="w-10 text-xs text-center border border-forest rounded px-1 py-0.5 bg-bg outline-none"
+                className="w-16 text-xs text-center border border-forest rounded px-1 py-0.5 bg-bg outline-none"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveQty(); if (e.key === 'Escape') setEditQty(false); }}
@@ -176,7 +176,7 @@ export function SanitarioView({ prodotti }: { prodotti: ProdottoConDocumenti[] }
         <p className="flex-1 text-[10px] text-ink-mute font-medium uppercase tracking-wide">Articolo</p>
         <p className="w-10 text-[10px] text-ink-mute text-center">Media</p>
         <p className="w-10 text-[10px] text-ink-mute text-center">Scorsa</p>
-        <p className="w-16 text-[10px] text-ink-mute text-right">Questa sett.</p>
+        <p className="w-20 text-[10px] text-ink-mute text-right">Questa sett.</p>
         <div className="w-5" />
       </div>
 
