@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
-import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope } from 'lucide-react';
+import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope, FileBarChart2 } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -171,6 +171,12 @@ export default async function AppPage() {
                   <Microscope className="w-5 h-5 text-red-600" />
                 </div>
                 <span className="text-xs font-semibold text-ink">Germ Alert</span>
+              </Link>
+              <Link href="/report-paca" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-amber/40 hover:bg-amber/5 transition-all group">
+                <div className="w-10 h-10 rounded-xl bg-amber/10 flex items-center justify-center group-hover:bg-amber/20">
+                  <FileBarChart2 className="w-5 h-5 text-amber" />
+                </div>
+                <span className="text-xs font-semibold text-ink text-center">Report PACA</span>
               </Link>
             </div>
           </>
