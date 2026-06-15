@@ -188,26 +188,80 @@ export function classificaFarmaco(principioAttivo: string): InfoAntibiotico {
   return { isAntibiotico: false, classe: null };
 }
 
-// Farmaci ad alto costo / last-resort in contesto ospedaliero
+/**
+ * Farmaci ad alto costo / uso ristretto ospedaliero
+ * Includono: last-resort, costi elevati, soggetti a Nota AIFA o PHT.
+ * Richiedono prescrizione motivata.
+ */
 const ALTO_COSTO_PATTERNS: RegExp[] = [
-  /meropenem/i, /imipenem/i, /ertapenem/i, /doripenem/i,       // carbapenemi
-  /vancomicin/i, /teicoplanin/i, /dalbavancin/i, /oritavancin/i, // glicopeptidi
-  /linezolid/i, /tedizolid/i,                                   // ossazolidinoni
-  /colistin/i, /polimixina/i, /polymyxin/i,                     // polimixine (last resort)
-  /daptomicin/i,                                                 // lipopeptidi
-  /ceftoloz/i, /ceftazidim.*avibactam/i, /cefiderocol/i,        // BL nuovi generazione
-  /tigeciclina/i, /omadaciclin/i, /eravaciclin/i,               // tetracicline nuove
-  /caspofungin/i, /micafungin/i, /anidulafungin/i,              // echinocandine
-  /voriconazol/i, /posaconazol/i, /isavuconazol/i,              // azoli sistemici
-  /amfotericin/i, /amfotericina/i,                              // amfotericina B
-  /ganciclovir/i, /valganciclovir/i, /foscarnet/i, /cidofovir/i, /remdesivir/i, // antivirali critici
+  // ── Carbapenemi ───────────────────────────────────────────────
+  /meropenem/i, /imipenem/i, /ertapenem/i, /doripenem/i,
+
+  // ── Glicopeptidi ──────────────────────────────────────────────
+  /vancomicin/i, /teicoplanin/i, /dalbavancin/i, /oritavancin/i,
+
+  // ── Ossazolidinoni ────────────────────────────────────────────
+  /linezolid/i, /tedizolid/i,
+
+  // ── Polimixine (last resort) ───────────────────────────────────
+  /colistin/i, /polimixina/i, /polymyxin/i,
+
+  // ── Lipopeptidi ───────────────────────────────────────────────
+  /daptomicin/i,
+
+  // ── Beta-lattamici nuova generazione ──────────────────────────
+  /ceftoloz/i, /ceftazidim.*avibactam/i, /cefiderocol/i, /ceftarolin/i,
+  /aztreonam.*avibactam/i,
+
+  // ── Tetracicline nuove generazione ────────────────────────────
+  /tigeciclina/i, /omadaciclin/i, /eravaciclin/i,
+
+  // ── Echinocandine (antifungini) ───────────────────────────────
+  /caspofungin/i, /micafungin/i, /anidulafungin/i,
+
+  // ── Azoli sistemici ───────────────────────────────────────────
+  /voriconazol/i, /posaconazol/i, /isavuconazol/i,
+
+  // ── Amfotericina B ────────────────────────────────────────────
+  /amfotericin/i, /amfotericina/i,
+
+  // ── Fluorochinoloni (Nota AIFA — uso ristretto) ───────────────
+  /ciprofloxacin/i, /levofloxacin/i, /moxifloxacin/i,
+
+  // ── Fosfomicina (uso ospedaliero riservato) ───────────────────
+  /fosfomicin/i,
+
+  // ── Antivirali critici ────────────────────────────────────────
+  /ganciclovir/i, /valganciclovir/i, /foscarnet/i, /cidofovir/i, /remdesivir/i,
+
+  // ── Altri uso ristretto ───────────────────────────────────────
   /fidaxomicin/i,
-  /fosfomicin/i,                                                   // fosfomicina (uso ospedaliero riservato)
-  // nomi commerciali
-  /zavicefta/i, /zerbaxa/i, /fetcroja/i, /recarbrio/i, /vabomere/i,
-  /xerava/i, /nuzyra/i, /orbactiv/i, /dalvance/i, /sivextro/i,
-  /cresemba/i, /noxafil/i, /ecalta/i, /mycamine/i, /cancidas/i, /abelcet/i, /ambisome/i,
-  /veklury/i, /cymevene/i, /valcyte/i, /dificlir/i,
+
+  // ── Nomi commerciali ─────────────────────────────────────────
+  /zavicefta/i,   // ceftazidima/avibactam
+  /zerbaxa/i,     // ceftolozano/tazobactam
+  /fetcroja/i,    // cefiderocolo
+  /recarbrio/i,   // imipenem/cilastatina/relebactam
+  /vabomere/i,    // meropenem/vaborbactam
+  /xerava/i,      // eravacicline
+  /nuzyra/i,      // omadacicline
+  /zinforo/i,     // ceftarolina
+  /orbactiv/i,    // oritavancin
+  /dalvance/i,    // dalbavancin
+  /sivextro/i,    // tedizolid
+  /cresemba/i,    // isavuconazolo
+  /noxafil/i,     // posaconazolo
+  /vfend/i,       // voriconazolo
+  /ecalta/i,      // anidulafungin
+  /mycamine/i,    // micafungin
+  /cancidas/i,    // caspofungin
+  /abelcet/i,     // amfotericina B lipidica
+  /ambisome/i,    // amfotericina B liposomiale
+  /veklury/i,     // remdesivir
+  /tamiflu/i,     // oseltamivir (scorte strategiche)
+  /cymevene/i,    // ganciclovir
+  /valcyte/i,     // valganciclovir
+  /dificlir/i,    // fidaxomicin
 ];
 
 export function isAltoCosto(principioAttivo: string): boolean {

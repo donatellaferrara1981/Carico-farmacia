@@ -94,11 +94,16 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
             {altoCosto && (
               <p className="text-[9px] text-orange-600 font-medium leading-none mt-0.5">⚠ prescrizione motivata</p>
             )}
-            {(prodotto.dosaggio || prodotto.nome_commerciale) && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {abx.isAntibiotico && abx.classe && (
+                <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-700 font-semibold border border-red-200 shrink-0">
+                  {CLASSE_LABEL[abx.classe]}
+                </span>
+              )}
               <p className="text-[10px] text-ink-mute truncate">
                 {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}{prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
               </p>
-            )}
+            </div>
           </button>
 
           {/* /die */}
@@ -262,11 +267,23 @@ function RigaNominativa({ prodotto, categoria }: { prodotto: ProdottoConDocument
       <div className="flex items-center gap-2 px-3 py-2">
         {/* Nome */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-ink truncate">{prodotto.principio_attivo}</p>
-          <p className="text-[10px] text-ink-mute truncate">
-            {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}
-            {prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
-          </p>
+          <p className="text-xs font-medium text-amber-800 truncate">{prodotto.principio_attivo}</p>
+          {(() => {
+            const abx = classificaFarmaco(prodotto.principio_attivo);
+            return (
+              <div className="flex items-center gap-1 flex-wrap">
+                {abx.isAntibiotico && abx.classe && (
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-700 font-semibold border border-red-200 shrink-0">
+                    {CLASSE_LABEL[abx.classe]}
+                  </span>
+                )}
+                <p className="text-[10px] text-ink-mute truncate">
+                  {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}
+                  {prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
+                </p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Semaforo stato */}
