@@ -614,12 +614,14 @@ function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: s
       // Se non esiste ancora, inizializza
       if (v.length === 0) {
         startTransition(async () => {
-          await inizializzaChecklistAction(paziente.id, orgId, paziente.codice_sdo ?? undefined);
-          const fresh = await getChecklistAction(paziente.id);
+          try {
+            await inizializzaChecklistAction(paziente.id, orgId, paziente.codice_sdo ?? undefined);
+          } catch { /* ignora errori inizializzazione, mostra lista vuota */ }
+          const fresh = await getChecklistAction(paziente.id).catch(() => []);
           setVoci(fresh);
         });
       }
-    });
+    }).catch(() => setVoci([]));
   }, [paziente.id, orgId, paziente.codice_sdo]);
 
   function handleToggle(voceId: string, completata: boolean) {
