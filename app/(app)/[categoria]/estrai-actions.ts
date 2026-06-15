@@ -388,7 +388,68 @@ Se nessun articolo trovato: {"articoli":[]}`,
     return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
   }
 
-  const estratti = parseTerapiaText(testo);
+  // Per terapie: usa Claude per estrarre farmaci E nome paziente dal PDF
+  let estratti: import('@/lib/parse-terapia').ProdottoEstratto[];
+  let nomePazienteEstrato: string | null = null;
+
+  if (categoria === 'terapie') {
+    const base64Pdf = buffer.toString('base64');
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64Pdf },
+          },
+          {
+            type: 'text',
+            text: `Sei un assistente per una farmacia ospedaliera italiana. Analizza questo PDF di terapia ospedaliera ed estrai tutti i farmaci presenti.
+
+Cerca anche il nome del paziente nel documento (solitamente indicato come "Paziente:", "Nominativo:", o in intestazione).
+
+Per ogni farmaco restituisci un oggetto nell'array "farmaci":
+- principio_attivo: string (nome del principio attivo, in italiano, maiuscolo iniziale)
+- nome_commerciale: string | null
+- forma_farmaceutica: una di: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
+- dosaggio: string | null (es. "500 mg", "1 g/100 ml")
+- consumo_giornaliero: number (unità al giorno, default 1)
+- note: string | null
+
+Rispondi SOLO con JSON valido, senza testo aggiuntivo:
+{
+  "paziente": "COGNOME NOME del paziente se trovato nel documento, altrimenti null",
+  "farmaci": [
+    {"principio_attivo":"Amoxicillina","nome_commerciale":"Augmentin","forma_farmaceutica":"compressa","dosaggio":"875 mg","consumo_giornaliero":2,"note":null}
+  ]
+}
+
+Se nessun farmaco: {"paziente": null, "farmaci": []}`,
+          },
+        ],
+      }],
+    });
+
+    const rawMsg = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    try {
+      const jsonMatch = rawMsg.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        nomePazienteEstrato = parsed.paziente ?? null;
+        estratti = (parsed.farmaci ?? []) as import('@/lib/parse-terapia').ProdottoEstratto[];
+      } else {
+        estratti = [];
+      }
+    } catch {
+      // Fallback: prova il parser regex sul testo estratto
+      estratti = parseTerapiaText(testo);
+    }
+  } else {
+    estratti = parseTerapiaText(testo);
+  }
 
   if (!estratti.length) {
     const anteprima = testo.slice(0, 300).replace(/\n+/g, ' ↵ ');
@@ -404,11 +465,12 @@ Se nessun articolo trovato: {"articoli":[]}`,
 
   const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
-  const nuovi = [];
+  const nuovi: Array<{ id?: string; org_id: string; categoria: string; principio_attivo: string; nome_commerciale: string | null; forma_farmaceutica: string; dosaggio: string | null; quantita: number; consumo_giornaliero: number; note: string | null; sala?: string }> = [];
+  const aggiornatiIds: string[] = [];
   let aggiornati = 0;
 
   for (const p of estratti) {
-    // Cerca un prodotto esistente con stesso principio attivo + forma + dosaggio
+    // Cerca un prodotto esistente con stesso principio attivo + forma + dosaggio (case-insensitive)
     const match = (esistenti ?? []).find(
       (e) =>
         normalizza(e.principio_attivo) === normalizza(p.principio_attivo) &&
@@ -429,6 +491,7 @@ Se nessun articolo trovato: {"articoli":[]}`,
           ...(p.nome_commerciale && !match.nome_commerciale ? { nome_commerciale: p.nome_commerciale } : {}),
         })
         .eq('id', match.id);
+      aggiornatiIds.push(match.id);
       aggiornati++;
     } else {
       nuovi.push({
@@ -446,9 +509,44 @@ Se nessun articolo trovato: {"articoli":[]}`,
     }
   }
 
+  let inseriti: Array<{ id: string; principio_attivo: string; dosaggio: string | null }> = [];
   if (nuovi.length > 0) {
-    const { error: dbError } = await supabase.from('prodotti').insert(nuovi);
+    const { data: insertedData, error: dbError } = await supabase.from('prodotti').insert(nuovi).select('id, principio_attivo, dosaggio');
     if (dbError) return { error: dbError.message };
+    inseriti = insertedData ?? [];
+  }
+
+  // Collega terapia al paziente se estratto dal PDF
+  if (categoria === 'terapie' && nomePazienteEstrato) {
+    const cognome = nomePazienteEstrato.split(' ')[0];
+    const { data: pazienteTrovato } = await supabase
+      .from('pazienti')
+      .select('id')
+      .eq('org_id', orgId)
+      .ilike('nominativo', `%${cognome}%`)
+      .limit(1)
+      .single();
+
+    if (pazienteTrovato) {
+      // Recupera i prodotti aggiornati per avere i loro id
+      const prodottiAggiornati = aggiornatiIds.length > 0
+        ? ((await supabase.from('prodotti').select('id, principio_attivo, dosaggio').in('id', aggiornatiIds)).data ?? [])
+        : [];
+
+      const tuttiProdotti = [...inseriti, ...prodottiAggiornati];
+      const nuoveTP = tuttiProdotti.map((prod) => ({
+        org_id: orgId,
+        paziente_id: pazienteTrovato.id,
+        prodotto_id: prod.id,
+        principio_attivo: prod.principio_attivo,
+        dosaggio: prod.dosaggio,
+        tipo: 'terapia',
+      }));
+
+      if (nuoveTP.length > 0) {
+        await supabase.from('terapie_pazienti').insert(nuoveTP);
+      }
+    }
   }
 
   revalidatePath(`/${categoria}`);
