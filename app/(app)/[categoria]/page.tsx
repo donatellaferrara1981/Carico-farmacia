@@ -94,11 +94,13 @@ export default async function CategoriaPage({
     ((sanitarioOrdiniRes.data ?? []) as OrdineUO[]).map((o) => [o.prodotto_id, o])
   );
 
+  const isSanitario = cat === 'sanitario' || cat === 'economale';
   const prodotti: ProdottoConDocumenti[] = (prodottiRawRes.data ?? []).map((p) => {
     const ordine = ordiniMap.get(p.id);
     return {
       ...p,
-      consumo_giornaliero: ordine?.consumo_giornaliero ?? 0,
+      // Per sanitario/economale usa i valori per-UO; per terapie/nutrizioni mantieni il valore del catalogo
+      consumo_giornaliero: isSanitario ? (ordine?.consumo_giornaliero ?? 0) : (p.consumo_giornaliero ?? 0),
       quantita_consegnata: ordine?.quantita_consegnata ?? null,
       consumo_medio: ordine?.consumo_medio ?? null,
       documenti: (p.documenti ?? []).filter((d: { prodotto_id: string | null }) => d.prodotto_id === p.id),
