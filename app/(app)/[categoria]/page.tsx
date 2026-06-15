@@ -11,6 +11,7 @@ import { BackButton } from '@/components/back-button';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
+import { SanitarioToolbar } from '@/components/sanitario-toolbar';
 
 const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario'];
 
@@ -97,6 +98,7 @@ export default async function CategoriaPage({
           <div className="space-y-6">
             <div className="flex items-center justify-between gap-3">
               <UploadButton categoria={cat} orgId={org.id} />
+              <SanitarioToolbar orgId={org.id} hasItems={prodotti.length > 0} />
             </div>
             <SanitarioView prodotti={prodotti} orgId={org.id} canEdit={canEdit} />
             {(docsLiberiRes.data ?? []).length > 0 && (
