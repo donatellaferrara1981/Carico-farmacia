@@ -29,17 +29,25 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           <RefreshButton />
         </div>
 
-        {/* UO attiva — desktop switcher */}
-        {uoAttiva && (
-          <UoSwitcher uoAttiva={uoAttiva} unita={unita} />
-        )}
+        {/* UO attiva — desktop switcher + Pazienti subito dopo */}
+        <div className="hidden sm:flex items-center gap-2">
+          {uoAttiva && (
+            <UoSwitcher uoAttiva={uoAttiva} unita={unita} />
+          )}
+          <Link
+            href="/pazienti"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
+          >
+            <Users className="w-4 h-4" />
+            Pazienti
+          </Link>
+        </div>
 
         {/* Desktop nav */}
         <nav className="hidden sm:flex items-center gap-1 flex-1">
           {[
             { href: '/grafici',            label: 'Grafici',    Icon: BarChart2     },
             { href: '/calendario',         label: 'Calendario', Icon: CalendarDays  },
-            { href: '/pazienti',           label: 'Pazienti',   Icon: Users         },
             { href: '/gare',               label: 'Gare',       Icon: Gavel         },
             { href: '/approvvigionamento', label: 'Ordini',     Icon: ClipboardList },
           ].map(({ href, label, Icon }) => (

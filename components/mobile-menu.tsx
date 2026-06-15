@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Menu, X, BarChart2, CalendarDays, ClipboardList, Building2, Check, Loader2 } from 'lucide-react';
+import { Menu, X, BarChart2, CalendarDays, ClipboardList, Building2, Check, Loader2, Users } from 'lucide-react';
 import { selezionaUoAction } from '@/app/(app)/seleziona-uo/actions';
 
 const NAV_LINKS = [
+  { href: '/pazienti',           label: 'Pazienti',   Icon: Users         },
   { href: '/grafici',            label: 'Grafici',    Icon: BarChart2     },
   { href: '/calendario',         label: 'Calendario', Icon: CalendarDays  },
   { href: '/approvvigionamento', label: 'Ordini',     Icon: ClipboardList },
