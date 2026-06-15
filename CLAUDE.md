@@ -36,6 +36,21 @@ Tabella `pazienti`: id, org_id, unita_operativa_id, sala, numero_letto, nominati
 Tabella `terapie_pazienti`: collega paziente_id → prodotto_id.
 L'estrazione PDF terapie legge il nome paziente e inserisce automaticamente in `terapie_pazienti`.
 
+### Aggiornamento settimanale (workflow manuale)
+Donatella aggiorna i dati ogni settimana caricando screenshot/foto del quadro letti del sistema
+informatico ospedaliero (GSO). Claude estrae nominativi, numeri letto, sale e codici SDO
+dall'immagine e aggiorna la tabella `pazienti` via SQL (DELETE + INSERT per UO).
+Questo workflow continua finché non sarà disponibile un'integrazione diretta con la cartella
+clinica ufficiale.
+
+**Flusso settimanale:**
+1. Donatella carica screenshot quadro letti (per ogni UO)
+2. Claude legge nominativo, letto, sala, codice SDO dall'immagine
+3. Claude aggiorna DB (elimina vecchi pazienti UO, inserisce nuovi)
+4. Donatella carica PDF terapie → Claude estrae farmaci e li abbina ai pazienti
+
+**UO presenti:** Spinale (7 letti), Neuroriabilitazione GCA1, Neuroriabilitazione GCA3
+
 ## Checklist dimissione (SDO/DRG/PACA)
 La checklist di chiusura cartella è CRITICA per il rimborso economico del reparto.
 
