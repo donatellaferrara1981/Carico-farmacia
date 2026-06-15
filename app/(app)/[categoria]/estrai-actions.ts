@@ -388,16 +388,30 @@ Se nessun articolo trovato: {"articoli":[]}`,
     return { error: 'Nessun testo leggibile nel PDF. Il file potrebbe essere una scansione immagine.' };
   }
 
-  // Per terapie: usa Claude per estrarre farmaci E nome paziente dal PDF
+  // Per terapie: usa Claude per estrarre farmaci per paziente (supporto multi-paziente)
+  type PrescrizioneTerapia = {
+    nominativo: string;
+    numero_letto: number | null;
+    sala: string | null;
+    farmaci: Array<{
+      principio_attivo: string;
+      nome_commerciale: string | null;
+      forma_farmaceutica: string;
+      dosaggio: string | null;
+      consumo_giornaliero: number;
+      note: string | null;
+    }>;
+  };
+
   let estratti: import('@/lib/parse-terapia').ProdottoEstratto[];
-  let nomePazienteEstrato: string | null = null;
+  let prescrizioniPerPaziente: PrescrizioneTerapia[] = [];
 
   if (categoria === 'terapie') {
     const base64Pdf = buffer.toString('base64');
     const anthropic = new Anthropic();
     const msg = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [{
         role: 'user',
         content: [
@@ -407,27 +421,39 @@ Se nessun articolo trovato: {"articoli":[]}`,
           },
           {
             type: 'text',
-            text: `Sei un assistente per una farmacia ospedaliera italiana. Analizza questo PDF di terapia ospedaliera ed estrai tutti i farmaci presenti.
+            text: `Sei un assistente per una farmacia ospedaliera italiana. Analizza questo PDF di terapia ospedaliera.
 
-Cerca anche il nome del paziente nel documento (solitamente indicato come "Paziente:", "Nominativo:", o in intestazione).
+Il PDF può contenere le terapie di UNO o PIÙ pazienti (foglio di reparto).
 
-Per ogni farmaco restituisci un oggetto nell'array "farmaci":
-- principio_attivo: string (nome del principio attivo, in italiano, maiuscolo iniziale)
+Per ogni paziente trovato restituisci un oggetto in "pazienti":
+- nominativo: "COGNOME NOME" (maiuscolo come nel documento)
+- numero_letto: number | null
+- sala: string | null (es. "Stanza", "Stanza Isolamento")
+- farmaci: array di farmaci prescritti a quel paziente
+
+Per ogni farmaco:
+- principio_attivo: string (nome principio attivo in italiano, maiuscolo iniziale)
 - nome_commerciale: string | null
-- forma_farmaceutica: una di: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
-- dosaggio: string | null (es. "500 mg", "1 g/100 ml")
-- consumo_giornaliero: number (unità al giorno, default 1)
+- forma_farmaceutica: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
+- dosaggio: string | null (es. "500 mg")
+- consumo_giornaliero: number (unità totali/die, default 1)
 - note: string | null
 
-Rispondi SOLO con JSON valido, senza testo aggiuntivo:
+Rispondi SOLO con JSON valido:
 {
-  "paziente": "COGNOME NOME del paziente se trovato nel documento, altrimenti null",
-  "farmaci": [
-    {"principio_attivo":"Amoxicillina","nome_commerciale":"Augmentin","forma_farmaceutica":"compressa","dosaggio":"875 mg","consumo_giornaliero":2,"note":null}
+  "pazienti": [
+    {
+      "nominativo": "ROSSI MARIO",
+      "numero_letto": 1,
+      "sala": "Stanza",
+      "farmaci": [
+        {"principio_attivo":"Baclofene","nome_commerciale":null,"forma_farmaceutica":"compressa","dosaggio":"25 mg","consumo_giornaliero":3,"note":null}
+      ]
+    }
   ]
 }
 
-Se nessun farmaco: {"paziente": null, "farmaci": []}`,
+Se nessun paziente/farmaco: {"pazienti": []}`,
           },
         ],
       }],
@@ -438,13 +464,14 @@ Se nessun farmaco: {"paziente": null, "farmaci": []}`,
       const jsonMatch = rawMsg.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        nomePazienteEstrato = parsed.paziente ?? null;
-        estratti = (parsed.farmaci ?? []) as import('@/lib/parse-terapia').ProdottoEstratto[];
+        prescrizioniPerPaziente = parsed.pazienti ?? [];
+        // Raccoglie tutti i farmaci unici per il catalogo prodotti
+        const tuttiIFarmaci = prescrizioniPerPaziente.flatMap((p) => p.farmaci);
+        estratti = tuttiIFarmaci as import('@/lib/parse-terapia').ProdottoEstratto[];
       } else {
         estratti = [];
       }
     } catch {
-      // Fallback: prova il parser regex sul testo estratto
       estratti = parseTerapiaText(testo);
     }
   } else {
@@ -516,36 +543,59 @@ Se nessun farmaco: {"paziente": null, "farmaci": []}`,
     inseriti = insertedData ?? [];
   }
 
-  // Collega terapia al paziente se estratto dal PDF
-  if (categoria === 'terapie' && nomePazienteEstrato) {
-    const cognome = nomePazienteEstrato.split(' ')[0];
-    const { data: pazienteTrovato } = await supabase
+  // Collega farmaci ai pazienti (multi-paziente)
+  if (categoria === 'terapie' && prescrizioniPerPaziente.length > 0) {
+    const { data: pazientiDb } = await supabase
       .from('pazienti')
-      .select('id')
+      .select('id, nominativo, sala, numero_letto')
+      .eq('org_id', orgId);
+
+    const { data: prodottiDb } = await supabase
+      .from('prodotti')
+      .select('id, principio_attivo, dosaggio, forma_farmaceutica')
       .eq('org_id', orgId)
-      .ilike('nominativo', `%${cognome}%`)
-      .limit(1)
-      .single();
+      .eq('categoria', 'terapie');
 
-    if (pazienteTrovato) {
-      // Recupera i prodotti aggiornati per avere i loro id
-      const prodottiAggiornati = aggiornatiIds.length > 0
-        ? ((await supabase.from('prodotti').select('id, principio_attivo, dosaggio').in('id', aggiornatiIds)).data ?? [])
-        : [];
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const nuoveTP: Array<{
+      org_id: string; paziente_id: string; prodotto_id: string | null;
+      principio_attivo: string; dosaggio: string | null; tipo: string;
+    }> = [];
 
-      const tuttiProdotti = [...inseriti, ...prodottiAggiornati];
-      const nuoveTP = tuttiProdotti.map((prod) => ({
-        org_id: orgId,
-        paziente_id: pazienteTrovato.id,
-        prodotto_id: prod.id,
-        principio_attivo: prod.principio_attivo,
-        dosaggio: prod.dosaggio,
-        tipo: 'terapia',
-      }));
-
-      if (nuoveTP.length > 0) {
-        await supabase.from('terapie_pazienti').insert(nuoveTP);
+    for (const presc of prescrizioniPerPaziente) {
+      // Trova paziente: prima per letto+sala, poi per cognome
+      let paziente = (pazientiDb ?? []).find(
+        (p) => presc.numero_letto != null && p.numero_letto === presc.numero_letto &&
+          presc.sala && norm(p.sala) === norm(presc.sala)
+      );
+      if (!paziente && presc.nominativo) {
+        const cognome = presc.nominativo.split(' ')[0];
+        paziente = (pazientiDb ?? []).find((p) => p.nominativo.toLowerCase().includes(cognome.toLowerCase()));
       }
+      if (!paziente) continue;
+
+      // Rimuovi terapie precedenti di questo paziente per questo documento
+      await supabase.from('terapie_pazienti').delete()
+        .eq('paziente_id', paziente.id).eq('tipo', 'terapia');
+
+      for (const f of presc.farmaci) {
+        const prod = (prodottiDb ?? []).find(
+          (p) => norm(p.principio_attivo) === norm(f.principio_attivo) &&
+            norm(p.dosaggio ?? '') === norm(f.dosaggio ?? '')
+        );
+        nuoveTP.push({
+          org_id: orgId,
+          paziente_id: paziente.id,
+          prodotto_id: prod?.id ?? null,
+          principio_attivo: f.principio_attivo,
+          dosaggio: f.dosaggio,
+          tipo: 'terapia',
+        });
+      }
+    }
+
+    if (nuoveTP.length > 0) {
+      await supabase.from('terapie_pazienti').insert(nuoveTP);
     }
   }
 
