@@ -1,5 +1,10 @@
 # Carico Farmacia — Note per Claude
 
+## Accesso app
+- **URL:** https://carico-farmacia.vercel.app/login
+- **Email:** donatella.ferrara1981@gmail.com
+- (password: chiedila a Claude in chat, non va nel repo)
+
 ## Progetto
 App Next.js 15 + Supabase per gestione farmaceutica ospedaliera.
 - Supabase project: `ypkthatvqofknaqripry`
