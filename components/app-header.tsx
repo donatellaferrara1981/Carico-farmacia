@@ -6,6 +6,7 @@ import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
 import { MobileMenu } from './mobile-menu';
 import { UoSwitcher } from './uo-switcher';
+import { RefreshButton } from './refresh-button';
 import { logoutAction } from '@/app/(auth)/actions';
 import type { CurrentUserContext } from '@/lib/types';
 
@@ -21,9 +22,12 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
   return (
     <header className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-        <Link href="/app" className="shrink-0">
-          <Logo size={32} />
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/app">
+            <Logo size={32} />
+          </Link>
+          <RefreshButton />
+        </div>
 
         {/* UO attiva — desktop switcher */}
         {uoAttiva && (
