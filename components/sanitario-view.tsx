@@ -1,15 +1,37 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ArrowUpDown, Pencil, Check, X, Loader2, Trash2 } from 'lucide-react';
-import { aggiornaOrdineSanitarioAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { ArrowUpDown, Pencil, Check, X, Loader2, Trash2, MoveRight } from 'lucide-react';
+import { aggiornaOrdineSanitarioAction, svuotaProdottiAction, spostaCategoriaAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { SanitarioExport } from '@/components/sanitario-export';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
 
 type Ordine = 'alfa' | 'consumo';
 
-function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
+function SpostaButton({ prodottoId, daCategoria }: { prodottoId: string; daCategoria: string }) {
+  const [isPending, start] = useTransition();
+  const destinazione = daCategoria === 'sanitario' ? 'economale' : 'sanitario';
+  const label = daCategoria === 'sanitario' ? '→ Economale' : '→ Sanitario';
+
+  function sposta() {
+    if (!confirm(`Spostare questo articolo in ${destinazione === 'economale' ? 'Economale' : 'Sanitario'}?`)) return;
+    start(async () => { await spostaCategoriaAction(prodottoId, daCategoria, destinazione); });
+  }
+
+  return (
+    <button
+      onClick={sposta}
+      disabled={isPending}
+      title={label}
+      className="p-1 rounded hover:bg-bg text-ink-mute hover:text-forest disabled:opacity-40"
+    >
+      {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <MoveRight className="w-3 h-3" />}
+    </button>
+  );
+}
+
+function RigaArticolo({ p, categoria }: { p: ProdottoConDocumenti; categoria: string }) {
   const [editing, setEditing] = useState(false);
   const [showNome, setShowNome] = useState(false);
   const [editQty, setEditQty] = useState(false);
@@ -113,13 +135,17 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
           )}
         </div>
 
-        {/* Edit prodotto */}
-        <button
-          onClick={() => setEditing(true)}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-bg text-ink-mute hover:text-ink transition-all shrink-0"
-        >
-          <Pencil className="w-3 h-3" />
-        </button>
+        {/* Azioni hover */}
+        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all shrink-0">
+          <button
+            onClick={() => setEditing(true)}
+            className="p-1 rounded hover:bg-bg text-ink-mute hover:text-ink"
+            title="Modifica"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          <SpostaButton prodottoId={p.id} daCategoria={categoria} />
+        </div>
         </div>
 
         {/* Tooltip nome completo — espanso inline */}
@@ -134,7 +160,7 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
   );
 }
 
-export function SanitarioView({ prodotti, orgId, canEdit }: { prodotti: ProdottoConDocumenti[]; orgId: string; canEdit: boolean }) {
+export function SanitarioView({ prodotti, orgId, canEdit, categoria = 'sanitario' }: { prodotti: ProdottoConDocumenti[]; orgId: string; canEdit: boolean; categoria?: string }) {
   const [ordine, setOrdine] = useState<Ordine>('alfa');
   const [svuotando, startSvuota] = useTransition();
 
@@ -201,7 +227,7 @@ export function SanitarioView({ prodotti, orgId, canEdit }: { prodotti: Prodotto
       </div>
 
       {/* Righe */}
-      {ordinati.map((p) => <RigaArticolo key={p.id} p={p} />)}
+      {ordinati.map((p) => <RigaArticolo key={p.id} p={p} categoria={categoria} />)}
     </div>
   );
 }

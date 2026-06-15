@@ -1,6 +1,6 @@
 export type MemberRole = 'admin' | 'collaboratore' | 'visualizzatore';
 
-export type CategoriaArticolo = 'terapie' | 'nutrizioni' | 'sanitario';
+export type CategoriaArticolo = 'terapie' | 'nutrizioni' | 'sanitario' | 'economale';
 export type Turno = 'mattino' | 'pomeriggio' | 'notte';
 export type FormaFarmaceutica =
   | 'cp' | 'caps' | 'scir' | 'fl' | 'crema' | 'pomata' | 'gel' | 'sup'
@@ -51,6 +51,7 @@ export const CAT_LABELS: Record<CategoriaArticolo, string> = {
   terapie: 'Terapie',
   nutrizioni: 'Nutrizioni',
   sanitario: 'Sanitario',
+  economale: 'Economale',
 };
 
 export const TURNO_LABELS: Record<Turno, string> = {

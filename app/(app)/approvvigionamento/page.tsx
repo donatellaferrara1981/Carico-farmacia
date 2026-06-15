@@ -35,7 +35,7 @@ export default async function ApprovvigionamentoPage() {
       .from('prodotti')
       .select('*')
       .eq('org_id', org.id)
-      .in('categoria', ['terapie', 'nutrizioni', 'sanitario'])
+      .in('categoria', ['terapie', 'nutrizioni', 'sanitario', 'economale'])
       .order('principio_attivo', { ascending: true })
       .order('forma_farmaceutica', { ascending: true }),
     uoAttivaId
@@ -58,7 +58,7 @@ export default async function ApprovvigionamentoPage() {
   const prodotti: Prodotto[] = (prodottiRaw ?? []).map((p) => ({
     ...p,
     consumo_giornaliero:
-      p.categoria === 'sanitario'
+      (p.categoria === 'sanitario' || p.categoria === 'economale')
         ? (ordiniMap.get(p.id) ?? 0)
         : (p.consumo_giornaliero ?? 0),
   }));

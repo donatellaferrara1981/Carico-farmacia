@@ -152,5 +152,22 @@ export async function aggiornaOrdineSanitarioAction(prodottoId: string, quantita
   }, { onConflict: 'prodotto_id,unita_operativa_id' });
 
   revalidatePath('/sanitario');
+  revalidatePath('/economale');
+  return { ok: true };
+}
+
+export async function spostaCategoriaAction(prodottoId: string, daCategoria: string, aCategoria: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { error } = await supabase
+    .from('prodotti')
+    .update({ categoria: aCategoria })
+    .eq('id', prodottoId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/${daCategoria}`);
+  revalidatePath(`/${aCategoria}`);
   return { ok: true };
 }

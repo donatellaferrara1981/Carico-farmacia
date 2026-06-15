@@ -13,7 +13,7 @@ import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
 import { SanitarioToolbar } from '@/components/sanitario-toolbar';
 
-const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario'];
+const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario', 'economale'];
 
 export async function generateMetadata({ params }: { params: Promise<{ categoria: string }> }) {
   const { categoria } = await params;
@@ -70,7 +70,7 @@ export default async function CategoriaPage({
       .eq('unita_operativa_id', uoAttivaId)
       .is('prodotto_id', null)
       .order('created_at', { ascending: false }),
-    cat === 'sanitario'
+    (cat === 'sanitario' || cat === 'economale')
       ? supabase
           .from('sanitario_ordini')
           .select('prodotto_id, consumo_giornaliero, quantita_consegnata, consumo_medio')
@@ -114,13 +114,13 @@ export default async function CategoriaPage({
             <AutoRefresh />
           </div>
         </div>
-        {cat === 'sanitario' ? (
+        {(cat === 'sanitario' || cat === 'economale') ? (
           <div className="space-y-6">
             <div className="flex items-center justify-between gap-3">
               <UploadButton categoria={cat} orgId={org.id} />
-              <SanitarioToolbar orgId={org.id} hasItems={prodotti.length > 0} />
+              <SanitarioToolbar orgId={org.id} hasItems={prodotti.length > 0} categoria={cat} />
             </div>
-            <SanitarioView prodotti={prodotti} orgId={org.id} canEdit={canEdit} />
+            <SanitarioView prodotti={prodotti} orgId={org.id} canEdit={canEdit} categoria={cat} />
             {(docsLiberiRes.data ?? []).length > 0 && (
               <div>
                 <p className="text-xs text-ink-mute font-medium uppercase tracking-wide mb-2">Documenti</p>

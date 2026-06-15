@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { RefreshCw, Trash2, Loader2 } from 'lucide-react';
 import { svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
 
-export function SanitarioToolbar({ orgId, hasItems }: { orgId: string; hasItems: boolean }) {
+export function SanitarioToolbar({ orgId, hasItems, categoria = 'sanitario' }: { orgId: string; hasItems: boolean; categoria?: string }) {
   const router = useRouter();
   const [spinning, setSpinning] = useState(false);
   const [svuotando, startSvuota] = useTransition();
@@ -18,9 +18,9 @@ export function SanitarioToolbar({ orgId, hasItems }: { orgId: string; hasItems:
   }
 
   function svuota() {
-    if (!confirm('Eliminare tutti gli articoli dalla lista sanitario? L\'operazione non è reversibile.')) return;
+    if (!confirm(`Eliminare tutti gli articoli dalla lista ${categoria}? L'operazione non è reversibile.`)) return;
     startSvuota(async () => {
-      await svuotaProdottiAction(orgId, 'sanitario');
+      await svuotaProdottiAction(orgId, categoria);
       router.refresh();
     });
   }

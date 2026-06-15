@@ -15,6 +15,7 @@ const CAT_ICONS: Record<string, string> = {
   terapie:    '💊',
   nutrizioni: '🥗',
   sanitario:  '🩺',
+  economale:  '🗂️',
 };
 
 export default async function AppPage() {
@@ -89,8 +90,8 @@ export default async function AppPage() {
             <p className="text-xs text-ink-mute mb-3 font-medium uppercase tracking-wide">{uoAttiva.nome}</p>
 
             {/* Categoria principali — griglia compatta */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {(['terapie', 'nutrizioni', 'sanitario'] as const).map((cat) => (
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {(['terapie', 'nutrizioni', 'sanitario', 'economale'] as const).map((cat) => (
                 <Link
                   key={cat}
                   href={`/${cat}`}
