@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { FileText, CheckSquare, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil } from 'lucide-react';
+import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw } from 'lucide-react';
 import { aggiornaEsitoPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
+import { toggleVoceAction, inizializzaChecklistAction, reinizializzaChecklistAction, aggiornaSdoPazienteAction } from '@/app/(app)/pazienti/checklist-actions';
 
-interface VoceChecklist { voce: string; completata: boolean; }
+interface VoceChecklist { id: string; voce: string; completata: boolean; completata_da: string | null; completata_at: string | null; }
 
 interface PazientePaca {
   id: string;
@@ -330,7 +331,7 @@ ${criticita.length > 0 ? `
         ) : (
           <div className="space-y-2">
             {pazientiFiltrati.map((p) => (
-              <RigaCartella key={p.id} paziente={p} orgId={orgId} />
+              <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
             ))}
           </div>
         )}
@@ -350,27 +351,76 @@ function KpiCard({ icon, valore, label, color }: { icon: React.ReactNode; valore
   );
 }
 
-// ── Riga cartella con editor esito PACA ───────────────────────────────────────
+// ── Riga cartella con checklist interattiva + editor esito PACA ──────────────
 
-function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: string }) {
+function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca; orgId: string; userName: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Esito PACA
   const [esito, setEsito] = useState<EsitoPaca>((p.esito_paca as EsitoPaca) ?? 'in_corso');
   const [importo, setImporto] = useState(p.importo_drg ? String(p.importo_drg) : '');
   const [dataChiusura, setDataChiusura] = useState(p.data_chiusura_cartella ?? '');
   const [note, setNote] = useState(p.note_paca ?? '');
-  const [saved, setSaved] = useState(false);
+  const [savedEsito, setSavedEsito] = useState(false);
 
-  const completate = p.checklist.filter((v) => v.completata).length;
-  const totV = p.checklist.length;
+  // SDO base
+  const [codiceSdo, setCodiceSdo] = useState(p.codice_sdo ?? '');
+  const [dataRicovero, setDataRicovero] = useState(p.data_ricovero ?? '');
+  const [dataDimissione, setDataDimissione] = useState(p.data_dimissione ?? '');
+  const [diagnosi, setDiagnosi] = useState(p.diagnosi_principale ?? '');
+  const [savedSdo, setSavedSdo] = useState(false);
+
+  // Checklist interattiva
+  const [voci, setVoci] = useState<VoceChecklist[]>(p.checklist);
+
+  const completate = voci.filter((v) => v.completata).length;
+  const totV = voci.length;
+  const pct = totV > 0 ? Math.round((completate / totV) * 100) : 0;
   const info = esitoInfo(esito);
 
-  function handleSave(e: React.FormEvent) {
+  function handleSaveEsito(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
       await aggiornaEsitoPacaAction(p.id, esito, importo ? parseFloat(importo) : null, dataChiusura || null, note || null);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSavedEsito(true);
+      setTimeout(() => setSavedEsito(false), 2000);
+    });
+  }
+
+  function handleSaveSdo(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      await aggiornaSdoPazienteAction(p.id, codiceSdo, dataRicovero, dataDimissione, diagnosi);
+      setSavedSdo(true);
+      setTimeout(() => setSavedSdo(false), 2000);
+    });
+  }
+
+  function handleToggle(voceId: string, completata: boolean) {
+    startTransition(async () => {
+      await toggleVoceAction(voceId, completata, userName || 'Operatore');
+      setVoci((prev) => prev.map((v) =>
+        v.id === voceId
+          ? { ...v, completata, completata_da: userName || 'Operatore', completata_at: new Date().toISOString() }
+          : v
+      ));
+    });
+  }
+
+  function handleInizializza() {
+    startTransition(async () => {
+      await inizializzaChecklistAction(p.id, orgId, p.codice_sdo ?? undefined);
+      // Reload needed — page will revalidate on next visit; for now show a placeholder
+      window.location.reload();
+    });
+  }
+
+  function handleReimposta() {
+    if (!confirm('Reimposta la checklist? Tutte le spunte saranno azzerate.')) return;
+    startTransition(async () => {
+      await reinizializzaChecklistAction(p.id, orgId, p.codice_sdo ?? undefined);
+      window.location.reload();
     });
   }
 
@@ -383,13 +433,13 @@ function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: s
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-ink truncate">{p.nominativo}</span>
-            {p.codice_sdo && <span className="text-[10px] text-ink-mute font-mono shrink-0">SDO {p.codice_sdo}</span>}
+            {codiceSdo && <span className="text-[10px] text-ink-mute font-mono shrink-0">SDO {codiceSdo}</span>}
           </div>
-          {p.diagnosi_principale && <p className="text-xs text-ink-mute truncate">{p.diagnosi_principale}</p>}
+          {diagnosi && <p className="text-xs text-ink-mute truncate">{diagnosi}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {totV > 0 && (
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${completate === totV ? 'bg-forest/10 text-forest' : 'bg-amber/10 text-amber'}`}>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${pct === 100 ? 'bg-forest/10 text-forest' : 'bg-amber/10 text-amber'}`}>
               {completate}/{totV}
             </span>
           )}
@@ -400,75 +450,119 @@ function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: s
       </div>
 
       {open && (
-        <form onSubmit={handleSave} className="border-t border-line bg-bg-soft/40 px-3 py-3 space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <label className="text-[10px] text-ink-mute block mb-0.5">Esito PACA</label>
-              <select
-                value={esito}
-                onChange={(e) => setEsito(e.target.value as EsitoPaca)}
-                className="input-base text-xs py-1 w-full"
-              >
-                <option value="in_corso">In corso</option>
-                <option value="approvata">Approvata</option>
-                <option value="rifiutata">Rifiutata</option>
-                <option value="in_revisione">In revisione</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-ink-mute block mb-0.5">Importo DRG liquidato (€)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={importo}
-                onChange={(e) => setImporto(e.target.value)}
-                placeholder="es. 4500.00"
-                className="input-base text-xs py-1 w-full"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-ink-mute block mb-0.5">Data chiusura cartella</label>
-              <input
-                type="date"
-                value={dataChiusura}
-                onChange={(e) => setDataChiusura(e.target.value)}
-                className="input-base text-xs py-1 w-full"
-              />
-            </div>
-            <div className="sm:col-span-1">
-              <label className="text-[10px] text-ink-mute block mb-0.5">Note PACA</label>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Osservazioni, suggerimenti…"
-                className="input-base text-xs py-1 w-full"
-              />
-            </div>
-          </div>
+        <div className="border-t border-line bg-bg-soft/40 px-3 py-3 space-y-4">
 
-          {/* Checklist riepilogo */}
-          {p.checklist.length > 0 && (
-            <div>
-              <p className="text-[10px] text-ink-mute mb-1 uppercase tracking-wide font-semibold">Voci checklist</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
-                {p.checklist.map((v, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs">
-                    <span className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 ${v.completata ? 'bg-forest/20 text-forest' : 'bg-red-50 text-red-400'}`}>
-                      {v.completata ? '✓' : '✗'}
-                    </span>
-                    <span className={v.completata ? 'text-ink-mute' : 'text-ink'}>{v.voce}</span>
-                  </div>
-                ))}
+          {/* Dati SDO base */}
+          <form onSubmit={handleSaveSdo} className="space-y-1.5">
+            <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wide">Dati SDO / Ricovero</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">N° SDO</label>
+                <input type="text" value={codiceSdo} onChange={(e) => setCodiceSdo(e.target.value)} placeholder="es. GSO_2026000001" className="input-base text-xs py-1 w-full font-mono" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-[10px] text-ink-mute block mb-0.5">Diagnosi principale</label>
+                <input type="text" value={diagnosi} onChange={(e) => setDiagnosi(e.target.value)} placeholder="ICD-10 o descrizione" className="input-base text-xs py-1 w-full" />
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Data ricovero</label>
+                <input type="date" value={dataRicovero} onChange={(e) => setDataRicovero(e.target.value)} className="input-base text-xs py-1 w-full" />
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Data dimissione</label>
+                <input type="date" value={dataDimissione} onChange={(e) => setDataDimissione(e.target.value)} className="input-base text-xs py-1 w-full" />
               </div>
             </div>
-          )}
+            <button type="submit" disabled={pending} className="btn-primary text-xs py-1">
+              {savedSdo ? '✓ Salvato' : 'Salva dati SDO'}
+            </button>
+          </form>
 
-          <button type="submit" disabled={pending} className="btn-primary text-xs py-1.5">
-            {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : saved ? '✓ Salvato' : 'Salva esito PACA'}
-          </button>
-        </form>
+          {/* Esito PACA */}
+          <form onSubmit={handleSaveEsito} className="space-y-1.5">
+            <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wide">Esito PACA / DRG</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Esito PACA</label>
+                <select value={esito} onChange={(e) => setEsito(e.target.value as EsitoPaca)} className="input-base text-xs py-1 w-full">
+                  <option value="in_corso">In corso</option>
+                  <option value="approvata">Approvata</option>
+                  <option value="rifiutata">Rifiutata</option>
+                  <option value="in_revisione">In revisione</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Importo DRG (€)</label>
+                <input type="number" step="0.01" min="0" value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="es. 4500.00" className="input-base text-xs py-1 w-full" />
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Data chiusura cartella</label>
+                <input type="date" value={dataChiusura} onChange={(e) => setDataChiusura(e.target.value)} className="input-base text-xs py-1 w-full" />
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Note PACA</label>
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni…" className="input-base text-xs py-1 w-full" />
+              </div>
+            </div>
+            <button type="submit" disabled={pending} className="btn-primary text-xs py-1.5">
+              {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : savedEsito ? '✓ Salvato' : 'Salva esito PACA'}
+            </button>
+          </form>
+
+          {/* Checklist chiusura cartella */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-semibold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totV} ({pct}%)</span>
+                {voci.length > 0 && (
+                  <button type="button" onClick={handleReimposta} disabled={pending} className="text-[10px] text-ink-mute hover:text-amber underline decoration-dotted flex items-center gap-0.5">
+                    <RotateCcw className="w-2.5 h-2.5" /> reimposta
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="h-1.5 bg-line rounded-full overflow-hidden mb-2">
+              <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-forest' : 'bg-amber'}`} style={{ width: `${pct}%` }} />
+            </div>
+            {pct === 100 && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 mb-2 rounded-lg bg-forest/10 text-forest text-xs font-semibold">
+                <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+                Cartella completa — pronta per la Direzione Sanitaria
+              </div>
+            )}
+            {voci.length === 0 ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-ink-mute">Checklist non ancora inizializzata.</p>
+                <button type="button" onClick={handleInizializza} disabled={pending} className="text-xs text-forest hover:underline font-medium flex items-center gap-1">
+                  <Plus className="w-3 h-3" /> Inizializza checklist
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {voci.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex items-start gap-2 cursor-pointer group/v select-none"
+                    onClick={() => handleToggle(v.id, !v.completata)}
+                  >
+                    {v.completata
+                      ? <CheckSquare className="w-4 h-4 text-forest shrink-0 mt-0.5" />
+                      : <Square className="w-4 h-4 text-ink-mute shrink-0 mt-0.5 group-hover/v:text-amber transition-colors" />}
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-xs leading-snug ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>{v.voce}</span>
+                      {v.completata && v.completata_da && v.completata_at && (
+                        <p className="text-[10px] text-ink-mute mt-0.5">
+                          ✓ {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
