@@ -111,30 +111,45 @@ export async function aggiornaQuantitaAction(id: string, delta: number, categori
   return { ok: true };
 }
 
-export async function aggiornaOrdineSanitarioAction(id: string, quantitaSettimana: number) {
+export async function aggiornaOrdineSanitarioAction(prodottoId: string, quantitaSettimana: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
 
-  const { data: p } = await supabase
-    .from('prodotti')
-    .select('consumo_giornaliero, consumo_medio')
-    .eq('id', id)
-    .single();
-  if (!p) return { error: 'Articolo non trovato.' };
+  const uoAttivaId = await getUoAttivaId();
+  if (!uoAttivaId) return { error: 'Nessuna unità operativa attiva.' };
 
-  // Calcola nuova media ponderata
-  const vecchio = Number(p.consumo_giornaliero ?? 0);
-  const mediaVecchia = Number(p.consumo_medio ?? vecchio);
+  // Leggi i dati correnti della UO attiva da sanitario_ordini
+  const { data: ord } = await supabase
+    .from('sanitario_ordini')
+    .select('consumo_giornaliero, consumo_medio, org_id')
+    .eq('prodotto_id', prodottoId)
+    .eq('unita_operativa_id', uoAttivaId)
+    .maybeSingle();
+
+  // Se non esiste ancora un record, recupera org_id dal prodotto
+  let orgId = ord?.org_id;
+  if (!orgId) {
+    const { data: p } = await supabase.from('prodotti').select('org_id').eq('id', prodottoId).single();
+    orgId = p?.org_id;
+  }
+  if (!orgId) return { error: 'Prodotto non trovato.' };
+
+  const vecchio = Number(ord?.consumo_giornaliero ?? 0);
+  const mediaVecchia = Number(ord?.consumo_medio ?? vecchio);
   const nuovaMedia = vecchio > 0
     ? Math.round(((mediaVecchia * 3 + vecchio) / 4) * 10) / 10
     : quantitaSettimana;
 
-  await supabase.from('prodotti').update({
-    quantita_consegnata: vecchio > 0 ? vecchio : null,
+  await supabase.from('sanitario_ordini').upsert({
+    org_id: orgId,
+    prodotto_id: prodottoId,
+    unita_operativa_id: uoAttivaId,
     consumo_giornaliero: quantitaSettimana,
+    quantita_consegnata: vecchio > 0 ? vecchio : null,
     consumo_medio: nuovaMedia,
-  }).eq('id', id);
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'prodotto_id,unita_operativa_id' });
 
   revalidatePath('/sanitario');
   return { ok: true };

@@ -365,10 +365,9 @@ Se nessun articolo trovato: {"articoli":[]}`,
           forma_farmaceutica: 'altro' as const,
           dosaggio: null,
           quantita: 0,
-          consumo_giornaliero: art.quantita ?? 1,
+          consumo_giornaliero: 0,
           note: null,
-          ...(sala ? { sala } : {}),
-          ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
+          // sanitario: prodotti condivisi a livello org (no UO)
         });
       }
     }
@@ -573,8 +572,11 @@ Se nessun farmaco: []`,
     .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
     .eq('org_id', orgId)
     .eq('categoria', categoria);
-  if (sala) esistentiQuery.eq('sala', sala);
-  if (uoAttivaId) esistentiQuery.eq('unita_operativa_id', uoAttivaId);
+  // Per sanitario i prodotti sono org-wide (no filtro UO)
+  if (categoria !== 'sanitario') {
+    if (sala) esistentiQuery.eq('sala', sala);
+    if (uoAttivaId) esistentiQuery.eq('unita_operativa_id', uoAttivaId);
+  }
   const { data: esistenti } = await esistentiQuery;
 
   const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -589,10 +591,12 @@ Se nessun farmaco: []`,
         normalizza(e.dosaggio ?? '') === normalizza(p.dosaggio ?? ''),
     );
     if (match) {
-      await supabase.from('prodotti').update({
-        consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero,
-        ...(p.nome_commerciale && !match.nome_commerciale ? { nome_commerciale: p.nome_commerciale } : {}),
-      }).eq('id', match.id);
+      if (categoria !== 'sanitario') {
+        await supabase.from('prodotti').update({
+          consumo_giornaliero: (match.consumo_giornaliero ?? 1) + p.consumo_giornaliero,
+          ...(p.nome_commerciale && !match.nome_commerciale ? { nome_commerciale: p.nome_commerciale } : {}),
+        }).eq('id', match.id);
+      }
       aggiornati++;
     } else {
       nuovi.push({
@@ -603,10 +607,11 @@ Se nessun farmaco: []`,
         forma_farmaceutica: p.forma_farmaceutica,
         dosaggio: p.dosaggio || null,
         quantita: 0,
-        consumo_giornaliero: p.consumo_giornaliero,
+        consumo_giornaliero: categoria === 'sanitario' ? 0 : p.consumo_giornaliero,
         note: p.note || null,
-        ...(sala ? { sala } : {}),
-        ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
+        // sanitario: org-wide, no UO
+        ...(categoria !== 'sanitario' && sala ? { sala } : {}),
+        ...(categoria !== 'sanitario' && uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
       });
     }
   }

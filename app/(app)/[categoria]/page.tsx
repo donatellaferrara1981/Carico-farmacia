@@ -51,16 +51,25 @@ export default async function CategoriaPage({
 
   if (!uoAttivaId) redirect('/app');
 
-  const [unitaRes, prodottiRawRes, docsLiberiRes] = await Promise.all([
+  const prodottiQuery = cat === 'sanitario'
+    ? supabase
+        .from('prodotti')
+        .select('*, documenti(*)')
+        .eq('org_id', org.id)
+        .eq('categoria', 'sanitario')
+        .order('principio_attivo', { ascending: true })
+    : supabase
+        .from('prodotti')
+        .select('*, documenti(*)')
+        .eq('org_id', org.id)
+        .eq('categoria', cat)
+        .eq('unita_operativa_id', uoAttivaId)
+        .order('principio_attivo', { ascending: true })
+        .order('forma_farmaceutica', { ascending: true });
+
+  const [unitaRes, prodottiRawRes, docsLiberiRes, sanitarioOrdiniRes] = await Promise.all([
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
-    supabase
-      .from('prodotti')
-      .select('*, documenti(*)')
-      .eq('org_id', org.id)
-      .eq('categoria', cat)
-      .eq('unita_operativa_id', uoAttivaId)
-      .order('principio_attivo', { ascending: true })
-      .order('forma_farmaceutica', { ascending: true }),
+    prodottiQuery,
     supabase
       .from('documenti')
       .select('*')
@@ -69,15 +78,34 @@ export default async function CategoriaPage({
       .eq('unita_operativa_id', uoAttivaId)
       .is('prodotto_id', null)
       .order('created_at', { ascending: false }),
+    cat === 'sanitario'
+      ? supabase
+          .from('sanitario_ordini')
+          .select('prodotto_id, consumo_giornaliero, quantita_consegnata, consumo_medio')
+          .eq('org_id', org.id)
+          .eq('unita_operativa_id', uoAttivaId)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const unita = unitaRes.data ?? [];
   const uoAttiva = unita.find((u: { id: string }) => u.id === uoAttivaId) ?? null;
 
-  const prodotti: ProdottoConDocumenti[] = (prodottiRawRes.data ?? []).map((p) => ({
-    ...p,
-    documenti: (p.documenti ?? []).filter((d: { prodotto_id: string | null }) => d.prodotto_id === p.id),
-  }));
+  // Per sanitario: sovrapponi le quantità private della UO attiva
+  type OrdineUO = { prodotto_id: string; consumo_giornaliero: number | null; quantita_consegnata: number | null; consumo_medio: number | null };
+  const ordiniMap = new Map<string, OrdineUO>(
+    ((sanitarioOrdiniRes.data ?? []) as OrdineUO[]).map((o) => [o.prodotto_id, o])
+  );
+
+  const prodotti: ProdottoConDocumenti[] = (prodottiRawRes.data ?? []).map((p) => {
+    const ordine = ordiniMap.get(p.id);
+    return {
+      ...p,
+      consumo_giornaliero: ordine?.consumo_giornaliero ?? 0,
+      quantita_consegnata: ordine?.quantita_consegnata ?? null,
+      consumo_medio: ordine?.consumo_medio ?? null,
+      documenti: (p.documenti ?? []).filter((d: { prodotto_id: string | null }) => d.prodotto_id === p.id),
+    };
+  });
 
   const canEdit = ctx.role === 'admin' || ctx.role === 'collaboratore';
 
