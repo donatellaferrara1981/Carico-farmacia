@@ -538,7 +538,10 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
 
   let inseriti: Array<{ id: string; principio_attivo: string; dosaggio: string | null }> = [];
   if (nuovi.length > 0) {
-    const { data: insertedData, error: dbError } = await supabase.from('prodotti').insert(nuovi).select('id, principio_attivo, dosaggio');
+    const { data: insertedData, error: dbError } = await supabase
+      .from('prodotti')
+      .upsert(nuovi, { onConflict: 'org_id,categoria,principio_attivo_norm,dosaggio_norm,forma_farmaceutica', ignoreDuplicates: true })
+      .select('id, principio_attivo, dosaggio');
     if (dbError) return { error: dbError.message };
     inseriti = insertedData ?? [];
   }
