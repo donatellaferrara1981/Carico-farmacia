@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin, ArrowUpDown, Check, X } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
 import { SALE, getSala } from '@/lib/sale';
@@ -32,67 +32,130 @@ interface Props {
   uoAttivaId?: string | null;
 }
 
-// ─── Card mobile ──────────────────────────────────────────────────────────────
-function CardProdotto({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1 }: {
+// ─── Riga compatta (tutti gli schermi) ────────────────────────────────────────
+function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1 }: {
   prodotto: ProdottoConDocumenti;
   categoria: CategoriaArticolo;
   canEdit: boolean;
   giorni: number;
   moltiplicatore?: number;
 }) {
-  const [editing, setEditing]   = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing]    = useState(false);
+  const [menuOpen, setMenuOpen]  = useState(false);
+  const [showNome, setShowNome]  = useState(false);
+  const [editQty, setEditQty]    = useState(false);
+  const [draftQty, setDraftQty]  = useState('');
   const [isPendingDel, startDel] = useTransition();
   const [isPendingQ, startQ]     = useTransition();
   const [isPendingN, startN]     = useTransition();
 
-  const fabbisogno  = Math.ceil((prodotto.consumo_giornaliero ?? 1) * moltiplicatore * giorni);
-  const daOrdinare  = Math.max(0, fabbisogno - prodotto.quantita);
-  const abx         = classificaFarmaco(prodotto.principio_attivo);
-  const sala        = getSala(prodotto.sala);
+  const consumo    = prodotto.consumo_giornaliero ?? 0;
+  const fabbisogno = Math.ceil(consumo * moltiplicatore * giorni);
+  const qty        = prodotto.quantita;
+  const daOrdinare = Math.max(0, fabbisogno - qty);
+  const abx        = classificaFarmaco(prodotto.principio_attivo);
 
   const qtyColor =
-    prodotto.quantita === 0 ? 'text-abx' :
-    prodotto.quantita <= 3  ? 'text-amber' : 'text-forest';
+    qty === 0 ? 'text-abx font-bold' :
+    qty <= 3  ? 'text-amber font-bold' : 'text-forest font-bold';
+
+  function openQty() { setDraftQty(String(qty)); setEditQty(true); }
+  function saveQty() {
+    const n = parseInt(draftQty, 10);
+    if (isNaN(n) || n < 0) { setEditQty(false); return; }
+    const delta = n - qty;
+    if (delta !== 0) {
+      startQ(async () => { await aggiornaQuantitaAction(prodotto.id, delta, categoria); });
+    }
+    setEditQty(false);
+  }
 
   return (
     <>
       {editing && <ProdottoForm orgId={prodotto.org_id} categoria={categoria} prodotto={prodotto} onClose={() => setEditing(false)} />}
-      <div className={`rounded-xl border bg-bg-card p-3.5 ${prodotto.nominativa ? 'border-amber/40' : abx.isAntibiotico ? 'border-red-200' : 'border-line'}`}>
-        {/* Riga 1: nome + azioni */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {abx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-              <p className={`text-sm font-semibold leading-snug ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
+      <div className={`flex flex-col border-b border-line last:border-0 ${abx.isAntibiotico ? 'bg-red-50/30' : ''}`}>
+        <div className="flex items-center gap-2 px-3 py-2 hover:bg-bg-soft/60 group">
+
+          {/* Nome */}
+          <button
+            onMouseEnter={() => setShowNome(true)}
+            onMouseLeave={() => setShowNome(false)}
+            onTouchStart={() => setShowNome((v) => !v)}
+            className="flex-1 min-w-0 text-left"
+          >
+            <div className="flex items-center gap-1 min-w-0">
+              {abx.isAntibiotico && <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />}
+              <p className={`text-xs font-medium leading-snug truncate ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
                 {prodotto.principio_attivo}
-                {prodotto.nome_commerciale && <span className="text-ink-mute font-normal"> · {prodotto.nome_commerciale}</span>}
               </p>
+              {prodotto.nominativa && <span className="shrink-0 text-[9px] px-1 py-0.5 rounded-full bg-amber/20 text-amber border border-amber/30">nom.</span>}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">{formaLabel(prodotto.forma_farmaceutica)}</span>
-              {prodotto.dosaggio && <span className="text-xs text-ink-mute">{prodotto.dosaggio}</span>}
-              {prodotto.nominativa && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber/20 text-amber font-medium border border-amber/40">nominativa</span>}
-              {abx.isAntibiotico && abx.classe && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">{CLASSE_LABEL[abx.classe]}</span>
-              )}
-              {sala && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium flex items-center gap-1 ${sala.colore}`}>
-                  <MapPin className="w-2.5 h-2.5" />{sala.label}
-                </span>
-              )}
-            </div>
+            {(prodotto.dosaggio || prodotto.nome_commerciale) && (
+              <p className="text-[10px] text-ink-mute truncate">
+                {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}{prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
+              </p>
+            )}
+          </button>
+
+          {/* /die */}
+          <div className="shrink-0 w-10 text-center">
+            <p className="text-[10px] text-ink-mute leading-none">/die</p>
+            <p className="text-xs font-semibold text-ink-soft tabular-nums">{consumo > 0 ? consumo : '—'}</p>
           </div>
 
+          {/* fabbisogno */}
+          <div className="shrink-0 w-10 text-center">
+            <p className="text-[10px] text-forest leading-none">{giorni}gg</p>
+            <p className={`text-xs font-bold tabular-nums ${daOrdinare > 0 ? 'text-abx' : 'text-forest'}`}>
+              {fabbisogno > 0 ? fabbisogno : '—'}
+            </p>
+          </div>
+
+          {/* scorte — cliccabile per editare */}
+          <div className="shrink-0 w-16">
+            {editQty && canEdit ? (
+              <div className="flex items-center gap-0.5">
+                <input
+                  autoFocus
+                  type="number"
+                  min={0}
+                  className="w-12 text-xs text-center border border-forest rounded px-1 py-0.5 bg-bg outline-none"
+                  value={draftQty}
+                  onChange={(e) => setDraftQty(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveQty(); if (e.key === 'Escape') setEditQty(false); }}
+                />
+                {isPendingQ
+                  ? <Loader2 className="w-3 h-3 animate-spin text-forest" />
+                  : <>
+                      <button onClick={saveQty} className="text-forest"><Check className="w-3 h-3" /></button>
+                      <button onClick={() => setEditQty(false)} className="text-ink-mute"><X className="w-3 h-3" /></button>
+                    </>
+                }
+              </div>
+            ) : (
+              <button
+                onClick={canEdit ? openQty : undefined}
+                className="w-full flex flex-col items-end"
+                disabled={!canEdit}
+              >
+                <p className="text-[10px] text-ink-mute leading-none">scorte</p>
+                <p className={`text-sm tabular-nums ${qtyColor}`}>
+                  {isPendingQ ? <Loader2 className="w-3 h-3 animate-spin inline" /> : qty}
+                </p>
+              </button>
+            )}
+          </div>
+
+          {/* Azioni hover */}
           {canEdit && (
-            <div className="relative shrink-0">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 rounded-lg hover:bg-bg-soft text-ink-mute">
-                <MoreVertical className="w-4 h-4" />
+            <div className="relative opacity-0 group-hover:opacity-100 transition-all shrink-0">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded hover:bg-bg text-ink-mute hover:text-ink">
+                <MoreVertical className="w-3.5 h-3.5" />
               </button>
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-8 z-20 bg-bg-card rounded-xl shadow-xl border border-line w-44 py-1 overflow-hidden">
+                  <div className="absolute right-0 top-6 z-20 bg-bg-card rounded-xl shadow-xl border border-line w-44 py-1 overflow-hidden">
                     <button
                       onClick={() => { setMenuOpen(false); startN(async () => { await toggleNominativaAction(prodotto.id, !prodotto.nominativa, categoria); }); }}
                       className="w-full px-4 py-2.5 text-sm text-left hover:bg-bg-soft flex items-center gap-2"
@@ -117,157 +180,29 @@ function CardProdotto({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
           )}
         </div>
 
-        {/* Riga 2: metriche */}
-        <div className="grid grid-cols-3 gap-2 mt-1">
-          <div className="text-center bg-bg-soft rounded-lg py-2">
-            <p className="text-[10px] text-ink-mute uppercase tracking-wide mb-0.5">/die</p>
-            <p className="text-base font-bold text-ink tabular-nums">{prodotto.consumo_giornaliero ?? 1}</p>
+        {/* Tooltip nome completo */}
+        {showNome && (
+          <div className="px-3 pb-2 pt-0.5 bg-ink/5 border-t border-line/50">
+            <p className="text-xs font-semibold text-ink">{prodotto.principio_attivo}</p>
+            {abx.isAntibiotico && abx.classe && (
+              <p className="text-[10px] text-red-600 mt-0.5">{CLASSE_LABEL[abx.classe]}</p>
+            )}
+            {prodotto.nome_commerciale && <p className="text-[11px] text-ink-mute mt-0.5">{prodotto.nome_commerciale}</p>}
+            {prodotto.ciclo_totale && prodotto.ciclo_totale > 0 && (() => {
+              const mancante = Math.max(0, prodotto.ciclo_totale - qty);
+              if (!mancante) return null;
+              const ggRim = consumo > 0 ? Math.floor(qty / consumo) : null;
+              const urgente = ggRim !== null && ggRim <= 2;
+              return (
+                <div className={`mt-1 flex items-center gap-1 text-[10px] ${urgente ? 'text-red-600' : 'text-orange-600'}`}>
+                  <PackageOpen className="w-3 h-3 shrink-0" />
+                  {qty}/{prodotto.ciclo_totale} · {mancante} da richiedere{ggRim !== null ? ` · ${ggRim} gg` : ''}
+                </div>
+              );
+            })()}
           </div>
-          <div className="text-center bg-forest/10 rounded-lg py-2">
-            <p className="text-[10px] text-forest uppercase tracking-wide mb-0.5">{giorni} gg</p>
-            <p className="text-base font-bold text-forest tabular-nums">{fabbisogno}</p>
-          </div>
-          <div className="text-center bg-bg-soft rounded-lg py-2">
-            <p className="text-[10px] text-ink-mute uppercase tracking-wide mb-0.5">Scorte</p>
-            <div className="flex items-center justify-center gap-1">
-              {canEdit && (
-                <button onClick={() => startQ(async () => { await aggiornaQuantitaAction(prodotto.id, -1, categoria); })} disabled={isPendingQ || prodotto.quantita === 0}
-                  className="w-5 h-5 rounded border border-line flex items-center justify-center text-ink-mute disabled:opacity-30 active:bg-bg-soft">
-                  <Minus className="w-3 h-3" />
-                </button>
-              )}
-              <span className={`text-base font-bold tabular-nums ${qtyColor}`}>
-                {isPendingQ ? <Loader2 className="w-4 h-4 animate-spin inline" /> : prodotto.quantita}
-              </span>
-              {canEdit && (
-                <button onClick={() => startQ(async () => { await aggiornaQuantitaAction(prodotto.id, 1, categoria); })} disabled={isPendingQ}
-                  className="w-5 h-5 rounded border border-line flex items-center justify-center text-ink-mute active:bg-bg-soft">
-                  <PlusIcon className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {daOrdinare > 0 && (
-          <p className="text-xs text-abx font-medium mt-2 text-center">Da ordinare: {daOrdinare} pz</p>
         )}
-
-        {/* Banner consegna parziale */}
-        {prodotto.ciclo_totale && prodotto.ciclo_totale > 0 && (() => {
-          const consumo = prodotto.consumo_giornaliero ?? 1;
-          const giorniRim = consumo > 0 ? Math.floor(prodotto.quantita / consumo) : null;
-          const mancante = Math.max(0, prodotto.ciclo_totale - prodotto.quantita);
-          const dataEsaur = giorniRim !== null
-            ? new Date(Date.now() + giorniRim * 86400000).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
-            : null;
-          const urgente = giorniRim !== null && giorniRim <= 2;
-          return mancante > 0 ? (
-            <div className={`mt-2 rounded-lg px-3 py-2 text-xs flex items-start gap-2 ${urgente ? 'bg-red-50 border border-red-200' : 'bg-orange-50 border border-orange-200'}`}>
-              <PackageOpen className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${urgente ? 'text-red-500' : 'text-orange-500'}`} />
-              <div className="flex-1">
-                <p className={`font-semibold ${urgente ? 'text-red-700' : 'text-orange-700'}`}>
-                  {urgente ? 'Richiedere subito la rimanenza' : 'Consegna parziale — da richiedere'}
-                </p>
-                <p className={`mt-0.5 ${urgente ? 'text-red-600' : 'text-orange-600'}`}>
-                  {prodotto.quantita}/{prodotto.ciclo_totale} unità
-                  {mancante > 0 && <> · <strong>{mancante} da richiedere</strong></>}
-                  {dataEsaur && <> · scorte fino al {dataEsaur}</>}
-                  {giorniRim !== null && <> ({giorniRim} gg)</>}
-                </p>
-              </div>
-            </div>
-          ) : null;
-        })()}
       </div>
-    </>
-  );
-}
-
-// ─── Riga tabella desktop ─────────────────────────────────────────────────────
-function RigaProdotto({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1 }: {
-  prodotto: ProdottoConDocumenti;
-  categoria: CategoriaArticolo;
-  canEdit: boolean;
-  giorni: number;
-  moltiplicatore?: number;
-}) {
-  const [editing, setEditing]    = useState(false);
-  const [isPendingDel, startDel] = useTransition();
-  const [isPendingQ, startQ]     = useTransition();
-  const [isPendingN, startN]     = useTransition();
-
-  const fabbisogno = Math.ceil((prodotto.consumo_giornaliero ?? 1) * moltiplicatore * giorni);
-  const abx        = classificaFarmaco(prodotto.principio_attivo);
-
-  const qtyColor =
-    prodotto.quantita === 0 ? 'text-abx font-bold' :
-    prodotto.quantita <= 3  ? 'text-amber font-bold' : 'text-forest font-bold';
-
-  return (
-    <>
-      {editing && <ProdottoForm orgId={prodotto.org_id} categoria={categoria} prodotto={prodotto} onClose={() => setEditing(false)} />}
-      <tr className={`border-b border-line/50 hover:bg-bg-soft/40 transition-colors ${abx.isAntibiotico ? 'bg-red-50/40' : ''}`}>
-        <td className="px-3 py-2.5">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {abx.isAntibiotico && <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-              <span className={`text-sm font-medium ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>{prodotto.principio_attivo}</span>
-              {prodotto.nome_commerciale && <span className="text-xs text-ink-mute italic">· {prodotto.nome_commerciale}</span>}
-              {prodotto.nominativa && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber/20 text-amber font-medium border border-amber/40">nominativa</span>}
-              {abx.isAntibiotico && abx.classe && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 font-medium">{CLASSE_LABEL[abx.classe]}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-forest-tint text-forest font-medium">{formaLabel(prodotto.forma_farmaceutica)}</span>
-              {prodotto.dosaggio && <span className="text-xs text-ink-mute">{prodotto.dosaggio}</span>}
-              {/* consegna parziale inline */}
-              {prodotto.ciclo_totale && prodotto.ciclo_totale > 0 && (() => {
-                const consumo = prodotto.consumo_giornaliero ?? 1;
-                const ggRim   = consumo > 0 ? Math.floor(prodotto.quantita / consumo) : null;
-                const mancante = Math.max(0, prodotto.ciclo_totale - prodotto.quantita);
-                const urgente  = ggRim !== null && ggRim <= 2;
-                return mancante > 0 ? (
-                  <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${urgente ? 'bg-red-100 text-red-700 border-red-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
-                    <PackageOpen className="w-3 h-3" />
-                    {mancante} da richiedere{ggRim !== null ? ` · ${ggRim} gg` : ''}
-                  </span>
-                ) : null;
-              })()}
-            </div>
-          </div>
-        </td>
-        <td className="px-3 py-2.5 text-center tabular-nums">
-          <span className="text-sm font-semibold text-ink">{prodotto.consumo_giornaliero ?? 1}</span>
-          <span className="text-xs text-ink-mute">/die</span>
-        </td>
-        <td className="px-3 py-2.5 text-center tabular-nums">
-          <span className="text-sm font-semibold text-forest">{fabbisogno}</span>
-        </td>
-        <td className="px-3 py-2.5">
-          <div className="flex items-center gap-1 justify-center">
-            {canEdit && <button onClick={() => startQ(async () => { await aggiornaQuantitaAction(prodotto.id, -1, categoria); })} disabled={isPendingQ || prodotto.quantita === 0} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft disabled:opacity-30"><Minus className="w-3 h-3" /></button>}
-            <span className={`text-sm min-w-[1.5rem] text-center tabular-nums ${qtyColor}`}>{isPendingQ ? <Loader2 className="w-3 h-3 animate-spin inline" /> : prodotto.quantita}</span>
-            {canEdit && <button onClick={() => startQ(async () => { await aggiornaQuantitaAction(prodotto.id, 1, categoria); })} disabled={isPendingQ} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft"><PlusIcon className="w-3 h-3" /></button>}
-          </div>
-        </td>
-        {canEdit && (
-          <td className="px-2 py-2.5">
-            <div className="flex items-center gap-1 justify-end">
-              <button onClick={() => startN(async () => { await toggleNominativaAction(prodotto.id, !prodotto.nominativa, categoria); })} disabled={isPendingN}
-                className={`p-1.5 rounded transition-colors ${prodotto.nominativa ? 'text-amber bg-amber/10' : 'text-ink-mute hover:bg-bg-soft hover:text-amber'}`} title="Nominativa">
-                {isPendingN ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
-              </button>
-              <button onClick={() => setEditing(true)} className="p-1.5 rounded hover:bg-bg-soft text-ink-mute hover:text-ink"><Pencil className="w-3.5 h-3.5" /></button>
-              <button onClick={() => { if (!confirm(`Eliminare "${prodotto.principio_attivo}"?`)) return; startDel(async () => { await deleteProdottoAction(prodotto.id, categoria); }); }}
-                disabled={isPendingDel} className="p-1.5 rounded hover:bg-bg-soft text-ink-mute hover:text-abx">
-                {isPendingDel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </td>
-        )}
-      </tr>
     </>
   );
 }
@@ -286,28 +221,24 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
   const [customGiorni, setCustomGiorni] = useState('');
   const [modoCustom, setModoCustom]     = useState(false);
   const [pazienti, setPazienti]         = useState(1);
-  const [salaFiltro, setSalaFiltro]     = useState<string | null>(null); // null = tutte
+  const [salaFiltro, setSalaFiltro]     = useState<string | null>(null);
+  const [ordine, setOrdine]             = useState<'alfa' | 'fabb'>('alfa');
   const [isPendingReset, startReset]    = useTransition();
 
   const giorniEffettivi = modoCustom ? (parseInt(customGiorni) || 1) : giorni;
   const moltiplicatore  = categoria === 'sanitario' ? Math.max(1, pazienti) : 1;
 
-  // Determina se ci sono prodotti con sala assegnata
   const hasSale = prodotti.some((p) => p.sala);
-
-  const prodottiFiltrati = salaFiltro === null
-    ? prodotti
-    : prodotti.filter((p) => p.sala === salaFiltro);
-
-  const ordinati = [...prodottiFiltrati].sort((a, b) =>
-    a.principio_attivo.localeCompare(b.principio_attivo) ||
-    a.forma_farmaceutica.localeCompare(b.forma_farmaceutica)
-  );
-
-  // Sale con almeno un prodotto
+  const prodottiFiltrati = salaFiltro === null ? prodotti : prodotti.filter((p) => p.sala === salaFiltro);
   const saleConProdotti = SALE.filter((s) => prodotti.some((p) => p.sala === s.id));
-
   const salaAttiva = getSala(salaFiltro);
+
+  const ordinati = [...prodottiFiltrati].sort((a, b) => {
+    if (ordine === 'alfa') return a.principio_attivo.localeCompare(b.principio_attivo, 'it') || a.forma_farmaceutica.localeCompare(b.forma_farmaceutica);
+    const fa = Math.ceil((a.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
+    const fb = Math.ceil((b.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
+    return fb - fa;
+  });
 
   return (
     <div className="space-y-6">
@@ -339,7 +270,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
 
       {showForm && <ProdottoForm orgId={orgId} categoria={categoria} onClose={() => setShowForm(false)} />}
 
-      {/* Tab sale */}
+      {/* Filtro sale */}
       {hasSale && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -348,40 +279,30 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               salaFiltro === null ? 'bg-ink text-bg border-ink' : 'border-line text-ink-soft hover:border-ink/40'
             }`}
           >
-            Tutte le sale
-            <span className="text-[10px] opacity-70">({prodotti.length})</span>
+            Tutte <span className="opacity-70">({prodotti.length})</span>
           </button>
           {saleConProdotti.map((s) => {
             const count = prodotti.filter((p) => p.sala === s.id).length;
             return (
-              <button
-                key={s.id}
-                onClick={() => setSalaFiltro(s.id)}
+              <button key={s.id} onClick={() => setSalaFiltro(s.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  salaFiltro === s.id
-                    ? 'bg-ink text-bg border-ink'
-                    : 'border-line text-ink-soft hover:border-ink/40'
+                  salaFiltro === s.id ? 'bg-ink text-bg border-ink' : 'border-line text-ink-soft hover:border-ink/40'
                 }`}
               >
-                <MapPin className="w-3 h-3" />
-                {s.label}
-                <span className="text-[10px] opacity-70">({count})</span>
+                <MapPin className="w-3 h-3" />{s.label} <span className="opacity-70">({count})</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Banner sala attiva con giorno rifornimento */}
       {salaAttiva && (
         <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border text-sm ${salaAttiva.colore}`}>
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 shrink-0" />
             <span className="font-semibold">{salaAttiva.label}</span>
           </div>
-          <span className="text-xs font-medium opacity-80">
-            Rifornimento ogni <strong>{salaAttiva.giornoRifornimento}</strong>
-          </span>
+          <span className="text-xs font-medium opacity-80">Rifornimento ogni <strong>{salaAttiva.giornoRifornimento}</strong></span>
         </div>
       )}
 
@@ -393,7 +314,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
         </div>
       ) : (
         <>
-          {/* Selettore periodo */}
+          {/* Selettore periodo + pazienti */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-ink-soft">Fabbisogno per:</span>
             {PRESET_GIORNI.map((p) => (
@@ -417,11 +338,11 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
             )}
             {categoria === 'sanitario' && (
               <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-line">
-                <span className="text-xs font-medium text-ink-soft">Pazienti:</span>
-                <button onClick={() => setPazienti((v) => Math.max(1, v - 1))} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft text-xs font-bold">−</button>
+                <span className="text-xs font-medium text-ink-soft">Paz.:</span>
+                <button onClick={() => setPazienti((v) => Math.max(1, v - 1))} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">−</button>
                 <input type="number" min={1} value={pazienti} onChange={(e) => setPazienti(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-12 px-1 py-1 text-xs border border-line rounded-lg text-center font-semibold focus:outline-none focus:border-forest" />
-                <button onClick={() => setPazienti((v) => v + 1)} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft text-xs font-bold">+</button>
+                  className="w-10 px-1 py-1 text-xs border border-line rounded-lg text-center font-semibold focus:outline-none focus:border-forest" />
+                <button onClick={() => setPazienti((v) => v + 1)} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">+</button>
               </div>
             )}
             {ordinati.length > 0 && (
@@ -442,10 +363,10 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                 nome_commerciale: p.nome_commerciale,
                 forma_farmaceutica: p.forma_farmaceutica,
                 dosaggio: p.dosaggio,
-                consumo_giornaliero: (p.consumo_giornaliero ?? 1) * moltiplicatore,
-                fabbisogno: Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi),
+                consumo_giornaliero: (p.consumo_giornaliero ?? 0) * moltiplicatore,
+                fabbisogno: Math.ceil((p.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi),
                 quantita_disponibile: p.quantita,
-                da_ordinare: Math.max(0, Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi) - p.quantita),
+                da_ordinare: Math.max(0, Math.ceil((p.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi) - p.quantita),
               }))}
               onClose={() => setShowPiano(false)}
             />
@@ -458,7 +379,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               testoCondivisione={() => {
                 const lines = [`📋 ${CAT_LABELS[categoria]} — ${giorniEffettivi} giorni\n`];
                 ordinati.forEach((p) => {
-                  const fabb = Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi);
+                  const fabb = Math.ceil((p.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
                   const ord  = Math.max(0, fabb - p.quantita);
                   lines.push(`• ${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''} — fabb: ${fabb} | disp: ${p.quantita} | ord: ${ord > 0 ? ord : '✓'}`);
                 });
@@ -467,11 +388,11 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               generaHtml={() => {
                 const date = new Date().toLocaleDateString('it-IT');
                 const righe = ordinati.map((p) => {
-                  const fabb = Math.ceil((p.consumo_giornaliero ?? 1) * moltiplicatore * giorniEffettivi);
+                  const fabb = Math.ceil((p.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
                   const ord  = Math.max(0, fabb - p.quantita);
                   return `<tr>
                     <td>${p.principio_attivo}${p.nome_commerciale ? ` <span style="color:#6b7280">· ${p.nome_commerciale}</span>` : ''}${p.dosaggio ? ` <small>${p.dosaggio}</small>` : ''}</td>
-                    <td class="num">${p.consumo_giornaliero}</td>
+                    <td class="num">${p.consumo_giornaliero ?? 0}</td>
                     <td class="num green">${fabb}</td>
                     <td class="num">${p.quantita}</td>
                     <td class="num ${ord > 0 ? 'red' : 'green'}">${ord > 0 ? ord : '✓'}</td>
@@ -484,33 +405,36 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
             />
           )}
 
-          {/* Mobile: cards */}
-          <div className="sm:hidden space-y-3">
-            {ordinati.map((p) => (
-              <CardProdotto key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />
-            ))}
-          </div>
+          {/* Lista compatta */}
+          <div className="rounded-xl border border-line bg-bg-card overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-line bg-bg-soft">
+              <ArrowUpDown className="w-3.5 h-3.5 text-ink-mute" />
+              <span className="text-xs text-ink-mute mr-1">Ordina:</span>
+              <button
+                onClick={() => setOrdine('alfa')}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${ordine === 'alfa' ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}
+              >A→Z</button>
+              <button
+                onClick={() => setOrdine('fabb')}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${ordine === 'fabb' ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}
+              >Per fabbisogno</button>
+              <span className="ml-auto text-[10px] text-ink-mute">{ordinati.length} articoli</span>
+            </div>
 
-          {/* Desktop: tabella */}
-          <div className="hidden sm:block overflow-x-auto rounded-xl border border-line">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-bg-soft border-b border-line">
-                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide">Farmaco</th>
-                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">/die</th>
-                  <th className="px-3 py-2.5 text-xs font-semibold text-forest uppercase tracking-wide text-center">
-                    {giorniEffettivi} gg{moltiplicatore > 1 ? ` × ${moltiplicatore} paz.` : ''}
-                  </th>
-                  <th className="px-3 py-2.5 text-xs font-semibold text-ink-soft uppercase tracking-wide text-center">Scorte</th>
-                  {canEdit && <th className="px-2 py-2.5" />}
-                </tr>
-              </thead>
-              <tbody>
-                {ordinati.map((p) => (
-                  <RigaProdotto key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />
-                ))}
-              </tbody>
-            </table>
+            {/* Intestazione colonne */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-bg-soft/50 border-b border-line">
+              <p className="flex-1 text-[10px] text-ink-mute font-medium uppercase tracking-wide">Articolo</p>
+              <p className="w-10 text-[10px] text-ink-mute text-center">/die</p>
+              <p className="w-10 text-[10px] text-forest text-center">{giorniEffettivi}gg</p>
+              <p className="w-16 text-[10px] text-ink-mute text-right">Scorte</p>
+              {canEdit && <div className="w-5" />}
+            </div>
+
+            {/* Righe */}
+            {ordinati.map((p) => (
+              <RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />
+            ))}
           </div>
         </>
       )}
