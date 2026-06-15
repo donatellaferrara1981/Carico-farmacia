@@ -152,6 +152,21 @@ export async function reinizializzaChecklistAction(pazienteId: string, orgId: st
   return { ok: true };
 }
 
+export async function aggiornaVoceTestoAction(voceId: string, nuovoTesto: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { error } = await supabase
+    .from('checklist_dimissione')
+    .update({ voce: nuovoTesto.trim() })
+    .eq('id', voceId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/pazienti');
+  return { ok: true };
+}
+
 export async function getArchivioChecklistAction(orgId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
