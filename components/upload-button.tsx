@@ -8,10 +8,9 @@ import { SALE } from '@/lib/sale';
 
 const ACCEPT_FILE   = 'application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp';
 const ACCEPT_CAMERA = 'image/*';
-const MAX_BYTES = 900_000; // 900 KB — sotto il limite 1 MB di Next.js
+const MAX_BYTES = 4_000_000; // 4 MB — Next.js configurato a 5 MB
 
 async function compressImage(file: File): Promise<File> {
-  // I PDF non si comprimono
   if (file.type === 'application/pdf') return file;
   if (file.size <= MAX_BYTES) return file;
 
@@ -21,8 +20,8 @@ async function compressImage(file: File): Promise<File> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       const canvas = document.createElement('canvas');
-      // Scala proporzionalmente fino a max 1600px
-      const maxDim = 1600;
+      // Max 2400px per mantenere leggibile il testo nei documenti
+      const maxDim = 2400;
       let { width, height } = img;
       if (width > maxDim || height > maxDim) {
         const ratio = Math.min(maxDim / width, maxDim / height);
@@ -33,15 +32,14 @@ async function compressImage(file: File): Promise<File> {
       canvas.height = height;
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, width, height);
-      // Prova qualità decrescente finché sotto il limite
-      let quality = 0.85;
+      let quality = 0.92;
       const tryCompress = () => {
         canvas.toBlob((blob) => {
           if (!blob) { resolve(file); return; }
-          if (blob.size <= MAX_BYTES || quality <= 0.3) {
+          if (blob.size <= MAX_BYTES || quality <= 0.5) {
             resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
           } else {
-            quality -= 0.15;
+            quality -= 0.1;
             tryCompress();
           }
         }, 'image/jpeg', quality);
