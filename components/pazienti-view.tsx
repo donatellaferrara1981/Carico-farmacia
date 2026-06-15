@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useTransition, useEffect } from 'react';
-import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
-import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
+import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaVoceTestoAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface TerapiaPaziente {
@@ -500,6 +500,81 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
   );
 }
 
+// ── Voce checklist con editing inline ────────────────────────────────────────
+
+function VoceItem({ voce: v, onToggle, onSaveTesto }: {
+  voce: VoceChecklist;
+  onToggle: () => void;
+  onSaveTesto: (testo: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(v.voce);
+  const [saving, setSaving] = useState(false);
+
+  async function salva() {
+    if (!draft.trim() || draft.trim() === v.voce) { setEditing(false); return; }
+    setSaving(true);
+    await onSaveTesto(draft.trim());
+    setSaving(false);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <li className="flex items-start gap-2">
+        <Square className="w-4 h-4 text-ink-mute shrink-0 mt-1.5" />
+        <div className="flex-1 flex flex-col gap-1">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); salva(); } if (e.key === 'Escape') { setEditing(false); setDraft(v.voce); } }}
+            rows={2}
+            className="text-xs border border-forest rounded px-2 py-1 bg-bg outline-none resize-none w-full leading-snug"
+          />
+          <div className="flex gap-1.5">
+            <button onClick={salva} disabled={saving} className="text-[10px] px-2 py-0.5 rounded bg-forest text-white font-medium disabled:opacity-50">
+              {saving ? '…' : 'Salva'}
+            </button>
+            <button onClick={() => { setEditing(false); setDraft(v.voce); }} className="text-[10px] px-2 py-0.5 rounded border border-line text-ink-mute">Annulla</button>
+          </div>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex items-start gap-2 group/v select-none">
+      <button onClick={onToggle} className="mt-0.5 shrink-0">
+        {v.completata
+          ? <CheckSquare className="w-4 h-4 text-forest" />
+          : <Square className="w-4 h-4 text-ink-mute group-hover/v:text-amber transition-colors" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <span
+          className={`text-xs leading-snug cursor-pointer ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}
+          onDoubleClick={() => { setDraft(v.voce); setEditing(true); }}
+          title="Doppio clic per modificare il testo"
+        >
+          {v.voce}
+        </span>
+        {v.completata && v.completata_da && v.completata_at && (
+          <p className="text-[10px] text-ink-mute mt-0.5">
+            ✓ {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+      </div>
+      <button
+        onClick={() => { setDraft(v.voce); setEditing(true); }}
+        className="shrink-0 p-0.5 rounded opacity-0 group-hover/v:opacity-100 text-ink-mute hover:text-amber transition-all"
+        title="Modifica testo voce"
+      >
+        <Pencil className="w-3 h-3" />
+      </button>
+    </li>
+  );
+}
+
 // ── Checklist Dimissione ──────────────────────────────────────────────────────
 
 function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: string }) {
@@ -632,25 +707,16 @@ function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: s
         ) : (
           <ul className="space-y-1.5">
             {voci.map((v) => (
-              <li
+              <VoceItem
                 key={v.id}
-                className="flex items-start gap-2 cursor-pointer group/v select-none"
-                onClick={() => handleToggle(v.id, !v.completata)}
-              >
-                {v.completata
-                  ? <CheckSquare className="w-4 h-4 text-forest shrink-0 mt-0.5" />
-                  : <Square className="w-4 h-4 text-ink-mute shrink-0 mt-0.5 group-hover/v:text-amber transition-colors" />}
-                <div className="flex-1 min-w-0">
-                  <span className={`text-xs leading-snug ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>
-                    {v.voce}
-                  </span>
-                  {v.completata && v.completata_da && v.completata_at && (
-                    <p className="text-[10px] text-ink-mute mt-0.5">
-                      ✓ {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
-                </div>
-              </li>
+                voce={v}
+                onToggle={() => handleToggle(v.id, !v.completata)}
+                onSaveTesto={async (testo) => {
+                  await aggiornaVoceTestoAction(v.id, testo);
+                  const fresh = await getChecklistAction(paziente.id);
+                  setVoci(fresh);
+                }}
+              />
             ))}
           </ul>
         )}
