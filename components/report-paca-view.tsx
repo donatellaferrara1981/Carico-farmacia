@@ -46,10 +46,19 @@ export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName }: P
   const [annoFiltro, setAnnoFiltro] = useState(String(now.getFullYear()));
   const [meseFiltro, setMeseFiltro] = useState('');
 
-  // Filtra per periodo
+  // Pazienti con data nel periodo (per KPI e statistiche)
   const pazientiFiltrati = pazienti.filter((p) => {
     const data = p.data_chiusura_cartella || p.data_dimissione;
-    if (!data) return !annoFiltro; // se nessun filtro, mostra tutti; altrimenti escludi senza data
+    if (!data) return false; // senza data = ancora ricoverati, escludi dai KPI
+    if (annoFiltro && !data.startsWith(annoFiltro)) return false;
+    if (meseFiltro && !data.startsWith(`${annoFiltro}-${meseFiltro.padStart(2, '0')}`)) return false;
+    return true;
+  });
+
+  // Dettaglio cartelle: include sempre i pazienti ancora ricoverati (senza data dimissione)
+  const pazientiDettaglio = pazienti.filter((p) => {
+    const data = p.data_chiusura_cartella || p.data_dimissione;
+    if (!data) return true; // ricoverati attuali: sempre visibili
     if (annoFiltro && !data.startsWith(annoFiltro)) return false;
     if (meseFiltro && !data.startsWith(`${annoFiltro}-${meseFiltro.padStart(2, '0')}`)) return false;
     return true;
@@ -323,13 +332,13 @@ ${criticita.length > 0 ? `
       <div className="card">
         <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
           <FileText className="w-4 h-4 text-ink-soft" />
-          Dettaglio cartelle ({totale})
+          Dettaglio cartelle ({pazientiDettaglio.length})
         </h2>
-        {pazientiFiltrati.length === 0 ? (
+        {pazientiDettaglio.length === 0 ? (
           <p className="text-sm text-ink-mute text-center py-8">Nessuna cartella nel periodo selezionato.</p>
         ) : (
           <div className="space-y-2">
-            {pazientiFiltrati.map((p) => (
+            {pazientiDettaglio.map((p) => (
               <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
             ))}
           </div>
