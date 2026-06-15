@@ -9,7 +9,7 @@ import { ProdottoForm } from '@/components/prodotto-form';
 import { SalvaPianoModal } from '@/components/salva-piano-modal';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
-import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
+import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction, aggiornaDataRichiestaAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { svuotaDocumentiAction } from '@/app/(app)/[categoria]/actions';
 import type { CategoriaArticolo } from '@/lib/types';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
@@ -214,6 +214,126 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
   );
 }
 
+// ─── Riga nominativa con semaforo rinnovo ─────────────────────────────────────
+function RigaNominativa({ prodotto, categoria }: { prodotto: ProdottoConDocumenti; categoria: CategoriaArticolo }) {
+  const [editData, setEditData]       = useState(false);
+  const [editGiorni, setEditGiorni]   = useState(false);
+  const [draftData, setDraftData]     = useState(prodotto.data_ultima_richiesta ?? '');
+  const [draftGiorni, setDraftGiorni] = useState(String(prodotto.giorni_validita_richiesta ?? 30));
+  const [isPending, start]            = useTransition();
+
+  const dataRichiesta = prodotto.data_ultima_richiesta;
+  const giorniVal     = prodotto.giorni_validita_richiesta ?? 30;
+
+  // Calcola stato semaforo
+  let stato: 'ok' | 'imminente' | 'scaduto' | 'nessuna' = 'nessuna';
+  let giorniMancanti: number | null = null;
+  if (dataRichiesta) {
+    const scad = new Date(dataRichiesta);
+    scad.setDate(scad.getDate() + giorniVal);
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    giorniMancanti = Math.ceil((scad.getTime() - oggi.getTime()) / 86400000);
+    stato = giorniMancanti < 0 ? 'scaduto' : giorniMancanti <= 7 ? 'imminente' : 'ok';
+  }
+
+  function salva() {
+    if (!draftData) { setEditData(false); return; }
+    const g = Math.max(1, parseInt(draftGiorni) || 30);
+    start(async () => {
+      await aggiornaDataRichiestaAction(prodotto.id, draftData, g, categoria);
+      setEditData(false);
+      setEditGiorni(false);
+    });
+  }
+
+  const semaforoClass =
+    stato === 'ok'        ? 'bg-forest text-white' :
+    stato === 'imminente' ? 'bg-amber text-white'  :
+    stato === 'scaduto'   ? 'bg-abx text-white'    : 'bg-bg-soft text-ink-mute border border-line';
+
+  const semaforoLabel =
+    stato === 'ok'        ? `✓ ${giorniMancanti}gg` :
+    stato === 'imminente' ? `⚠ ${giorniMancanti}gg` :
+    stato === 'scaduto'   ? `✕ scad.`               : 'nessuna data';
+
+  return (
+    <div className="flex flex-col border-b border-line last:border-0 bg-amber/5">
+      <div className="flex items-center gap-2 px-3 py-2">
+        {/* Nome */}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-ink truncate">{prodotto.principio_attivo}</p>
+          <p className="text-[10px] text-ink-mute truncate">
+            {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}
+            {prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
+          </p>
+        </div>
+
+        {/* Semaforo stato */}
+        <button
+          onClick={() => setEditData(true)}
+          title="Modifica data ultima richiesta"
+          className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full tabular-nums ${semaforoClass}`}
+        >
+          {semaforoLabel}
+        </button>
+
+        {/* Data ultima richiesta */}
+        <div className="shrink-0 text-right">
+          {editData ? (
+            <div className="flex flex-col gap-1 items-end">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-ink-mute">Data:</span>
+                <input
+                  type="date"
+                  autoFocus
+                  value={draftData}
+                  onChange={(e) => setDraftData(e.target.value)}
+                  className="text-xs border border-forest rounded px-1 py-0.5 bg-bg outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-ink-mute">Validità (gg):</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={draftGiorni}
+                  onChange={(e) => setDraftGiorni(e.target.value)}
+                  className="w-14 text-xs border border-forest rounded px-1 py-0.5 bg-bg outline-none text-center"
+                />
+              </div>
+              <div className="flex gap-1">
+                {isPending
+                  ? <Loader2 className="w-3 h-3 animate-spin text-forest" />
+                  : <>
+                      <button onClick={salva} className="text-[10px] px-2 py-0.5 rounded bg-forest text-white">Salva</button>
+                      <button onClick={() => setEditData(false)} className="text-[10px] px-2 py-0.5 rounded border border-line text-ink-mute">✕</button>
+                    </>
+                }
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setDraftData(dataRichiesta ?? ''); setEditData(true); }} className="text-right">
+              {dataRichiesta ? (
+                <>
+                  <p className="text-[10px] text-ink-mute leading-none">ultima richiesta</p>
+                  <p className="text-xs font-medium text-ink tabular-nums">
+                    {new Date(dataRichiesta).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                  </p>
+                  <p className="text-[10px] text-ink-mute">ogni {giorniVal}gg</p>
+                </>
+              ) : (
+                <p className="text-[10px] text-ink-mute underline decoration-dotted">aggiungi data</p>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PRESET_GIORNI = [
   { label: '7 gg',  value: 7  },
   { label: '14 gg', value: 14 },
@@ -243,8 +363,10 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
   const ordinati = [...prodottiFiltrati].sort((a, b) => {
     const abxA = classificaFarmaco(a.principio_attivo).isAntibiotico;
     const abxB = classificaFarmaco(b.principio_attivo).isAntibiotico;
-    // Antibiotici sempre prima
-    if (abxA !== abxB) return abxA ? -1 : 1;
+    // Ordine gruppi: antibiotici → nominative non-abx → altri
+    const groupA = abxA ? 0 : a.nominativa ? 1 : 2;
+    const groupB = abxB ? 0 : b.nominativa ? 1 : 2;
+    if (groupA !== groupB) return groupA - groupB;
     if (ordine === 'alfa') return a.principio_attivo.localeCompare(b.principio_attivo, 'it') || a.forma_farmaceutica.localeCompare(b.forma_farmaceutica);
     const fa = Math.ceil((a.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
     const fb = Math.ceil((b.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
@@ -442,31 +564,45 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               {canEdit && <div className="w-5" />}
             </div>
 
-            {/* Righe con separatore Antibiotici / Altri */}
+            {/* Righe con separatori: Antibiotici → Nominative → Altri */}
             {(() => {
               const rows: React.ReactNode[] = [];
-              let lastIsAbx: boolean | null = null;
-              ordinati.forEach((p) => {
-                const isAbx = classificaFarmaco(p.principio_attivo).isAntibiotico;
-                if (lastIsAbx !== null && lastIsAbx && !isAbx) {
-                  rows.push(
-                    <div key="__sep__" className="px-3 py-1 bg-bg-soft/80 border-b border-line">
-                      <p className="text-[10px] text-ink-mute font-medium uppercase tracking-wide">Altri farmaci</p>
-                    </div>
-                  );
-                }
-                if (lastIsAbx === null && isAbx) {
-                  rows.push(
-                    <div key="__abx__" className="px-3 py-1 bg-red-50 border-b border-line">
-                      <p className="text-[10px] text-red-700 font-medium uppercase tracking-wide flex items-center gap-1">
-                        <ShieldAlert className="w-3 h-3" /> Antibiotici / Antifungini / Antivirali
-                      </p>
-                    </div>
-                  );
-                }
-                lastIsAbx = isAbx;
-                rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />);
-              });
+              // Separa in gruppi
+              const abx  = ordinati.filter((p) => classificaFarmaco(p.principio_attivo).isAntibiotico);
+              const nom  = ordinati.filter((p) => !classificaFarmaco(p.principio_attivo).isAntibiotico && p.nominativa);
+              const altri = ordinati.filter((p) => !classificaFarmaco(p.principio_attivo).isAntibiotico && !p.nominativa);
+
+              if (abx.length > 0) {
+                rows.push(
+                  <div key="__abx__" className="px-3 py-1 bg-red-50 border-b border-line">
+                    <p className="text-[10px] text-red-700 font-medium uppercase tracking-wide flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" /> Antibiotici / Antifungini / Antivirali
+                    </p>
+                  </div>
+                );
+                abx.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />));
+              }
+
+              if (nom.length > 0) {
+                rows.push(
+                  <div key="__nom__" className="px-3 py-1 bg-amber/10 border-b border-line">
+                    <p className="text-[10px] text-amber-700 font-medium uppercase tracking-wide flex items-center gap-1">
+                      🏷 Terapie nominative — prescrizione individuale
+                    </p>
+                  </div>
+                );
+                nom.forEach((p) => rows.push(<RigaNominativa key={p.id} prodotto={p} categoria={categoria} />));
+              }
+
+              if (altri.length > 0) {
+                rows.push(
+                  <div key="__altri__" className="px-3 py-1 bg-bg-soft/80 border-b border-line">
+                    <p className="text-[10px] text-ink-mute font-medium uppercase tracking-wide">Altri farmaci</p>
+                  </div>
+                );
+                altri.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />));
+              }
+
               return rows;
             })()}
           </div>

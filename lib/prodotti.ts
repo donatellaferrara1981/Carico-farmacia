@@ -35,6 +35,8 @@ export interface Prodotto {
   updated_at: string;
   quantita_consegnata: number | null;
   consumo_medio: number | null;
+  data_ultima_richiesta: string | null;
+  giorni_validita_richiesta: number | null;
 }
 
 export interface ProdottoConDocumenti extends Prodotto {

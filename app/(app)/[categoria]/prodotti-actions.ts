@@ -171,3 +171,50 @@ export async function spostaCategoriaAction(prodottoId: string, daCategoria: str
   revalidatePath(`/${aCategoria}`);
   return { ok: true };
 }
+
+export async function aggiornaDataRichiestaAction(
+  prodottoId: string,
+  dataUltimaRichiesta: string,
+  giorniValidita: number,
+  categoria: string,
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { data: prodotto } = await supabase
+    .from('prodotti')
+    .select('principio_attivo, org_id')
+    .eq('id', prodottoId)
+    .single();
+  if (!prodotto) return { error: 'Prodotto non trovato.' };
+
+  await supabase
+    .from('prodotti')
+    .update({ data_ultima_richiesta: dataUltimaRichiesta, giorni_validita_richiesta: giorniValidita })
+    .eq('id', prodottoId);
+
+  // Calcola scadenza rinnovo
+  const scadenza = new Date(dataUltimaRichiesta);
+  scadenza.setDate(scadenza.getDate() + giorniValidita);
+
+  // Upsert promemoria di rinnovo (elimina vecchi per questo prodotto, crea nuovo)
+  await supabase
+    .from('promemoria')
+    .delete()
+    .eq('prodotto_id', prodottoId)
+    .eq('tipo', 'sistema');
+
+  await supabase.from('promemoria').insert({
+    organization_id: prodotto.org_id,
+    prodotto_id: prodottoId,
+    tipo: 'sistema',
+    stato: 'pendente',
+    testo: `Rinnovo prescrizione nominativa: ${prodotto.principio_attivo}`,
+    scadenza: scadenza.toISOString(),
+    created_by: user.id,
+  });
+
+  revalidatePath(`/${categoria}`);
+  return { ok: true };
+}
