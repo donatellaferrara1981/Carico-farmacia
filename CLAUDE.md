@@ -26,9 +26,29 @@ Definiti in `lib/antibiotici.ts` → `ALTO_COSTO_PATTERNS`.
 Includer: carbapenemi, glicopeptidi, ossazolidinoni, polimixine, beta-lattamici nuova gen., tetracicline nuove, echinocandine, azoli sistemici, amfotericina B, fluorochinoloni (AIFA), fosfomicina, antivirali critici.
 
 ## Pazienti
-Tabella `pazienti`: id, org_id, unita_operativa_id, sala, numero_letto, nominativo, piano.
+Tabella `pazienti`: id, org_id, unita_operativa_id, sala, numero_letto, nominativo, piano,
+  codice_sdo, data_ricovero, data_dimissione, diagnosi_principale.
 Tabella `terapie_pazienti`: collega paziente_id → prodotto_id.
 L'estrazione PDF terapie legge il nome paziente e inserisce automaticamente in `terapie_pazienti`.
+
+## Checklist dimissione (SDO/DRG/PACA)
+La checklist di chiusura cartella è CRITICA per il rimborso economico del reparto.
+
+Contesto:
+- Quando un paziente viene **dimesso, trasferito o deceduto**, la cartella clinica viene
+  valutata dalla **PACA** (organo inviato dall'ASP di competenza).
+- Se la cartella è completa e conforme → il reparto riceve il rimborso DRG
+  (tariffa variabile per tipo di degenza e diagnosi codificata nella SDO).
+- Una voce mancante = cartella non idonea = rimborso non erogato.
+
+Tabella `checklist_dimissione`: org_id, paziente_id, codice_sdo, voce, completata,
+  completata_da, completata_at, ordine.
+
+Le voci standard sono in `app/(app)/pazienti/checklist-actions.ts → VOCI_STANDARD`.
+Donatella caricherà la checklist ufficiale PACA con le voci esatte richieste dall'ASP —
+SOSTITUIRE le voci placeholder con quelle ufficiali quando fornite.
+
+Il numero SDO è l'identificatore primario della pratica di rimborso — va sempre compilato.
 
 ## Struttura UI
 - Liste compatte (stesso stile sanitario) per tutte le categorie
