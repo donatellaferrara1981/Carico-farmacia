@@ -8,18 +8,6 @@ import type { ProdottoConDocumenti } from '@/lib/prodotti';
 
 type Ordine = 'alfa' | 'consumo';
 
-function NomeModal({ nome, codice, onClose }: { nome: string; codice: string | null; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-bg-card rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <p className="text-base font-semibold text-ink leading-snug mb-2">{nome}</p>
-        {codice && <p className="text-sm text-ink-mute">{codice}</p>}
-        <button onClick={onClose} className="mt-4 w-full btn-secondary text-sm">Chiudi</button>
-      </div>
-    </div>
-  );
-}
-
 function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
   const [editing, setEditing] = useState(false);
   const [showNome, setShowNome] = useState(false);
@@ -55,17 +43,13 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
           onClose={() => setEditing(false)}
         />
       )}
-      {showNome && (
-        <NomeModal
-          nome={p.principio_attivo}
-          codice={p.nome_commerciale}
-          onClose={() => setShowNome(false)}
-        />
-      )}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-line last:border-0 hover:bg-bg-soft/60 group">
-        {/* Nome + codice — tap per vedere per intero */}
+      <div className="flex flex-col border-b border-line last:border-0">
+        <div className="flex items-center gap-2 px-3 py-2 hover:bg-bg-soft/60 group">
+        {/* Nome + codice — tocca per espandere */}
         <button
-          onClick={() => setShowNome(true)}
+          onMouseEnter={() => setShowNome(true)}
+          onMouseLeave={() => setShowNome(false)}
+          onTouchStart={() => setShowNome((v) => !v)}
           className="flex-1 min-w-0 text-left"
         >
           <p className="text-xs font-medium text-ink leading-snug truncate">{p.principio_attivo}</p>
@@ -135,6 +119,15 @@ function RigaArticolo({ p }: { p: ProdottoConDocumenti }) {
         >
           <Pencil className="w-3 h-3" />
         </button>
+        </div>
+
+        {/* Tooltip nome completo — espanso inline */}
+        {showNome && (
+          <div className="px-3 pb-2 pt-0.5 bg-ink/5 border-t border-line/50">
+            <p className="text-xs font-semibold text-ink leading-snug">{p.principio_attivo}</p>
+            {p.nome_commerciale && <p className="text-[11px] text-ink-mute mt-0.5">{p.nome_commerciale}</p>}
+          </div>
+        )}
       </div>
     </>
   );
