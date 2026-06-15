@@ -51,21 +51,13 @@ export default async function CategoriaPage({
 
   if (!uoAttivaId) redirect('/app');
 
-  const prodottiQuery = cat === 'sanitario'
-    ? supabase
-        .from('prodotti')
-        .select('*, documenti(*)')
-        .eq('org_id', org.id)
-        .eq('categoria', 'sanitario')
-        .order('principio_attivo', { ascending: true })
-    : supabase
-        .from('prodotti')
-        .select('*, documenti(*)')
-        .eq('org_id', org.id)
-        .eq('categoria', cat)
-        .eq('unita_operativa_id', uoAttivaId)
-        .order('principio_attivo', { ascending: true })
-        .order('forma_farmaceutica', { ascending: true });
+  const prodottiQuery = supabase
+    .from('prodotti')
+    .select('*, documenti(*)')
+    .eq('org_id', org.id)
+    .eq('categoria', cat)
+    .order('principio_attivo', { ascending: true })
+    .order('forma_farmaceutica', { ascending: true });
 
   const [unitaRes, prodottiRawRes, docsLiberiRes, sanitarioOrdiniRes] = await Promise.all([
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),

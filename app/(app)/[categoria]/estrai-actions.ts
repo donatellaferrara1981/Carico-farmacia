@@ -395,15 +395,12 @@ Se nessun articolo trovato: {"articoli":[]}`,
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
-  // Carica i prodotti già presenti per questo org+categoria+sala+UO
-  const esistentiQuery = supabase
+  // Prodotti org-wide: nessun filtro UO per terapie/nutrizioni
+  const { data: esistenti } = await supabase
     .from('prodotti')
     .select('id, principio_attivo, forma_farmaceutica, dosaggio, consumo_giornaliero, nome_commerciale')
     .eq('org_id', orgId)
     .eq('categoria', categoria);
-  if (sala) esistentiQuery.eq('sala', sala);
-  if (uoAttivaId) esistentiQuery.eq('unita_operativa_id', uoAttivaId);
-  const { data: esistenti } = await esistentiQuery;
 
   const normalizza = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -445,7 +442,6 @@ Se nessun articolo trovato: {"articoli":[]}`,
         consumo_giornaliero: p.consumo_giornaliero,
         note: p.note || null,
         ...(sala ? { sala } : {}),
-        ...(uoAttivaId ? { unita_operativa_id: uoAttivaId } : {}),
       });
     }
   }
