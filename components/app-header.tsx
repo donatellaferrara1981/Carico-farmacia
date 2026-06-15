@@ -68,9 +68,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
             <Settings className="w-4 h-4" />
           </Link>
 
-          <Suspense fallback={<div className="p-2 text-ink-soft"><Bell className="w-4 h-4 opacity-40" /></div>}>
-            <AlertBellServer orgId={ctx.organization.id} />
-          </Suspense>
+          {/* campanella disattivata temporaneamente */}
 
           <RoleBadge role={ctx.role} />
 
