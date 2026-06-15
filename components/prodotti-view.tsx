@@ -30,6 +30,8 @@ interface Props {
   categoria: CategoriaArticolo;
   canEdit: boolean;
   uoAttivaId?: string | null;
+  pazienti?: { id: string; nominativo: string; sala: string; numero_letto: number }[];
+  terapiePazienti?: { paziente_id: string; principio_attivo: string; dosaggio: string | null; tipo: string }[];
 }
 
 // ─── Riga compatta (tutti gli schermi) ────────────────────────────────────────
@@ -358,22 +360,35 @@ const PRESET_GIORNI = [
 ];
 
 // ─── Vista principale ─────────────────────────────────────────────────────────
-export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, uoAttivaId }: Props) {
-  const [showForm, setShowForm]         = useState(false);
-  const [showPiano, setShowPiano]       = useState(false);
-  const [giorni, setGiorni]             = useState(7);
-  const [customGiorni, setCustomGiorni] = useState('');
-  const [modoCustom, setModoCustom]     = useState(false);
-  const [pazienti, setPazienti]         = useState(1);
-  const [salaFiltro, setSalaFiltro]     = useState<string | null>(null);
-  const [ordine, setOrdine]             = useState<'alfa' | 'fabb'>('alfa');
-  const [isPendingReset, startReset]    = useTransition();
+export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, uoAttivaId, pazienti = [], terapiePazienti = [] }: Props) {
+  const [showForm, setShowForm]               = useState(false);
+  const [showPiano, setShowPiano]             = useState(false);
+  const [giorni, setGiorni]                   = useState(7);
+  const [customGiorni, setCustomGiorni]       = useState('');
+  const [modoCustom, setModoCustom]           = useState(false);
+  const [numPazienti, setNumPazienti]         = useState(1);
+  const [salaFiltro, setSalaFiltro]           = useState<string | null>(null);
+  const [ordine, setOrdine]                   = useState<'alfa' | 'fabb'>('alfa');
+  const [isPendingReset, startReset]          = useTransition();
+  const [pazienteId, setPazienteId]           = useState<string | 'tutti'>('tutti');
 
   const giorniEffettivi = modoCustom ? (parseInt(customGiorni) || 1) : giorni;
-  const moltiplicatore  = categoria === 'sanitario' ? Math.max(1, pazienti) : 1;
+  const moltiplicatore  = categoria === 'sanitario' ? Math.max(1, numPazienti) : 1;
+
+  // Filtro per paziente selezionato (solo terapie)
+  const farmacilPaziente = pazienteId === 'tutti'
+    ? null
+    : terapiePazienti.filter((t) => t.paziente_id === pazienteId).map((t) =>
+        (t.principio_attivo + (t.dosaggio ? ' ' + t.dosaggio : '')).toLowerCase()
+      );
+  const prodottiFiltroBase = farmacilPaziente === null
+    ? prodotti
+    : prodotti.filter((p) =>
+        farmacilPaziente.some((k) => k.includes(p.principio_attivo.toLowerCase()))
+      );
 
   const hasSale = prodotti.some((p) => p.sala);
-  const prodottiFiltrati = salaFiltro === null ? prodotti : prodotti.filter((p) => p.sala === salaFiltro);
+  const prodottiFiltrati = salaFiltro === null ? prodottiFiltroBase : prodottiFiltroBase.filter((p) => p.sala === salaFiltro);
   const saleConProdotti = SALE.filter((s) => prodotti.some((p) => p.sala === s.id));
   const salaAttiva = getSala(salaFiltro);
 
@@ -456,6 +471,28 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
         </div>
       )}
 
+      {/* Selettore paziente (solo terapie) */}
+      {categoria === 'terapie' && pazienti.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-ink-soft">Degente:</span>
+          <button
+            onClick={() => setPazienteId('tutti')}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${pazienteId === 'tutti' ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/50'}`}
+          >
+            Tutti
+          </button>
+          {pazienti.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setPazienteId(p.id)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${pazienteId === p.id ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/50'}`}
+            >
+              {p.nominativo} <span className="opacity-60">· L.{p.numero_letto}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {ordinati.length === 0 && docsLiberi.length === 0 ? (
         <div className="text-center py-16 text-ink-mute">
           <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -489,10 +526,10 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
             {categoria === 'sanitario' && (
               <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-line">
                 <span className="text-xs font-medium text-ink-soft">Paz.:</span>
-                <button onClick={() => setPazienti((v) => Math.max(1, v - 1))} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">−</button>
-                <input type="number" min={1} value={pazienti} onChange={(e) => setPazienti(Math.max(1, parseInt(e.target.value) || 1))}
+                <button onClick={() => setNumPazienti((v) => Math.max(1, v - 1))} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">−</button>
+                <input type="number" min={1} value={numPazienti} onChange={(e) => setNumPazienti(Math.max(1, parseInt(e.target.value) || 1))}
                   className="w-10 px-1 py-1 text-xs border border-line rounded-lg text-center font-semibold focus:outline-none focus:border-forest" />
-                <button onClick={() => setPazienti((v) => v + 1)} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">+</button>
+                <button onClick={() => setNumPazienti((v) => v + 1)} className="w-6 h-6 rounded border border-line flex items-center justify-center text-ink-mute hover:bg-bg-soft">+</button>
               </div>
             )}
             {ordinati.length > 0 && (

@@ -59,7 +59,7 @@ export default async function CategoriaPage({
     .order('principio_attivo', { ascending: true })
     .order('forma_farmaceutica', { ascending: true });
 
-  const [unitaRes, prodottiRawRes, docsLiberiRes, sanitarioOrdiniRes] = await Promise.all([
+  const [unitaRes, prodottiRawRes, docsLiberiRes, sanitarioOrdiniRes, pazientiRes, terapiePazRes] = await Promise.all([
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
     prodottiQuery,
     supabase
@@ -76,6 +76,12 @@ export default async function CategoriaPage({
           .select('prodotto_id, consumo_giornaliero, quantita_consegnata, consumo_medio')
           .eq('org_id', org.id)
           .eq('unita_operativa_id', uoAttivaId)
+      : Promise.resolve({ data: [] }),
+    cat === 'terapie'
+      ? supabase.from('pazienti').select('id, nominativo, sala, numero_letto').eq('org_id', org.id).eq('unita_operativa_id', uoAttivaId).order('numero_letto')
+      : Promise.resolve({ data: [] }),
+    cat === 'terapie'
+      ? supabase.from('terapie_pazienti').select('paziente_id, principio_attivo, dosaggio, tipo').eq('org_id', org.id).eq('tipo', 'terapia')
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -141,6 +147,8 @@ export default async function CategoriaPage({
             categoria={cat}
             canEdit={canEdit}
             uoAttivaId={uoAttivaId}
+            pazienti={cat === 'terapie' ? (pazientiRes.data ?? []) : []}
+            terapiePazienti={cat === 'terapie' ? (terapiePazRes.data ?? []) : []}
           />
         )}
       </main>
