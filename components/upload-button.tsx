@@ -134,8 +134,8 @@ export function UploadButton({
             <Camera className="w-4 h-4" />
             <span className="hidden sm:inline">Foto</span>
           </button>
-          <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary" title="Carica PDF o immagini">
-            <Upload className="w-4 h-4" />Carica
+          <button type="button" onClick={() => fileRef.current?.click()} className="btn-primary" title="Carica documenti">
+            <Upload className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -198,8 +198,8 @@ export function UploadButton({
           {/* Azioni */}
           {!allDone && (
             <div className="flex gap-2">
-              <button onClick={handleCancel} disabled={isRunning} className="btn-secondary flex-1">
-                <X className="w-4 h-4" /> Annulla
+              <button onClick={handleCancel} disabled={isRunning} title="Annulla" className="btn-secondary flex-1">
+                <X className="w-4 h-4" />
               </button>
               <button onClick={handleUpload} disabled={isRunning} className="btn-primary flex-1">
                 {isRunning

@@ -38,10 +38,10 @@ export function GareCercaOnline({ orgId }: { orgId: string }) {
     return (
       <button
         onClick={() => setAperto(true)}
+        title="Cerca bandi online"
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-soft hover:text-forest hover:border-forest/50 transition-colors"
       >
         <Globe className="w-3.5 h-3.5" />
-        Cerca bandi online
       </button>
     );
   }

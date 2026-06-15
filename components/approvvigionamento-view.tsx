@@ -161,9 +161,8 @@ export function ApprovvigionamentoView({ prodotti, orgName }: { prodotti: Prodot
       {/* Pulsanti azioni */}
       {righeVis.length > 0 && (
         <div className="flex flex-wrap gap-2 justify-between items-center print:hidden">
-          <button onClick={() => exportCSV(righeVis, giorniEffettivi, orgName)} className="btn-ghost text-sm">
+          <button onClick={() => exportCSV(righeVis, giorniEffettivi, orgName)} title="Scarica CSV" className="btn-ghost text-sm">
             <Download className="w-4 h-4" />
-            Scarica CSV
           </button>
           <SharePrintBar
             titolo={`Approvvigionamento ${giorniEffettivi} giorni — ${orgName}`}

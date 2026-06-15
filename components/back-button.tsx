@@ -8,10 +8,10 @@ export function BackButton() {
   return (
     <button
       onClick={() => router.back()}
+      title="Indietro"
       className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink transition-colors"
     >
       <ArrowLeft className="w-4 h-4" />
-      Indietro
     </button>
   );
 }

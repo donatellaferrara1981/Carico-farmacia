@@ -29,22 +29,22 @@ export function SanitarioToolbar({ orgId, hasItems }: { orgId: string; hasItems:
     <div className="flex items-center gap-2">
       <button
         onClick={aggiorna}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-xs text-ink-soft hover:text-forest hover:border-forest/50 transition-colors"
+        title="Aggiorna"
+        className="flex items-center px-3 py-1.5 rounded-lg border border-line text-xs text-ink-soft hover:text-forest hover:border-forest/50 transition-colors"
       >
         <RefreshCw className={`w-3.5 h-3.5 ${spinning ? 'animate-spin text-forest' : ''}`} />
-        Aggiorna
       </button>
 
       {hasItems && (
         <button
           onClick={svuota}
           disabled={svuotando}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs text-red-400 hover:text-red-600 hover:border-red-400 transition-colors disabled:opacity-40"
+          title="Svuota elenco"
+          className="flex items-center px-3 py-1.5 rounded-lg border border-red-200 text-xs text-red-400 hover:text-red-600 hover:border-red-400 transition-colors disabled:opacity-40"
         >
           {svuotando
             ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
             : <Trash2 className="w-3.5 h-3.5" />}
-          Svuota elenco
         </button>
       )}
     </div>

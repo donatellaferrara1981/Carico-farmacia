@@ -64,10 +64,10 @@ export function AvvisiArchiviatiView({ items: initialItems }: { items: AvvisoArc
         <button
           onClick={azzeraTutto}
           disabled={clearPending}
+          title="Azzera tutto"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-ink-mute hover:text-abx hover:bg-abx/10 border border-line transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Azzera tutto
         </button>
       </div>
 

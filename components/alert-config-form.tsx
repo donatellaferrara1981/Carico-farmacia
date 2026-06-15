@@ -131,9 +131,10 @@ export function AlertConfigForm({ orgId, config, defaultEmail }: Props) {
           <button
             onClick={addEmail}
             disabled={!newEmail.trim()}
+            title="Aggiungi"
             className="btn-ghost flex items-center gap-1 text-sm disabled:opacity-40"
           >
-            <Plus className="w-4 h-4" /> Aggiungi
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       </div>

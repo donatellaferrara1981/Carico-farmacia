@@ -209,9 +209,10 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAdd(!showAdd)}
+              title="Aggiungi paziente"
               className="btn-ghost text-sm"
             >
-              <Plus className="w-4 h-4" /> Aggiungi
+              <Plus className="w-4 h-4" />
             </button>
             <SharePrintBar
               titolo={`Pazienti — ${uoNome ?? orgName}`}

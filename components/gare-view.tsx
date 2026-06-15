@@ -217,8 +217,8 @@ export function GareView({ gare, prodotti, orgName, orgId }: { gare: Gara[]; pro
             <div className="flex items-center gap-2">
               <GareCercaOnline orgId={orgId} />
               <SharePrintBar titolo={`Gare d'appalto — ${orgName}`} testoCondivisione={testoCondivisione} generaHtml={generaHtml} />
-              <button onClick={() => { setEditId(null); setShowForm(true); }} className="btn-primary text-sm">
-                <Plus className="w-4 h-4" /> Nuova gara
+              <button onClick={() => { setEditId(null); setShowForm(true); }} title="Nuova gara" className="btn-primary text-sm">
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -337,10 +337,10 @@ function CoperturaView({
         <button
           onClick={handleSync}
           disabled={syncPending || totale === 0}
+          title="Sincronizza nominative"
           className="btn-secondary text-sm shrink-0 flex items-center gap-2"
         >
           {syncPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Sincronizza nominative
         </button>
       </div>
 
