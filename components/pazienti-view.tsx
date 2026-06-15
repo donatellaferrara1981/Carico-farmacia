@@ -4,6 +4,7 @@ import { useState, useRef, useTransition, useEffect } from 'react';
 import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
+import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface TerapiaPaziente {
@@ -494,6 +495,165 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Checklist Dimissione ──────────────────────────────────────────────────────
+
+function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: string }) {
+  const [pending, startTransition] = useTransition();
+  const [voci, setVoci] = useState<VoceChecklist[] | null>(null);
+  const [codiceSdo, setCodiceSdo] = useState(paziente.codice_sdo ?? '');
+  const [dataRicovero, setDataRicovero] = useState(paziente.data_ricovero ?? '');
+  const [dataDimissione, setDataDimissione] = useState(paziente.data_dimissione ?? '');
+  const [diagnosi, setDiagnosi] = useState(paziente.diagnosi_principale ?? '');
+  const [sdoSaved, setSdoSaved] = useState(false);
+
+  useEffect(() => {
+    getChecklistAction(paziente.id).then((v) => {
+      setVoci(v);
+      // Se non esiste ancora, inizializza
+      if (v.length === 0) {
+        startTransition(async () => {
+          await inizializzaChecklistAction(paziente.id, orgId, paziente.codice_sdo ?? undefined);
+          const fresh = await getChecklistAction(paziente.id);
+          setVoci(fresh);
+        });
+      }
+    });
+  }, [paziente.id, orgId, paziente.codice_sdo]);
+
+  function handleToggle(voceId: string, completata: boolean) {
+    startTransition(async () => {
+      await toggleVoceAction(voceId, completata, 'Farmacista');
+      const fresh = await getChecklistAction(paziente.id);
+      setVoci(fresh);
+    });
+  }
+
+  function handleSaveSdo(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      await aggiornaSdoPazienteAction(paziente.id, codiceSdo, dataRicovero, dataDimissione, diagnosi);
+      setSdoSaved(true);
+      setTimeout(() => setSdoSaved(false), 2000);
+    });
+  }
+
+  const completate = voci?.filter((v) => v.completata).length ?? 0;
+  const totale = voci?.length ?? 0;
+  const pct = totale > 0 ? Math.round((completate / totale) * 100) : 0;
+
+  return (
+    <div className="bg-amber/5 border-t border-amber/20 px-3 py-3 space-y-3">
+      {/* Dati SDO */}
+      <form onSubmit={handleSaveSdo} className="space-y-2">
+        <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Dati SDO / Ricovero</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">N° SDO</label>
+            <input
+              type="text"
+              value={codiceSdo}
+              onChange={(e) => setCodiceSdo(e.target.value)}
+              placeholder="es. 2024123456"
+              className="input-base text-xs py-1 w-full font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Diagnosi principale</label>
+            <input
+              type="text"
+              value={diagnosi}
+              onChange={(e) => setDiagnosi(e.target.value)}
+              placeholder="ICD-10 o descrizione"
+              className="input-base text-xs py-1 w-full"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Data ricovero</label>
+            <input type="date" value={dataRicovero} onChange={(e) => setDataRicovero(e.target.value)} className="input-base text-xs py-1 w-full" />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Data dimissione</label>
+            <input type="date" value={dataDimissione} onChange={(e) => setDataDimissione(e.target.value)} className="input-base text-xs py-1 w-full" />
+          </div>
+        </div>
+        <button type="submit" disabled={pending} className="btn-primary text-xs py-1 w-full">
+          {pending ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : sdoSaved ? '✓ Salvato' : 'Salva dati SDO'}
+        </button>
+      </form>
+
+      {/* Checklist */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-semibold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totale} ({pct}%)</span>
+            {voci !== null && (
+              <button
+                type="button"
+                title="Reimposta checklist con le voci ufficiali aggiornate"
+                onClick={() => {
+                  if (!confirm('Reimposta la checklist? Tutte le spunte saranno azzerate.')) return;
+                  startTransition(async () => {
+                    await reinizializzaChecklistAction(paziente.id, orgId, codiceSdo || undefined);
+                    const fresh = await getChecklistAction(paziente.id);
+                    setVoci(fresh);
+                  });
+                }}
+                className="text-[10px] text-ink-mute hover:text-amber underline decoration-dotted"
+              >
+                reimposta
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Barra progresso */}
+        <div className="h-1.5 bg-line rounded-full overflow-hidden mb-3">
+          <div
+            className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-forest' : 'bg-amber'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {pct === 100 && (
+          <div className="flex items-center gap-1.5 px-2 py-1.5 mb-2 rounded-lg bg-forest/10 text-forest text-xs font-semibold">
+            <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+            Cartella completa — pronta per la Direzione Sanitaria
+          </div>
+        )}
+        {voci === null ? (
+          <div className="flex items-center gap-1.5 py-2 text-ink-mute">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="text-xs">Caricamento…</span>
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {voci.map((v) => (
+              <li
+                key={v.id}
+                className="flex items-start gap-2 cursor-pointer group/v select-none"
+                onClick={() => handleToggle(v.id, !v.completata)}
+              >
+                {v.completata
+                  ? <CheckSquare className="w-4 h-4 text-forest shrink-0 mt-0.5" />
+                  : <Square className="w-4 h-4 text-ink-mute shrink-0 mt-0.5 group-hover/v:text-amber transition-colors" />}
+                <div className="flex-1 min-w-0">
+                  <span className={`text-xs leading-snug ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>
+                    {v.voce}
+                  </span>
+                  {v.completata && v.completata_da && v.completata_at && (
+                    <p className="text-[10px] text-ink-mute mt-0.5">
+                      ✓ {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

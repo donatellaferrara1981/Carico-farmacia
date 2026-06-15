@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-const VOCI_STANDARD = [
+export const VOCI_STANDARD = [
   'Documento Tribunale per Amministratore di Sostegno',
   'Foglio di ricovero stampato da ADT e firma del consenso al trattamento dei dati personali in calce al foglio',
   'Accettazione condizioni di ricovero firmato dal paziente o dal suo rappresentante legale e dal medico che accetta il paziente',
