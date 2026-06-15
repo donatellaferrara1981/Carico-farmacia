@@ -6,7 +6,6 @@ import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
 import { MobileMenu } from './mobile-menu';
 import { UoSwitcher } from './uo-switcher';
-import { RefreshButton } from './refresh-button';
 import { logoutAction } from '@/app/(auth)/actions';
 import type { CurrentUserContext } from '@/lib/types';
 
@@ -26,7 +25,6 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           <Link href="/app">
             <Logo size={32} />
           </Link>
-          <RefreshButton />
         </div>
 
         {/* UO attiva — desktop switcher + Pazienti subito dopo */}
@@ -81,10 +79,6 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           </Suspense>
 
           <RoleBadge role={ctx.role} />
-
-          <span className="text-sm text-ink-soft hidden md:block max-w-[120px] truncate">
-            {ctx.profile.full_name}
-          </span>
 
           <form action={logoutAction}>
             <button type="submit" className="btn-ghost p-2" aria-label="Esci">
