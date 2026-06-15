@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { FileText, CheckSquare, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil } from 'lucide-react';
-import { aggiornaEsitoPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
+import { aggiornaEsitoPacaAction, toggleVoceChecklistPacaAction, inizializzaChecklistPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
 
-interface VoceChecklist { voce: string; completata: boolean; }
+interface VoceChecklist { id: string; voce: string; completata: boolean; }
 
 interface PazientePaca {
   id: string;
@@ -330,7 +330,7 @@ ${criticita.length > 0 ? `
         ) : (
           <div className="space-y-2">
             {pazientiFiltrati.map((p) => (
-              <RigaCartella key={p.id} paziente={p} orgId={orgId} />
+              <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
             ))}
           </div>
         )}
@@ -352,7 +352,7 @@ function KpiCard({ icon, valore, label, color }: { icon: React.ReactNode; valore
 
 // ── Riga cartella con editor esito PACA ───────────────────────────────────────
 
-function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: string }) {
+function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca; orgId: string; userName: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [esito, setEsito] = useState<EsitoPaca>((p.esito_paca as EsitoPaca) ?? 'in_corso');
@@ -360,9 +360,12 @@ function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: s
   const [dataChiusura, setDataChiusura] = useState(p.data_chiusura_cartella ?? '');
   const [note, setNote] = useState(p.note_paca ?? '');
   const [saved, setSaved] = useState(false);
+  const [checklistItems, setChecklistItems] = useState<VoceChecklist[]>(p.checklist);
+  const [pendingVoce, setPendingVoce] = useState<string | null>(null);
+  const [initPending, setInitPending] = useState(false);
 
-  const completate = p.checklist.filter((v) => v.completata).length;
-  const totV = p.checklist.length;
+  const completate = checklistItems.filter((v) => v.completata).length;
+  const totV = checklistItems.length;
   const info = esitoInfo(esito);
 
   function handleSave(e: React.FormEvent) {
@@ -372,6 +375,19 @@ function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: s
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
+  }
+
+  async function handleToggleVoce(id: string, attuale: boolean) {
+    setPendingVoce(id);
+    setChecklistItems(prev => prev.map(v => v.id === id ? { ...v, completata: !attuale } : v));
+    await toggleVoceChecklistPacaAction(id, !attuale, userName || 'Utente');
+    setPendingVoce(null);
+  }
+
+  async function handleInizializza() {
+    setInitPending(true);
+    await inizializzaChecklistPacaAction(p.id, orgId, p.codice_sdo ?? undefined);
+    setInitPending(false);
   }
 
   return (
@@ -448,22 +464,50 @@ function RigaCartella({ paziente: p, orgId }: { paziente: PazientePaca; orgId: s
             </div>
           </div>
 
-          {/* Checklist riepilogo */}
-          {p.checklist.length > 0 && (
-            <div>
-              <p className="text-[10px] text-ink-mute mb-1 uppercase tracking-wide font-semibold">Voci checklist</p>
+          {/* Checklist documentazione sanitaria */}
+          <div className="border-t border-line/60 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] text-ink-mute uppercase tracking-wide font-semibold flex items-center gap-1">
+                <CheckSquare className="w-3 h-3" />
+                Checklist chiusura cartella
+              </p>
+              {checklistItems.length === 0 && (
+                <button
+                  type="button"
+                  onClick={handleInizializza}
+                  disabled={initPending}
+                  className="text-[10px] text-forest font-semibold flex items-center gap-1 hover:underline disabled:opacity-60"
+                >
+                  {initPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                  Inizializza
+                </button>
+              )}
+            </div>
+            {checklistItems.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
-                {p.checklist.map((v, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs">
-                    <span className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 ${v.completata ? 'bg-forest/20 text-forest' : 'bg-red-50 text-red-400'}`}>
-                      {v.completata ? '✓' : '✗'}
+                {checklistItems.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handleToggleVoce(v.id, v.completata)}
+                    disabled={pendingVoce === v.id}
+                    className="flex items-center gap-2 text-xs text-left w-full px-1.5 py-1 rounded hover:bg-bg-soft/60 transition-colors disabled:opacity-60"
+                  >
+                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${v.completata ? 'bg-forest border-forest text-white' : 'border-line bg-white'}`}>
+                      {pendingVoce === v.id
+                        ? <Loader2 className="w-2.5 h-2.5 animate-spin text-ink-mute" />
+                        : v.completata
+                          ? <span className="text-[9px] font-bold leading-none">✓</span>
+                          : null}
                     </span>
-                    <span className={v.completata ? 'text-ink-mute' : 'text-ink'}>{v.voce}</span>
-                  </div>
+                    <span className={v.completata ? 'text-ink-mute line-through' : 'text-ink'}>{v.voce}</span>
+                  </button>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-ink-mute">Nessuna voce — clicca &quot;Inizializza&quot; per creare la checklist standard.</p>
+            )}
+          </div>
 
           <button type="submit" disabled={pending} className="btn-primary text-xs py-1.5">
             {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : saved ? '✓ Salvato' : 'Salva esito PACA'}
