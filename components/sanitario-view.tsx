@@ -183,10 +183,10 @@ export function SanitarioView({ prodotti, orgId, canEdit }: { prodotti: Prodotto
           <button
             onClick={svuotaLista}
             disabled={svuotando}
-            className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-0.5 rounded-full transition-colors disabled:opacity-40"
+            title="Svuota lista"
+            className="flex items-center justify-center w-7 h-7 rounded-md border border-red-200 text-red-400 hover:text-red-600 hover:border-red-400 transition-colors disabled:opacity-40"
           >
-            {svuotando ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Trash2 className="w-2.5 h-2.5" />}
-            Svuota lista
+            {svuotando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
           </button>
         )}
       </div>
