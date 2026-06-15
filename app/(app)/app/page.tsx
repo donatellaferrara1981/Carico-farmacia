@@ -54,6 +54,17 @@ export default async function AppPage() {
   const unita = unitaRes.data ?? [];
   const uoAttiva = unita.find((u: { id: string }) => u.id === uoAttivaId) ?? null;
 
+  // Conteggio pazienti per la UO attiva
+  let numeroPazienti = 0;
+  if (uoAttiva) {
+    const { count } = await supabase
+      .from('pazienti')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', org.id)
+      .eq('unita_operativa_id', uoAttiva.id);
+    numeroPazienti = count ?? 0;
+  }
+
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita} />
@@ -94,10 +105,16 @@ export default async function AppPage() {
               <div className="w-10 h-10 rounded-xl bg-forest/10 flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5 text-forest" />
               </div>
-              <div>
-                <p className="font-semibold text-ink text-sm">Pazienti</p>
-                <p className="text-xs text-ink-mute">Elenco pazienti ricoverati</p>
+              <div className="flex-1">
+                <p className="font-semibold text-ink text-sm">Pazienti ricoverati</p>
+                <p className="text-xs text-ink-mute">Elenco letti · {uoAttiva.nome}</p>
               </div>
+              {numeroPazienti > 0 && (
+                <div className="flex flex-col items-center bg-forest text-white rounded-lg px-3 py-1 min-w-[48px]">
+                  <span className="text-xl font-bold leading-none">{numeroPazienti}</span>
+                  <span className="text-[9px] uppercase tracking-wide opacity-80">pz</span>
+                </div>
+              )}
             </Link>
           </div>
         )}

@@ -70,7 +70,17 @@ export default async function PazientiPage() {
   }
 
   const pazienti: Paziente[] = (pazientiRaw ?? []).map((p) => ({
-    ...(p as Paziente),
+    id: p.id,
+    sala: p.sala,
+    numero_letto: p.numero_letto,
+    nominativo: p.nominativo,
+    piano: p.piano,
+    unita_operativa_id: p.unita_operativa_id,
+    data_aggiornamento: p.data_aggiornamento,
+    codice_sdo: p.codice_sdo ?? null,
+    data_ricovero: p.data_ricovero ?? null,
+    data_dimissione: p.data_dimissione ?? null,
+    diagnosi_principale: p.diagnosi_principale ?? null,
     terapie: terapieByPaziente[p.id] ?? [],
   }));
 

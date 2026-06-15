@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useTransition, useEffect } from 'react';
-import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
+import { inizializzaChecklistAction, toggleVoceAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface TerapiaPaziente {
@@ -22,6 +23,10 @@ export interface Paziente {
   piano: 'terra' | 'primo' | null;
   unita_operativa_id: string | null;
   data_aggiornamento: string;
+  codice_sdo: string | null;
+  data_ricovero: string | null;
+  data_dimissione: string | null;
+  diagnosi_principale: string | null;
   terapie?: TerapiaPaziente[];
 }
 
@@ -37,6 +42,7 @@ interface Props {
   orgName: string;
   uoNome: string | null;
   prodotti?: ProdottoSuggestion[];
+  userName?: string;
 }
 
 const STORAGE_KEY = 'carico_selezione';
@@ -247,6 +253,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
               sala={sala}
               pazienti={bySala[sala].sort((a, b) => a.numero_letto - b.numero_letto)}
               prodotti={prodotti}
+              orgId={orgId}
             />
           ))}
         </div>
@@ -429,12 +436,23 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
 
 // ── Card compatta per sala ───────────────────────────────────────────────────
 
-function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Paziente[]; prodotti: ProdottoSuggestion[] }) {
+type PanelType = 'terapie' | 'checklist' | 'sdo' | null;
+
+function SalaCard({ sala, pazienti, prodotti, orgId }: { sala: string; pazienti: Paziente[]; prodotti: ProdottoSuggestion[]; orgId: string }) {
   const [pending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [panelType, setPanelType] = useState<PanelType>(null);
 
   function handleDelete(id: string) {
     startTransition(async () => { await eliminaPazienteAction(id); });
+  }
+
+  function togglePanel(pazId: string, tipo: 'terapie' | 'checklist' | 'sdo') {
+    if (expandedId === pazId && panelType === tipo) {
+      setExpandedId(null); setPanelType(null);
+    } else {
+      setExpandedId(pazId); setPanelType(tipo);
+    }
   }
 
   return (
@@ -448,15 +466,29 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
       <div className="divide-y divide-line/50">
         {pazienti.map((p) => (
           <div key={p.id}>
-            <div className="flex items-center gap-2 px-3 py-1.5 group hover:bg-bg-soft/40">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 group hover:bg-bg-soft/40">
               <span className="w-7 text-right text-[11px] font-mono text-ink-mute shrink-0">{p.numero_letto}</span>
-              <span className="flex-1 text-xs font-medium text-ink truncate">{p.nominativo}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-medium text-ink truncate block">{p.nominativo}</span>
+                {p.codice_sdo && (
+                  <span className="text-[10px] text-ink-mute font-mono">SDO {p.codice_sdo}</span>
+                )}
+              </div>
+              {/* Tasto checklist dimissione */}
               <button
-                onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                className="p-1 rounded text-ink-mute hover:text-forest hover:bg-forest/10 transition-colors"
+                onClick={() => togglePanel(p.id, 'checklist')}
+                className={`p-1 rounded transition-colors ${expandedId === p.id && panelType === 'checklist' ? 'text-amber bg-amber/10' : 'text-ink-mute hover:text-amber hover:bg-amber/10'}`}
+                title="Checklist dimissione"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+              </button>
+              {/* Tasto terapie */}
+              <button
+                onClick={() => togglePanel(p.id, 'terapie')}
+                className={`p-1 rounded transition-colors ${expandedId === p.id && panelType === 'terapie' ? 'text-forest bg-forest/10' : 'text-ink-mute hover:text-forest hover:bg-forest/10'}`}
                 title="Terapie"
               >
-                {expandedId === p.id
+                {expandedId === p.id && panelType === 'terapie'
                   ? <ChevronUp className="w-3 h-3" />
                   : <ChevronDown className="w-3 h-3" />}
               </button>
@@ -468,11 +500,144 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
                 <Trash2 className="w-3 h-3" />
               </button>
             </div>
-            {expandedId === p.id && (
+            {expandedId === p.id && panelType === 'terapie' && (
               <TerapiePanel paziente={p} prodotti={prodotti} />
+            )}
+            {expandedId === p.id && panelType === 'checklist' && (
+              <ChecklistDimissione paziente={p} orgId={orgId} />
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Checklist Dimissione ──────────────────────────────────────────────────────
+
+function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: string }) {
+  const [pending, startTransition] = useTransition();
+  const [voci, setVoci] = useState<VoceChecklist[] | null>(null);
+  const [codiceSdo, setCodiceSdo] = useState(paziente.codice_sdo ?? '');
+  const [dataRicovero, setDataRicovero] = useState(paziente.data_ricovero ?? '');
+  const [dataDimissione, setDataDimissione] = useState(paziente.data_dimissione ?? '');
+  const [diagnosi, setDiagnosi] = useState(paziente.diagnosi_principale ?? '');
+  const [sdoSaved, setSdoSaved] = useState(false);
+
+  useEffect(() => {
+    getChecklistAction(paziente.id).then((v) => {
+      setVoci(v);
+      // Se non esiste ancora, inizializza
+      if (v.length === 0) {
+        startTransition(async () => {
+          await inizializzaChecklistAction(paziente.id, orgId, paziente.codice_sdo ?? undefined);
+          const fresh = await getChecklistAction(paziente.id);
+          setVoci(fresh);
+        });
+      }
+    });
+  }, [paziente.id, orgId, paziente.codice_sdo]);
+
+  function handleToggle(voceId: string, completata: boolean) {
+    startTransition(async () => {
+      await toggleVoceAction(voceId, completata, 'Farmacista');
+      const fresh = await getChecklistAction(paziente.id);
+      setVoci(fresh);
+    });
+  }
+
+  function handleSaveSdo(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      await aggiornaSdoPazienteAction(paziente.id, codiceSdo, dataRicovero, dataDimissione, diagnosi);
+      setSdoSaved(true);
+      setTimeout(() => setSdoSaved(false), 2000);
+    });
+  }
+
+  const completate = voci?.filter((v) => v.completata).length ?? 0;
+  const totale = voci?.length ?? 0;
+  const pct = totale > 0 ? Math.round((completate / totale) * 100) : 0;
+
+  return (
+    <div className="bg-amber/5 border-t border-amber/20 px-3 py-3 space-y-3">
+      {/* Dati SDO */}
+      <form onSubmit={handleSaveSdo} className="space-y-2">
+        <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Dati SDO / Ricovero</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">N° SDO</label>
+            <input
+              type="text"
+              value={codiceSdo}
+              onChange={(e) => setCodiceSdo(e.target.value)}
+              placeholder="es. 2024123456"
+              className="input-base text-xs py-1 w-full font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Diagnosi principale</label>
+            <input
+              type="text"
+              value={diagnosi}
+              onChange={(e) => setDiagnosi(e.target.value)}
+              placeholder="ICD-10 o descrizione"
+              className="input-base text-xs py-1 w-full"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Data ricovero</label>
+            <input type="date" value={dataRicovero} onChange={(e) => setDataRicovero(e.target.value)} className="input-base text-xs py-1 w-full" />
+          </div>
+          <div>
+            <label className="text-[10px] text-ink-mute block mb-0.5">Data dimissione</label>
+            <input type="date" value={dataDimissione} onChange={(e) => setDataDimissione(e.target.value)} className="input-base text-xs py-1 w-full" />
+          </div>
+        </div>
+        <button type="submit" disabled={pending} className="btn-primary text-xs py-1 w-full">
+          {pending ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : sdoSaved ? '✓ Salvato' : 'Salva dati SDO'}
+        </button>
+      </form>
+
+      {/* Checklist */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella</p>
+          <span className="text-[10px] font-semibold text-amber">{completate}/{totale} ({pct}%)</span>
+        </div>
+        {/* Barra progresso */}
+        <div className="h-1.5 bg-line rounded-full overflow-hidden mb-2">
+          <div
+            className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-forest' : 'bg-amber'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {voci === null ? (
+          <div className="flex items-center gap-1.5 py-2 text-ink-mute">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span className="text-xs">Caricamento…</span>
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {voci.map((v) => (
+              <li
+                key={v.id}
+                className="flex items-start gap-2 cursor-pointer group/v"
+                onClick={() => handleToggle(v.id, !v.completata)}
+              >
+                {v.completata
+                  ? <CheckSquare className="w-3.5 h-3.5 text-forest shrink-0 mt-0.5" />
+                  : <Square className="w-3.5 h-3.5 text-ink-mute shrink-0 mt-0.5 group-hover/v:text-amber" />}
+                <span className={`text-xs leading-snug ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>
+                  {v.voce}
+                  {v.completata && v.completata_da && (
+                    <span className="text-[10px] text-ink-mute ml-1">({v.completata_da})</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -624,6 +789,16 @@ function AddPazienteForm({ sale, orgId, onClose }: { sale: string[]; orgId: stri
       <div>
         <label className="text-xs text-ink-soft mb-1 block">Nominativo</label>
         <input type="text" name="nominativo" placeholder="COGNOME NOME" className="input-base w-full text-sm" required />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-ink-soft mb-1 block">N° SDO</label>
+          <input type="text" name="codice_sdo" placeholder="es. 2024123456" className="input-base w-full text-sm font-mono" />
+        </div>
+        <div>
+          <label className="text-xs text-ink-soft mb-1 block">Data ricovero</label>
+          <input type="date" name="data_ricovero" className="input-base w-full text-sm" />
+        </div>
       </div>
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={onClose} className="btn-ghost text-sm">Annulla</button>

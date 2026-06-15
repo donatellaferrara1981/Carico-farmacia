@@ -329,6 +329,8 @@ export async function aggiungiPazienteAction(formData: FormData) {
   if (!member) return { error: 'Organizzazione non trovata.' };
 
   const sala = String(formData.get('sala') ?? '').trim();
+  const codiceSdo = String(formData.get('codice_sdo') ?? '').trim() || null;
+  const dataRicovero = String(formData.get('data_ricovero') ?? '').trim() || null;
   const { error } = await supabase.from('pazienti').insert({
     org_id: member.organization_id,
     unita_operativa_id: uoAttivaId ?? null,
@@ -336,6 +338,8 @@ export async function aggiungiPazienteAction(formData: FormData) {
     numero_letto: parseInt(String(formData.get('numero_letto') ?? '0')),
     nominativo: String(formData.get('nominativo') ?? '').trim(),
     piano: derivaPiano(sala),
+    codice_sdo: codiceSdo,
+    data_ricovero: dataRicovero,
   });
 
   if (error) return { error: error.message };
