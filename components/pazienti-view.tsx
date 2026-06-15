@@ -41,13 +41,14 @@ interface Props {
   orgId: string;
   orgName: string;
   uoNome: string | null;
+  uoPianaSingola?: boolean;
   prodotti?: ProdottoSuggestion[];
   userName?: string;
 }
 
 const STORAGE_KEY = 'carico_selezione';
 
-export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }: Props) {
+export function PazientiView({ pazienti, orgId, orgName, uoNome, uoPianaSingola = false, prodotti = [] }: Props) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -65,9 +66,6 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
   const dataStr = pazienti[0]
     ? new Date(pazienti[0].data_aggiornamento).toLocaleString('it-IT')
     : null;
-
-  // UO con pochi posti letto (es. spinale): nessuna distinzione per piano
-  const uoPianaSingola = uoNome?.toLowerCase().includes('spinale') ?? false;
 
   // Sale per piano
   const saleTerra = uoPianaSingola

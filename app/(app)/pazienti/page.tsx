@@ -32,13 +32,15 @@ export default async function PazientiPage() {
 
   // Carica UO attiva
   let uoNome: string | null = null;
+  let uoPianaSingola = false;
   if (uoAttivaId) {
     const { data: uo } = await supabase
       .from('unita_operative')
-      .select('nome')
+      .select('nome, piano_singola')
       .eq('id', uoAttivaId)
       .single();
     uoNome = uo?.nome ?? null;
+    uoPianaSingola = uo?.piano_singola ?? false;
   }
 
   // Carica pazienti per questa org + UO
@@ -106,6 +108,7 @@ export default async function PazientiPage() {
           orgId={org.id}
           orgName={org.name}
           uoNome={uoNome}
+          uoPianaSingola={uoPianaSingola}
           prodotti={prodotti}
         />
       </main>
