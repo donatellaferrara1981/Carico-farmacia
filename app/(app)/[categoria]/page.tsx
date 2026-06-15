@@ -2,12 +2,15 @@ import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { ProdottiView } from '@/components/prodotti-view';
+import { SanitarioView } from '@/components/sanitario-view';
 import { AutoRefresh } from '@/components/auto-refresh';
 import type { CurrentUserContext, CategoriaArticolo } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
 import { BackButton } from '@/components/back-button';
 import { getUoAttivaId } from '@/lib/uo-cookie';
+import { DocumentiList } from '@/components/documenti-list';
+import { UploadButton } from '@/components/upload-button';
 
 const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario'];
 
@@ -90,14 +93,34 @@ export default async function CategoriaPage({
             <AutoRefresh />
           </div>
         </div>
-        <ProdottiView
-          prodotti={prodotti}
-          docsLiberi={docsLiberiRes.data ?? []}
-          orgId={org.id}
-          categoria={cat}
-          canEdit={canEdit}
-          uoAttivaId={uoAttivaId}
-        />
+        {cat === 'sanitario' ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-3">
+              <UploadButton categoria={cat} orgId={org.id} />
+            </div>
+            <SanitarioView prodotti={prodotti} />
+            {(docsLiberiRes.data ?? []).length > 0 && (
+              <div>
+                <p className="text-xs text-ink-mute font-medium uppercase tracking-wide mb-2">Documenti</p>
+                <DocumentiList
+                  documenti={docsLiberiRes.data ?? []}
+                  orgId={org.id}
+                  categoria={cat}
+                  canDelete={canEdit}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <ProdottiView
+            prodotti={prodotti}
+            docsLiberi={docsLiberiRes.data ?? []}
+            orgId={org.id}
+            categoria={cat}
+            canEdit={canEdit}
+            uoAttivaId={uoAttivaId}
+          />
+        )}
       </main>
     </div>
   );

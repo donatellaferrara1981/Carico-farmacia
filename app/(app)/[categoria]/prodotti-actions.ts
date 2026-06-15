@@ -110,3 +110,32 @@ export async function aggiornaQuantitaAction(id: string, delta: number, categori
   revalidatePath(`/${categoria}`);
   return { ok: true };
 }
+
+export async function aggiornaOrdineSanitarioAction(id: string, quantitaSettimana: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { data: p } = await supabase
+    .from('prodotti')
+    .select('consumo_giornaliero, consumo_medio')
+    .eq('id', id)
+    .single();
+  if (!p) return { error: 'Articolo non trovato.' };
+
+  // Calcola nuova media ponderata
+  const vecchio = Number(p.consumo_giornaliero ?? 0);
+  const mediaVecchia = Number(p.consumo_medio ?? vecchio);
+  const nuovaMedia = vecchio > 0
+    ? Math.round(((mediaVecchia * 3 + vecchio) / 4) * 10) / 10
+    : quantitaSettimana;
+
+  await supabase.from('prodotti').update({
+    quantita_consegnata: vecchio > 0 ? vecchio : null,
+    consumo_giornaliero: quantitaSettimana,
+    consumo_medio: nuovaMedia,
+  }).eq('id', id);
+
+  revalidatePath('/sanitario');
+  return { ok: true };
+}

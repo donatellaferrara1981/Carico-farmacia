@@ -33,6 +33,8 @@ export interface Prodotto {
   sala: string | null;
   created_at: string;
   updated_at: string;
+  quantita_consegnata: number | null;
+  consumo_medio: number | null;
 }
 
 export interface ProdottoConDocumenti extends Prodotto {
