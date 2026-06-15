@@ -66,15 +66,22 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
     ? new Date(pazienti[0].data_aggiornamento).toLocaleString('it-IT')
     : null;
 
+  // UO con pochi posti letto (es. spinale): nessuna distinzione per piano
+  const uoPianaSingola = uoNome?.toLowerCase().includes('spinale') ?? false;
+
   // Sale per piano
-  const saleTerra = sale.filter((s) => {
-    const p = pazienti.find((paz) => paz.sala === s);
-    return p?.piano === 'terra';
-  });
-  const salePrimo = sale.filter((s) => {
-    const p = pazienti.find((paz) => paz.sala === s);
-    return p?.piano === 'primo';
-  });
+  const saleTerra = uoPianaSingola
+    ? sale
+    : sale.filter((s) => {
+        const p = pazienti.find((paz) => paz.sala === s);
+        return p?.piano === 'terra';
+      });
+  const salePrimo = uoPianaSingola
+    ? []
+    : sale.filter((s) => {
+        const p = pazienti.find((paz) => paz.sala === s);
+        return p?.piano === 'primo';
+      });
 
   // Load/persist selezione
   useEffect(() => {
@@ -264,6 +271,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
         <CaricoFarmaciaSection
           saleTerra={saleTerra}
           salePrimo={salePrimo}
+          uoPianaSingola={uoPianaSingola}
           selezione={selezione}
           bySala={bySala}
           onToggle={toggleSala}
@@ -278,12 +286,13 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, prodotti = [] }
 interface CaricoProps {
   saleTerra: string[];
   salePrimo: string[];
+  uoPianaSingola?: boolean;
   selezione: Record<string, boolean>;
   bySala: Record<string, Paziente[]>;
   onToggle: (sala: string) => void;
 }
 
-function CaricoFarmaciaSection({ saleTerra, salePrimo, selezione, onToggle, bySala }: CaricoProps) {
+function CaricoFarmaciaSection({ saleTerra, salePrimo, uoPianaSingola, selezione, onToggle, bySala }: CaricoProps) {
   function stampaFoglioCaricoHtml(sale: string[], titolo: string, data: string) {
     const selezionate = sale.filter((s) => selezione[s]);
     const blocchi = selezionate.map((sala) => {
@@ -352,25 +361,27 @@ ${blocchi || '<p style="color:#9ca3af">Nessuna sala selezionata.</p>'}
         <Calendar className="w-4 h-4 text-forest" />
         Carico farmacia settimanale
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className={`grid gap-4 ${uoPianaSingola ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
         <CaricoCard
-          titolo="Carico Lunedì"
-          sottotitolo="Piano Terra"
+          titolo="Carico Mercoledì"
+          sottotitolo={uoPianaSingola ? undefined : 'Piano Terra'}
           sale={saleTerra}
           selezione={selezione}
           bySala={bySala}
           onToggle={onToggle}
-          onPrint={() => stampaFoglioCaricoHtml(saleTerra, 'Foglio Carico Lunedì — Piano Terra', oggi)}
+          onPrint={() => stampaFoglioCaricoHtml(saleTerra, uoPianaSingola ? 'Foglio Carico Mercoledì' : 'Foglio Carico Mercoledì — Piano Terra', oggi)}
         />
-        <CaricoCard
-          titolo="Carico Giovedì"
-          sottotitolo="Primo Piano"
-          sale={salePrimo}
-          selezione={selezione}
-          bySala={bySala}
-          onToggle={onToggle}
-          onPrint={() => stampaFoglioCaricoHtml(salePrimo, 'Foglio Carico Giovedì — Primo Piano', oggi)}
-        />
+        {!uoPianaSingola && (
+          <CaricoCard
+            titolo="Carico Giovedì"
+            sottotitolo="Primo Piano"
+            sale={salePrimo}
+            selezione={selezione}
+            bySala={bySala}
+            onToggle={onToggle}
+            onPrint={() => stampaFoglioCaricoHtml(salePrimo, 'Foglio Carico Giovedì — Primo Piano', oggi)}
+          />
+        )}
       </div>
     </div>
   );
@@ -378,7 +389,7 @@ ${blocchi || '<p style="color:#9ca3af">Nessuna sala selezionata.</p>'}
 
 interface CaricoCardProps {
   titolo: string;
-  sottotitolo: string;
+  sottotitolo?: string;
   sale: string[];
   selezione: Record<string, boolean>;
   bySala: Record<string, Paziente[]>;
@@ -394,7 +405,7 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
       <div className="px-3 py-2 bg-forest/10 border-b border-forest/20 flex items-center justify-between">
         <div>
           <h3 className="text-xs font-bold text-forest uppercase tracking-wide">{titolo}</h3>
-          <p className="text-[10px] text-forest/70">{sottotitolo}</p>
+          {sottotitolo && <p className="text-[10px] text-forest/70">{sottotitolo}</p>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-forest bg-forest/10 px-2 py-0.5 rounded-full">
