@@ -124,7 +124,6 @@ const ENTRIES: EntryAntibiotico[] = [
   { pattern: /caspofungin/i,           classe: 'antifungini' },
   { pattern: /micafungin/i,            classe: 'antifungini' },
   { pattern: /anidulafungin/i,         classe: 'antifungini' },
-  { pattern: /amfotericin/i,           classe: 'antifungini' },
   { pattern: /amfotericina/i,          classe: 'antifungini' },
   { pattern: /nistatin/i,              classe: 'antifungini' },
 
@@ -223,7 +222,7 @@ const ALTO_COSTO_PATTERNS: RegExp[] = [
   /voriconazol/i, /posaconazol/i, /isavuconazol/i,
 
   // ── Amfotericina B ────────────────────────────────────────────
-  /amfotericin/i, /amfotericina/i,
+  /amfotericina/i,  // nome italiano (Amphotericin B)
 
   // ── Fluorochinoloni (Nota AIFA — uso ristretto) ───────────────
   /ciprofloxacin/i, /levofloxacin/i, /moxifloxacin/i,
