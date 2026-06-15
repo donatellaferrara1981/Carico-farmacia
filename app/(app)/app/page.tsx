@@ -84,6 +84,24 @@ export default async function AppPage() {
           )}
         </section>
 
+        {/* Pazienti — sempre visibile subito dopo la UO */}
+        {uoAttiva && (
+          <div className="mb-6">
+            <Link
+              href="/pazienti"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-forest/30 bg-forest/5 hover:bg-forest/10 hover:border-forest/50 transition-all"
+            >
+              <div className="w-10 h-10 rounded-xl bg-forest/10 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-forest" />
+              </div>
+              <div>
+                <p className="font-semibold text-ink text-sm">Pazienti</p>
+                <p className="text-xs text-ink-mute">Elenco pazienti ricoverati</p>
+              </div>
+            </Link>
+          </div>
+        )}
+
         {/* Sezioni categoria — solo se UO selezionata */}
         {uoAttiva ? (
           <>
@@ -107,12 +125,6 @@ export default async function AppPage() {
 
             {/* Altre sezioni — griglia compatta 3 colonne */}
             <div className="grid grid-cols-3 gap-2 mb-2">
-              <Link href="/pazienti" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group">
-                <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10">
-                  <Users className="w-5 h-5 text-forest" />
-                </div>
-                <span className="text-xs font-semibold text-ink text-center">Pazienti</span>
-              </Link>
               <Link href="/calendario" className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all group">
                 <div className="w-10 h-10 rounded-xl bg-forest-tint flex items-center justify-center group-hover:bg-forest/10">
                   <CalendarDays className="w-5 h-5 text-forest" />
