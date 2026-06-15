@@ -70,6 +70,28 @@ SOSTITUIRE le voci placeholder con quelle ufficiali quando fornite.
 
 Il numero SDO è l'identificatore primario della pratica di rimborso — va sempre compilato.
 
+## Carrelli di emergenza — regola avvisi scadenza
+I farmaci/presidi dei carrelli di emergenza hanno una regola speciale per gli avvisi:
+- L'avviso si attiva il **penultimo mercoledì del mese di scadenza**
+- Esempio: scadenza giugno 2026 → avviso il mercoledì 17 giugno 2026 (penultimo mercoledì del mese)
+- Calcolo: trovare tutti i mercoledì del mese → prendere il penultimo
+
+Funzione di calcolo:
+```ts
+function penultimoMercolediDelMese(anno: number, mese: number): Date {
+  // trova tutti i mercoledì del mese (mese 0-based)
+  const mercoledi = [];
+  const d = new Date(anno, mese, 1);
+  while (d.getMonth() === mese) {
+    if (d.getDay() === 3) mercoledi.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return mercoledi[mercoledi.length - 2]; // penultimo
+}
+```
+
+Quando Donatella carica le scadenze dei carrelli di emergenza, generare avvisi con questa logica.
+
 ## Struttura UI
 - Liste compatte (stesso stile sanitario) per tutte le categorie
 - Antibiotici prima in ordine A→Z, poi nominative, poi altri farmaci
