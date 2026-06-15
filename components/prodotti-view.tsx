@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import React, { useState, useTransition } from 'react';
 import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin, ArrowUpDown, Check, X } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
-import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
+import { classificaFarmaco, isAltoCosto, CLASSE_LABEL } from '@/lib/antibiotici';
 import { SALE, getSala } from '@/lib/sale';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { SalvaPianoModal } from '@/components/salva-piano-modal';
@@ -54,6 +54,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
   const qty        = prodotto.quantita;
   const daOrdinare = Math.max(0, fabbisogno - qty);
   const abx        = classificaFarmaco(prodotto.principio_attivo);
+  const altoCosto  = abx.isAntibiotico && isAltoCosto(prodotto.principio_attivo);
 
   const qtyColor =
     qty === 0 ? 'text-abx font-bold' :
@@ -73,7 +74,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
   return (
     <>
       {editing && <ProdottoForm orgId={prodotto.org_id} categoria={categoria} prodotto={prodotto} onClose={() => setEditing(false)} />}
-      <div className={`flex flex-col border-b border-line last:border-0 ${abx.isAntibiotico ? 'bg-red-50/30' : ''}`}>
+      <div className={`flex flex-col border-b border-line last:border-0 ${altoCosto ? 'bg-orange-50/40' : abx.isAntibiotico ? 'bg-red-50/30' : ''}`}>
         <div className="flex items-center gap-2 px-3 py-2 hover:bg-bg-soft/60 group">
 
           {/* Nome */}
@@ -85,11 +86,14 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
           >
             <div className="flex items-center gap-1 min-w-0">
               {abx.isAntibiotico && <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />}
-              <p className={`text-xs font-medium leading-snug truncate ${abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
+              <p className={`text-xs font-medium leading-snug truncate ${altoCosto ? 'text-orange-700 underline decoration-dotted' : abx.isAntibiotico ? 'text-red-700' : 'text-ink'}`}>
                 {prodotto.principio_attivo}
               </p>
               {prodotto.nominativa && <span className="shrink-0 text-[9px] px-1 py-0.5 rounded-full bg-amber/20 text-amber border border-amber/30">nom.</span>}
             </div>
+            {altoCosto && (
+              <p className="text-[9px] text-orange-600 font-medium leading-none mt-0.5">⚠ prescrizione motivata</p>
+            )}
             {(prodotto.dosaggio || prodotto.nome_commerciale) && (
               <p className="text-[10px] text-ink-mute truncate">
                 {formaLabel(prodotto.forma_farmaceutica)}{prodotto.dosaggio ? ` ${prodotto.dosaggio}` : ''}{prodotto.nome_commerciale ? ` · ${prodotto.nome_commerciale}` : ''}
@@ -183,9 +187,12 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
         {/* Tooltip nome completo */}
         {showNome && (
           <div className="px-3 pb-2 pt-0.5 bg-ink/5 border-t border-line/50">
-            <p className="text-xs font-semibold text-ink">{prodotto.principio_attivo}</p>
+            <p className={`text-xs font-semibold ${altoCosto ? 'text-orange-700' : 'text-ink'}`}>{prodotto.principio_attivo}</p>
             {abx.isAntibiotico && abx.classe && (
               <p className="text-[10px] text-red-600 mt-0.5">{CLASSE_LABEL[abx.classe]}</p>
+            )}
+            {altoCosto && (
+              <p className="text-[10px] text-orange-600 font-semibold mt-0.5">⚠ Alto costo — richiede prescrizione motivata</p>
             )}
             {prodotto.nome_commerciale && <p className="text-[11px] text-ink-mute mt-0.5">{prodotto.nome_commerciale}</p>}
             {prodotto.ciclo_totale && prodotto.ciclo_totale > 0 && (() => {
@@ -234,6 +241,10 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
   const salaAttiva = getSala(salaFiltro);
 
   const ordinati = [...prodottiFiltrati].sort((a, b) => {
+    const abxA = classificaFarmaco(a.principio_attivo).isAntibiotico;
+    const abxB = classificaFarmaco(b.principio_attivo).isAntibiotico;
+    // Antibiotici sempre prima
+    if (abxA !== abxB) return abxA ? -1 : 1;
     if (ordine === 'alfa') return a.principio_attivo.localeCompare(b.principio_attivo, 'it') || a.forma_farmaceutica.localeCompare(b.forma_farmaceutica);
     const fa = Math.ceil((a.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
     const fb = Math.ceil((b.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
@@ -431,10 +442,33 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               {canEdit && <div className="w-5" />}
             </div>
 
-            {/* Righe */}
-            {ordinati.map((p) => (
-              <RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />
-            ))}
+            {/* Righe con separatore Antibiotici / Altri */}
+            {(() => {
+              const rows: React.ReactNode[] = [];
+              let lastIsAbx: boolean | null = null;
+              ordinati.forEach((p) => {
+                const isAbx = classificaFarmaco(p.principio_attivo).isAntibiotico;
+                if (lastIsAbx !== null && lastIsAbx && !isAbx) {
+                  rows.push(
+                    <div key="__sep__" className="px-3 py-1 bg-bg-soft/80 border-b border-line">
+                      <p className="text-[10px] text-ink-mute font-medium uppercase tracking-wide">Altri farmaci</p>
+                    </div>
+                  );
+                }
+                if (lastIsAbx === null && isAbx) {
+                  rows.push(
+                    <div key="__abx__" className="px-3 py-1 bg-red-50 border-b border-line">
+                      <p className="text-[10px] text-red-700 font-medium uppercase tracking-wide flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3" /> Antibiotici / Antifungini / Antivirali
+                      </p>
+                    </div>
+                  );
+                }
+                lastIsAbx = isAbx;
+                rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />);
+              });
+              return rows;
+            })()}
           </div>
         </>
       )}

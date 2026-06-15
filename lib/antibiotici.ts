@@ -202,6 +202,7 @@ const ALTO_COSTO_PATTERNS: RegExp[] = [
   /amfotericin/i, /amfotericina/i,                              // amfotericina B
   /ganciclovir/i, /valganciclovir/i, /foscarnet/i, /cidofovir/i, /remdesivir/i, // antivirali critici
   /fidaxomicin/i,
+  /fosfomicin/i,                                                   // fosfomicina (uso ospedaliero riservato)
   // nomi commerciali
   /zavicefta/i, /zerbaxa/i, /fetcroja/i, /recarbrio/i, /vabomere/i,
   /xerava/i, /nuzyra/i, /orbactiv/i, /dalvance/i, /sivextro/i,
