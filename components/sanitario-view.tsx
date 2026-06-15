@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { ArrowUpDown, Pencil, Check, X, Loader2, Trash2 } from 'lucide-react';
 import { aggiornaOrdineSanitarioAction, svuotaProdottiAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { ProdottoForm } from '@/components/prodotto-form';
+import { SanitarioExport } from '@/components/sanitario-export';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
 
 type Ordine = 'alfa' | 'consumo';
@@ -177,6 +178,7 @@ export function SanitarioView({ prodotti, orgId, canEdit }: { prodotti: Prodotto
           Per consumo
         </button>
         <span className="ml-auto text-[10px] text-ink-mute">{prodotti.length} articoli</span>
+        <SanitarioExport prodotti={ordinati} />
         {canEdit && prodotti.length > 0 && (
           <button
             onClick={svuotaLista}
