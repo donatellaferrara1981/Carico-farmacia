@@ -22,8 +22,8 @@ export function Logo({ size = 40 }: { size?: number }) {
         <rect x="156" y="290" width="200" height="72" rx="36" fill="none" stroke="#faf6ef" strokeWidth="5" />
         <line x1="256" y1="290" x2="256" y2="362" stroke="#1f3d2b" strokeWidth="5" />
       </svg>
-      <span className="font-display font-semibold text-forest text-lg leading-tight">
-        Carico<br />Farmacia
+      <span className="font-display font-semibold text-forest text-base leading-tight">
+        Gestionale<br />Infermieristico
       </span>
     </div>
   );

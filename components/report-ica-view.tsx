@@ -152,7 +152,7 @@ td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align
 </div>
 <table><thead><tr><th>Paziente</th><th>Tipo esame</th><th>Data invio</th><th>Data referto</th><th>Risultato</th><th>Note</th></tr></thead>
 <tbody>${righe || '<tr><td colspan="6" style="text-align:center;color:#9ca3af">Nessun esame nel periodo</td></tr>'}</tbody></table>
-<div class="footer">${orgName} · Report ICA · Carico Farmacia</div>
+<div class="footer">${orgName} · Report ICA · Gestionale Infermieristico</div>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);

@@ -83,7 +83,7 @@ function buildTableHtml(prodotti: ProdottoConDocumenti[], titolo: string): strin
       ${righe}
     </tbody>
   </table>
-  <div class="footer">Carico Farmacia &middot; generato il ${dataOggi}</div>
+  <div class="footer">Gestionale Infermieristico &middot; generato il ${dataOggi}</div>
 </body>
 </html>`;
 }

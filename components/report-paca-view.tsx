@@ -191,7 +191,7 @@ ${criticita.length > 0 ? `
 <tbody>${criticitaRighe}</tbody>
 </table>` : ''}
 
-<div class="footer">Carico Farmacia · ${orgName} · ${uoNome ?? ''}</div>
+<div class="footer">Gestionale Infermieristico · ${orgName} · ${uoNome ?? ''}</div>
 </body></html>`;
 
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -473,7 +473,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:
 </div>
 <table><thead><tr><th>Paziente</th><th>N° SDO</th><th>Ricovero</th><th>Chiusura</th><th>Diagnosi</th><th>Esito PACA</th><th>DRG €</th><th>Checklist</th></tr></thead>
 <tbody>${righe}</tbody></table>
-<div class="footer">${orgName} · Carico Farmacia</div></body></html>`;
+<div class="footer">${orgName} · Gestionale Infermieristico</div></body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const w = window.open(url, '_blank');

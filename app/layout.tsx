@@ -3,10 +3,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Carico Farmacia',
-    template: '%s | Carico Farmacia',
+    default: 'Gestionale Infermieristico',
+    template: '%s | Gestionale Infermieristico',
   },
-  description: 'Gestione carico farmacia – terapie, nutrizioni, sanitario',
+  description: 'Gestionale infermieristico – terapie, nutrizioni, sanitario',
   manifest: '/manifest.webmanifest',
 };
 
