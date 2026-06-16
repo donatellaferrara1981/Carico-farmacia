@@ -377,7 +377,7 @@ ${criticita.length > 0 ? `
         ) : (
           <div className="space-y-2">
             {pazientiDettaglio.map((p) => (
-              <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
+              <RigaCartella key={p.id} paziente={p} orgId={orgId} orgName={orgName} userName={userName} />
             ))}
           </div>
         )}
@@ -535,7 +535,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:
               {/* Righe pazienti */}
               <div className="space-y-2">
                 {lista.map((p) => (
-                  <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
+                  <RigaCartella key={p.id} paziente={p} orgId={orgId} orgName={orgName} userName={userName} />
                 ))}
               </div>
             </div>
@@ -559,7 +559,7 @@ function KpiCard({ icon, valore, label, color }: { icon: React.ReactNode; valore
 
 // ── Riga cartella con checklist interattiva + editor esito PACA ──────────────
 
-function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca; orgId: string; userName: string }) {
+function RigaCartella({ paziente: p, orgId, orgName, userName }: { paziente: PazientePaca; orgId: string; orgName: string; userName: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -693,6 +693,71 @@ ${righe}
     });
   }
 
+  function stampaChecklist() {
+    const dataStampa = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const righe = voci.map((v, i) => `
+      <tr style="border-bottom:1px solid #f3f4f6">
+        <td style="width:28px;text-align:center;font-size:17px;padding:6px 2px;color:${v.completata ? '#166534' : '#d1d5db'}">${v.completata ? '☑' : '☐'}</td>
+        <td style="padding:6px 6px;font-size:12px;color:${v.completata ? '#9ca3af' : '#111827'};${v.completata ? 'text-decoration:line-through' : ''}">${i + 1}. ${v.voce}</td>
+        <td style="width:160px;font-size:10px;color:#6b7280;padding:6px 4px">${v.completata && v.completata_da ? `${v.completata_da}${v.completata_at ? ' · ' + new Date(v.completata_at).toLocaleDateString('it-IT') : ''}` : ''}</td>
+      </tr>`).join('');
+
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Checklist — ${p.nominativo}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;padding:28px 36px;color:#111;font-size:12px}
+h1{font-size:17px;font-weight:700;margin-bottom:3px}
+.org{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;margin-bottom:18px}
+.lbl{font-size:10px;color:#6b7280}
+.val{font-weight:600;font-size:12px}
+table{width:100%;border-collapse:collapse}
+.progress{height:8px;background:#e5e7eb;border-radius:4px;margin-bottom:18px;overflow:hidden}
+.progress-bar{height:100%;border-radius:4px;background:${pct===100?'#166534':pct>=50?'#d97706':'#ef4444'}}
+.firma{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.firma-box{border-top:1px solid #374151;padding-top:4px;font-size:10px;color:#6b7280}
+.footer{margin-top:20px;font-size:10px;color:#9ca3af;display:flex;justify-content:space-between}
+@media print{@page{size:A4;margin:1.2cm}body{padding:0}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+  <div>
+    <div class="org">${orgName}</div>
+    <h1>Checklist chiusura cartella clinica</h1>
+  </div>
+  <div style="text-align:right;font-size:10px;color:#9ca3af">Stampato il ${dataStampa}</div>
+</div>
+<div class="info">
+  <div><div class="lbl">Paziente</div><div class="val">${p.nominativo}</div></div>
+  <div><div class="lbl">N° SDO</div><div class="val">${codiceSdo || '—'}</div></div>
+  ${dataNascita ? `<div><div class="lbl">Data di nascita</div><div class="val">${new Date(dataNascita).toLocaleDateString('it-IT')}</div></div>` : ''}
+  ${codiceFiscale ? `<div><div class="lbl">Codice fiscale</div><div class="val" style="font-family:monospace">${codiceFiscale.toUpperCase()}</div></div>` : ''}
+  <div><div class="lbl">Data ricovero</div><div class="val">${dataRicovero ? new Date(dataRicovero).toLocaleDateString('it-IT') : '—'}</div></div>
+  <div><div class="lbl">Data dimissione</div><div class="val">${dataDimissione ? new Date(dataDimissione).toLocaleDateString('it-IT') : 'In corso'}</div></div>
+  ${diagnosi ? `<div style="grid-column:1/-1"><div class="lbl">Diagnosi principale</div><div class="val">${diagnosi}</div></div>` : ''}
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Documentazione sanitaria</span>
+  <span style="font-size:11px;font-weight:700;color:${pct===100?'#166534':'#d97706'}">${completate}/${totV} completate</span>
+</div>
+<div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
+<table>${righe || '<tr><td colspan="3" style="text-align:center;padding:16px;color:#9ca3af">Nessuna voce nella checklist</td></tr>'}</table>
+<div class="firma">
+  <div class="firma-box">Medico responsabile</div>
+  <div class="firma-box">Infermiere coordinatore / PACA</div>
+</div>
+<div class="footer">
+  <span>${orgName} · Checklist PACA/SDO</span>
+  <span>Completate: ${completate}/${totV}</span>
+</div>
+<script>window.onload=()=>{window.print()}</script>
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) w.addEventListener('load', () => { URL.revokeObjectURL(url); });
+  }
+
   return (
     <div className="rounded-lg border border-line overflow-hidden">
       <div
@@ -815,6 +880,11 @@ ${righe}
               <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
               <div className="flex items-center gap-3">
                 <span className={`text-xs font-bold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totV}</span>
+                {voci.length > 0 && (
+                  <button type="button" onClick={stampaChecklist} className="text-[10px] text-forest hover:underline flex items-center gap-0.5 font-semibold">
+                    <Printer className="w-2.5 h-2.5" /> Stampa PDF
+                  </button>
+                )}
                 {voci.length > 0 && (
                   <button type="button" onClick={handleReimposta} disabled={pending} className="text-[10px] text-ink-mute hover:text-amber flex items-center gap-0.5">
                     <RotateCcw className="w-2.5 h-2.5" /> reimposta
