@@ -471,9 +471,16 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
               <span className="w-7 text-right text-[11px] font-mono text-ink-mute shrink-0">{p.numero_letto}</span>
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-medium text-ink truncate block">{p.nominativo}</span>
-                {p.codice_sdo && (
-                  <span className="text-[10px] text-ink-mute font-mono">SDO {p.codice_sdo}</span>
-                )}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {p.piano && (
+                    <span className={`text-[9px] font-semibold px-1 py-0 rounded ${p.piano === 'terra' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                      {p.piano === 'terra' ? 'P.T.' : '1° P.'}
+                    </span>
+                  )}
+                  {p.codice_sdo && (
+                    <span className="text-[10px] text-ink-mute font-mono">SDO {p.codice_sdo}</span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => toggleTerapie(p.id)}
