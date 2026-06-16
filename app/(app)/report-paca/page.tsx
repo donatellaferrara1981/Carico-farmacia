@@ -62,9 +62,25 @@ export default async function ReportPacaPage() {
     checklistByPaziente[v.paziente_id].push({ id: v.id, voce: v.voce, completata: v.completata, completata_da: v.completata_da, completata_at: v.completata_at });
   }
 
+  // Carica note per questi pazienti
+  const { data: noteRaw } = pazIds.length > 0
+    ? await supabase
+        .from('note_paziente')
+        .select('id, paziente_id, testo, autore, created_at')
+        .in('paziente_id', pazIds)
+        .order('created_at', { ascending: false })
+    : { data: [] };
+
+  const noteByPaziente: Record<string, { id: string; testo: string; autore: string; created_at: string }[]> = {};
+  for (const n of noteRaw ?? []) {
+    if (!noteByPaziente[n.paziente_id]) noteByPaziente[n.paziente_id] = [];
+    noteByPaziente[n.paziente_id].push({ id: n.id, testo: n.testo, autore: n.autore, created_at: n.created_at });
+  }
+
   const datiPazienti = (pazienti ?? []).map((p) => ({
     ...p,
     checklist: checklistByPaziente[p.id] ?? [],
+    note: noteByPaziente[p.id] ?? [],
   }));
 
   return (

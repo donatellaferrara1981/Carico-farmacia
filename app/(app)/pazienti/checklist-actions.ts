@@ -185,3 +185,32 @@ export async function getArchivioChecklistAction(orgId: string) {
 
   return data ?? [];
 }
+
+// ── Note paziente ─────────────────────────────────────────────────────────────
+
+export async function aggiungiNotaAction(pazienteId: string, orgId: string, testo: string, autore: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const { error } = await supabase.from('note_paziente').insert({
+    paziente_id: pazienteId,
+    org_id: orgId,
+    testo: testo.trim(),
+    autore: autore || 'Operatore',
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath('/report-paca');
+  return { ok: true };
+}
+
+export async function eliminaNotaAction(notaId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  await supabase.from('note_paziente').delete().eq('id', notaId);
+  revalidatePath('/report-paca');
+  return { ok: true };
+}

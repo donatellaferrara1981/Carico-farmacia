@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw } from 'lucide-react';
+import { useState, useTransition, useRef } from 'react';
+import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw, StickyNote, Trash2, Share2 } from 'lucide-react';
 import { aggiornaEsitoPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
-import { toggleVoceAction, inizializzaChecklistAction, reinizializzaChecklistAction, aggiornaSdoPazienteAction } from '@/app/(app)/pazienti/checklist-actions';
+import { toggleVoceAction, inizializzaChecklistAction, reinizializzaChecklistAction, aggiornaSdoPazienteAction, aggiungiNotaAction, eliminaNotaAction } from '@/app/(app)/pazienti/checklist-actions';
 
 interface VoceChecklist { id: string; voce: string; completata: boolean; completata_da: string | null; completata_at: string | null; }
+interface NotaPaziente { id: string; testo: string; autore: string; created_at: string; }
 
 interface PazientePaca {
   id: string;
@@ -23,6 +24,7 @@ interface PazientePaca {
   data_nascita: string | null;
   codice_fiscale: string | null;
   checklist: VoceChecklist[];
+  note: NotaPaziente[];
 }
 
 interface Props {
@@ -372,7 +374,7 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
   const [esito, setEsito] = useState<EsitoPaca>((p.esito_paca as EsitoPaca) ?? 'in_corso');
   const [importo, setImporto] = useState(p.importo_drg ? String(p.importo_drg) : '');
   const [dataChiusura, setDataChiusura] = useState(p.data_chiusura_cartella ?? '');
-  const [note, setNote] = useState(p.note_paca ?? '');
+  const [notePaca, setNotePaca] = useState(p.note_paca ?? '');
   const [savedEsito, setSavedEsito] = useState(false);
 
   // SDO base + anagrafica
@@ -387,6 +389,12 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
   // Checklist interattiva
   const [voci, setVoci] = useState<VoceChecklist[]>(p.checklist);
 
+  // Note / promemoria
+  const [noteList, setNoteList] = useState<NotaPaziente[]>(p.note);
+  const [nuovaNota, setNuovaNota] = useState('');
+  const [noteSelezionate, setNoteSelezionate] = useState<Set<string>>(new Set());
+  const [pendingNota, startNotaTransition] = useTransition();
+
   const completate = voci.filter((v) => v.completata).length;
   const totV = voci.length;
   const pct = totV > 0 ? Math.round((completate / totV) * 100) : 0;
@@ -395,10 +403,65 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
   function handleSaveEsito(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      await aggiornaEsitoPacaAction(p.id, esito, importo ? parseFloat(importo) : null, dataChiusura || null, note || null);
+      await aggiornaEsitoPacaAction(p.id, esito, importo ? parseFloat(importo) : null, dataChiusura || null, notePaca || null);
       setSavedEsito(true);
       setTimeout(() => setSavedEsito(false), 2000);
     });
+  }
+
+  function handleAggiungiNota(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nuovaNota.trim()) return;
+    const testo = nuovaNota.trim();
+    startNotaTransition(async () => {
+      const res = await aggiungiNotaAction(p.id, orgId, testo, userName || 'Operatore');
+      if (!res.error) {
+        const nuova: NotaPaziente = { id: crypto.randomUUID(), testo, autore: userName || 'Operatore', created_at: new Date().toISOString() };
+        setNoteList((prev) => [nuova, ...prev]);
+        setNuovaNota('');
+      }
+    });
+  }
+
+  function handleEliminaNota(notaId: string) {
+    startNotaTransition(async () => {
+      await eliminaNotaAction(notaId);
+      setNoteList((prev) => prev.filter((n) => n.id !== notaId));
+      setNoteSelezionate((prev) => { const s = new Set(prev); s.delete(notaId); return s; });
+    });
+  }
+
+  function toggleSelezioneNota(notaId: string) {
+    setNoteSelezionate((prev) => {
+      const s = new Set(prev);
+      if (s.has(notaId)) s.delete(notaId); else s.add(notaId);
+      return s;
+    });
+  }
+
+  function stampaNoteSelezionate() {
+    const selezionate = noteList.filter((n) => noteSelezionate.has(n.id));
+    if (selezionate.length === 0) return;
+    const righe = selezionate.map((n) => `
+      <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:12px">
+        <p style="font-size:13px;color:#111;margin:0 0 6px">${n.testo.replace(/\n/g, '<br>')}</p>
+        <p style="font-size:10px;color:#6b7280;margin:0">${n.autore} · ${new Date(n.created_at).toLocaleString('it-IT')}</p>
+      </div>`).join('');
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
+<title>Note — ${p.nominativo}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:12px}
+h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}
+.sub{font-size:10px;color:#6b7280;margin-bottom:20px}
+@media print{@page{size:A4;margin:1.5cm}body{padding:0}}</style></head><body>
+<h1>Note cliniche — ${p.nominativo}</h1>
+<div class="sub">${dataNascita ? `Nato/a il ${new Date(dataNascita).toLocaleDateString('it-IT')} · ` : ''}${codiceFiscale ? `CF ${codiceFiscale} · ` : ''}Letto ${p.numero_letto} · ${p.sala}<br>
+Stampato il ${new Date().toLocaleString('it-IT')} da ${userName}</div>
+${righe}
+</body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) w.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
   }
 
   function handleSaveSdo(e: React.FormEvent) {
@@ -545,7 +608,7 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
               </div>
               <div>
                 <label className="text-[10px] text-ink-mute block mb-0.5">Note PACA</label>
-                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Osservazioni…" className="input-base text-xs py-1 w-full" />
+                <input type="text" value={notePaca} onChange={(e) => setNotePaca(e.target.value)} placeholder="Osservazioni…" className="input-base text-xs py-1 w-full" />
               </div>
             </div>
             <button type="submit" disabled={pending} className="btn-primary text-xs py-1.5">
@@ -555,55 +618,130 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
 
           {/* Checklist chiusura cartella */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-semibold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totV} ({pct}%)</span>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-bold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totV}</span>
                 {voci.length > 0 && (
-                  <button type="button" onClick={handleReimposta} disabled={pending} className="text-[10px] text-ink-mute hover:text-amber underline decoration-dotted flex items-center gap-0.5">
+                  <button type="button" onClick={handleReimposta} disabled={pending} className="text-[10px] text-ink-mute hover:text-amber flex items-center gap-0.5">
                     <RotateCcw className="w-2.5 h-2.5" /> reimposta
                   </button>
                 )}
               </div>
             </div>
-            <div className="h-1.5 bg-line rounded-full overflow-hidden mb-2">
-              <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-forest' : 'bg-amber'}`} style={{ width: `${pct}%` }} />
+            {/* Barra progresso */}
+            <div className="h-2 bg-line rounded-full overflow-hidden mb-3">
+              <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-forest' : pct >= 50 ? 'bg-amber' : 'bg-red-400'}`} style={{ width: `${pct}%` }} />
             </div>
             {pct === 100 && (
-              <div className="flex items-center gap-1.5 px-2 py-1.5 mb-2 rounded-lg bg-forest/10 text-forest text-xs font-semibold">
+              <div className="flex items-center gap-1.5 px-3 py-2 mb-3 rounded-lg bg-forest/10 border border-forest/20 text-forest text-xs font-semibold">
                 <CheckSquare className="w-3.5 h-3.5 shrink-0" />
                 Cartella completa — pronta per la Direzione Sanitaria
               </div>
             )}
             {voci.length === 0 ? (
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between px-3 py-3 rounded-lg bg-amber/5 border border-amber/20">
                 <p className="text-xs text-ink-mute">Checklist non ancora inizializzata.</p>
-                <button type="button" onClick={handleInizializza} disabled={pending} className="text-xs text-forest hover:underline font-medium flex items-center gap-1">
-                  <Plus className="w-3 h-3" /> Inizializza checklist
+                <button type="button" onClick={handleInizializza} disabled={pending} className="text-xs text-forest hover:underline font-semibold flex items-center gap-1 ml-3 shrink-0">
+                  {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Inizializza
                 </button>
               </div>
             ) : (
-              <ul className="space-y-1">
-                {voci.map((v) => (
+              <ol className="space-y-0.5">
+                {voci.map((v, idx) => (
                   <li
                     key={v.id}
-                    className="flex items-start gap-2 cursor-pointer group/v select-none"
                     onClick={() => handleToggle(v.id, !v.completata)}
+                    className={`flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer select-none transition-colors ${
+                      v.completata ? 'bg-forest/5' : 'hover:bg-amber/5'
+                    }`}
                   >
+                    <span className="text-[10px] text-ink-mute w-5 shrink-0 pt-0.5 text-right font-mono">{idx + 1}.</span>
                     {v.completata
                       ? <CheckSquare className="w-4 h-4 text-forest shrink-0 mt-0.5" />
-                      : <Square className="w-4 h-4 text-ink-mute shrink-0 mt-0.5 group-hover/v:text-amber transition-colors" />}
+                      : <Square className="w-4 h-4 text-ink-mute shrink-0 mt-0.5" />}
                     <div className="flex-1 min-w-0">
-                      <span className={`text-xs leading-snug ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>{v.voce}</span>
+                      <span className={`text-xs leading-snug block ${v.completata ? 'line-through text-ink-mute' : 'text-ink'}`}>{v.voce}</span>
                       {v.completata && v.completata_da && v.completata_at && (
-                        <p className="text-[10px] text-ink-mute mt-0.5">
-                          ✓ {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                        <span className="text-[10px] text-forest/70">
+                          {v.completata_da} · {new Date(v.completata_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       )}
                     </div>
                   </li>
                 ))}
+              </ol>
+            )}
+          </div>
+
+          {/* Note / Promemoria */}
+          <div className="border-t border-line pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wide flex items-center gap-1">
+                <StickyNote className="w-3 h-3" /> Note e promemoria ({noteList.length})
+              </p>
+              {noteSelezionate.size > 0 && (
+                <button
+                  type="button"
+                  onClick={stampaNoteSelezionate}
+                  className="text-[10px] font-semibold text-forest hover:underline flex items-center gap-1"
+                >
+                  <Printer className="w-3 h-3" /> Stampa {noteSelezionate.size} selezionat{noteSelezionate.size === 1 ? 'a' : 'e'}
+                </button>
+              )}
+            </div>
+
+            {/* Form aggiungi nota */}
+            <form onSubmit={handleAggiungiNota} className="flex gap-1.5 mb-2">
+              <input
+                type="text"
+                value={nuovaNota}
+                onChange={(e) => setNuovaNota(e.target.value)}
+                placeholder="Aggiungi nota o promemoria…"
+                className="input-base text-xs py-1 flex-1"
+                disabled={pendingNota}
+              />
+              <button type="submit" disabled={pendingNota || !nuovaNota.trim()} className="btn-primary text-xs py-1 px-2 shrink-0">
+                {pendingNota ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              </button>
+            </form>
+
+            {/* Lista note */}
+            {noteList.length === 0 ? (
+              <p className="text-xs text-ink-mute italic px-1">Nessuna nota inserita.</p>
+            ) : (
+              <ul className="space-y-1">
+                {noteList.map((n) => (
+                  <li
+                    key={n.id}
+                    className={`flex items-start gap-2 px-2 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      noteSelezionate.has(n.id) ? 'bg-forest/5 border-forest/30' : 'border-line hover:border-ink-mute/40'
+                    }`}
+                    onClick={() => toggleSelezioneNota(n.id)}
+                  >
+                    <div className={`w-4 h-4 rounded border-2 shrink-0 mt-0.5 flex items-center justify-center transition-colors ${
+                      noteSelezionate.has(n.id) ? 'bg-forest border-forest' : 'border-ink-mute/40'
+                    }`}>
+                      {noteSelezionate.has(n.id) && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-ink leading-snug">{n.testo}</p>
+                      <p className="text-[10px] text-ink-mute mt-0.5">{n.autore} · {new Date(n.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleEliminaNota(n.id); }}
+                      disabled={pendingNota}
+                      className="text-ink-mute hover:text-red-500 shrink-0 mt-0.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                ))}
               </ul>
+            )}
+            {noteList.length > 0 && (
+              <p className="text-[10px] text-ink-mute mt-1.5 px-1">Tocca una nota per selezionarla · seleziona + Stampa per condividerla</p>
             )}
           </div>
         </div>
