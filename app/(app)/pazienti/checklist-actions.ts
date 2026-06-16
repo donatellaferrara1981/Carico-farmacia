@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export const VOCI_STANDARD = [
+const VOCI_STANDARD = [
   'Documento Tribunale per Amministratore di Sostegno',
   'Foglio di ricovero stampato da ADT e firma del consenso al trattamento dei dati personali in calce al foglio',
   'Accettazione condizioni di ricovero firmato dal paziente o dal suo rappresentante legale e dal medico che accetta il paziente',
@@ -26,7 +26,7 @@ export const VOCI_STANDARD = [
   'Frontespizio cartella elettronica + diagnosi di ingresso e dimissione stampato e firmato',
 ];
 
-export interface VoceChecklist {
+interface VoceChecklist {
   id: string;
   voce: string;
   completata: boolean;
