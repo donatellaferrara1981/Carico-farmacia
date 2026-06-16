@@ -48,6 +48,7 @@ function esitoInfo(esito: string | null) {
 
 export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName }: Props) {
   const now = new Date();
+  const [tab, setTab] = useState<'statistiche' | 'archivio'>('statistiche');
   const [annoFiltro, setAnnoFiltro] = useState(String(now.getFullYear()));
   const [meseFiltro, setMeseFiltro] = useState('');
 
@@ -205,8 +206,40 @@ ${criticita.length > 0 ? `
   )].sort().reverse() as string[];
   if (!anni.includes(String(now.getFullYear()))) anni.unshift(String(now.getFullYear()));
 
+  // Cartelle chiuse (archivio): hanno data_chiusura o data_dimissione
+  const cartellChiuse = [...pazienti]
+    .filter((p) => p.data_chiusura_cartella || p.data_dimissione)
+    .sort((a, b) => {
+      const da = a.data_chiusura_cartella || a.data_dimissione || '';
+      const db = b.data_chiusura_cartella || b.data_dimissione || '';
+      return db.localeCompare(da);
+    });
+
   return (
     <div className="space-y-6">
+      {/* Tab nav */}
+      <div className="flex gap-1 border-b border-line">
+        <button
+          onClick={() => setTab('statistiche')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === 'statistiche' ? 'border-forest text-forest' : 'border-transparent text-ink-mute hover:text-ink'}`}
+        >
+          Statistiche e cartelle attive
+        </button>
+        <button
+          onClick={() => setTab('archivio')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${tab === 'archivio' ? 'border-forest text-forest' : 'border-transparent text-ink-mute hover:text-ink'}`}
+        >
+          Archivio cartelle chiuse
+          {cartellChiuse.length > 0 && <span className="text-xs bg-line rounded-full px-1.5 py-0.5 text-ink-mute">{cartellChiuse.length}</span>}
+        </button>
+      </div>
+
+      {tab === 'archivio' && (
+        <ArchivioCartelle pazienti={cartellChiuse} orgId={orgId} orgName={orgName} uoNome={uoNome} userName={userName} />
+      )}
+
+      {tab === 'statistiche' && <>
+
       {/* Filtri periodo */}
       <div className="card flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium text-ink">Periodo:</span>
@@ -337,7 +370,7 @@ ${criticita.length > 0 ? `
       <div className="card">
         <h2 className="text-sm font-semibold text-ink mb-3 flex items-center gap-2">
           <FileText className="w-4 h-4 text-ink-soft" />
-          Dettaglio cartelle ({pazientiDettaglio.length})
+          Cartelle attive ({pazientiDettaglio.length})
         </h2>
         {pazientiDettaglio.length === 0 ? (
           <p className="text-sm text-ink-mute text-center py-8">Nessuna cartella nel periodo selezionato.</p>
@@ -349,6 +382,166 @@ ${criticita.length > 0 ? `
           </div>
         )}
       </div>
+
+      </>}
+    </div>
+  );
+}
+
+// ── Archivio cartelle chiuse ──────────────────────────────────────────────────
+
+function ArchivioCartelle({ pazienti, orgId, orgName, uoNome, userName }: Props) {
+  const now = new Date();
+  const [annoFiltro, setAnnoFiltro] = useState(String(now.getFullYear()));
+  const [meseFiltro, setMeseFiltro] = useState('');
+  const [filtroEsito, setFiltroEsito] = useState('');
+  const [filtroChecklist, setFiltroChecklist] = useState('');
+
+  const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  function formattaEuro(n: number) {
+    return n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  }
+  function formattaMeseLabel(ym: string) {
+    const [y, m] = ym.split('-');
+    return `${MESI[parseInt(m) - 1]} ${y}`;
+  }
+
+  const filtrati = pazienti.filter((p) => {
+    const data = p.data_chiusura_cartella || p.data_dimissione || '';
+    if (annoFiltro && !data.startsWith(annoFiltro)) return false;
+    if (meseFiltro && !data.startsWith(`${annoFiltro}-${meseFiltro.padStart(2, '0')}`)) return false;
+    if (filtroEsito && p.esito_paca !== filtroEsito) return false;
+    if (filtroChecklist) {
+      const tot = p.checklist.length;
+      const comp = p.checklist.filter((v) => v.completata).length;
+      const pct = tot > 0 ? Math.round((comp / tot) * 100) : -1;
+      if (filtroChecklist === 'completa' && pct !== 100) return false;
+      if (filtroChecklist === 'parziale' && (pct === 100 || pct < 0)) return false;
+      if (filtroChecklist === 'vuota' && tot > 0) return false;
+    }
+    return true;
+  });
+
+  // Raggruppa per mese
+  const perMese: Record<string, PazientePaca[]> = {};
+  for (const p of filtrati) {
+    const data = p.data_chiusura_cartella || p.data_dimissione || '';
+    const mese = data.slice(0, 7);
+    if (!perMese[mese]) perMese[mese] = [];
+    perMese[mese].push(p);
+  }
+  const mesiOrdinati = Object.keys(perMese).sort().reverse();
+
+  const anni = [...new Set(pazienti.map((p) => (p.data_chiusura_cartella || p.data_dimissione)?.slice(0, 4)).filter(Boolean))].sort().reverse() as string[];
+  if (!anni.includes(String(now.getFullYear()))) anni.unshift(String(now.getFullYear()));
+
+  function stampaMese(mese: string, lista: PazientePaca[]) {
+    const righe = lista.map((p) => {
+      const tot = p.checklist.length;
+      const comp = p.checklist.filter((v) => v.completata).length;
+      const esito = ESITI_LABEL[p.esito_paca ?? 'in_corso'] ?? ESITI_LABEL.in_corso;
+      return `<tr>
+        <td><strong>${p.nominativo}</strong>${p.data_nascita ? `<br><small>Nato/a il ${new Date(p.data_nascita).toLocaleDateString('it-IT')}</small>` : ''}${p.codice_fiscale ? `<br><small>CF ${p.codice_fiscale}</small>` : ''}</td>
+        <td style="font-family:monospace">${p.codice_sdo ?? '—'}</td>
+        <td>${p.data_ricovero ? new Date(p.data_ricovero).toLocaleDateString('it-IT') : '—'}</td>
+        <td>${(p.data_chiusura_cartella || p.data_dimissione) ? new Date((p.data_chiusura_cartella || p.data_dimissione)!).toLocaleDateString('it-IT') : '—'}</td>
+        <td>${p.diagnosi_principale ?? '—'}</td>
+        <td><strong>${esito.label}</strong></td>
+        <td style="text-align:right">${p.importo_drg ? formattaEuro(p.importo_drg) : '—'}</td>
+        <td style="text-align:center;font-weight:${comp === tot && tot > 0 ? 'bold' : 'normal'};color:${comp === tot && tot > 0 ? '#065f46' : '#d97706'}">${tot > 0 ? `${comp}/${tot}` : '—'}</td>
+      </tr>`;
+    }).join('');
+    const importoMese = lista.filter((p) => p.esito_paca === 'approvata').reduce((s, p) => s + (p.importo_drg ?? 0), 0);
+    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
+<title>Archivio ${formattaMeseLabel(mese)} — ${orgName}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:11px}
+h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}h2{font-size:13px;color:#1f3d2b;margin:0 0 12px}
+.sub{font-size:10px;color:#6b7280;margin-bottom:20px}.kpi{display:flex;gap:16px;margin-bottom:16px}
+.kpi div{border:1px solid #d1d5db;border-radius:6px;padding:8px 12px}.kpi .v{font-size:18px;font-weight:700;color:#1f3d2b}.kpi .l{font-size:9px;color:#6b7280}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;padding:5px 7px;text-align:left;font-size:10px}
+td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px}
+.footer{font-size:9px;color:#9ca3af;text-align:right;margin-top:20px}
+@media print{@page{size:A4 landscape;margin:1cm}body{padding:0}}</style></head><body>
+<h1>Archivio PACA — ${formattaMeseLabel(mese)}</h1>
+<div class="sub">${uoNome ?? orgName} · Stampato il ${new Date().toLocaleString('it-IT')} da ${userName}</div>
+<div class="kpi">
+  <div><div class="v">${lista.length}</div><div class="l">Cartelle</div></div>
+  <div><div class="v" style="color:#065f46">${lista.filter(p=>p.esito_paca==='approvata').length}</div><div class="l">Approvate</div></div>
+  <div><div class="v" style="color:#dc2626">${lista.filter(p=>p.esito_paca==='rifiutata').length}</div><div class="l">Rifiutate</div></div>
+  ${importoMese > 0 ? `<div><div class="v" style="color:#065f46">${formattaEuro(importoMese)}</div><div class="l">DRG liquidato</div></div>` : ''}
+</div>
+<table><thead><tr><th>Paziente</th><th>N° SDO</th><th>Ricovero</th><th>Chiusura</th><th>Diagnosi</th><th>Esito PACA</th><th>DRG €</th><th>Checklist</th></tr></thead>
+<tbody>${righe}</tbody></table>
+<div class="footer">${orgName} · Carico Farmacia</div></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) w.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filtri */}
+      <div className="card flex flex-wrap items-center gap-3">
+        <select value={annoFiltro} onChange={(e) => setAnnoFiltro(e.target.value)} className="input-base text-sm py-1 w-28">
+          <option value="">Tutti gli anni</option>
+          {anni.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select value={meseFiltro} onChange={(e) => setMeseFiltro(e.target.value)} className="input-base text-sm py-1 w-36" disabled={!annoFiltro}>
+          <option value="">Tutti i mesi</option>
+          {MESI.map((m, i) => <option key={i+1} value={String(i+1).padStart(2,'0')}>{m}</option>)}
+        </select>
+        <select value={filtroEsito} onChange={(e) => setFiltroEsito(e.target.value)} className="input-base text-sm py-1 w-36">
+          <option value="">Tutti gli esiti</option>
+          <option value="approvata">Approvata</option>
+          <option value="rifiutata">Rifiutata</option>
+          <option value="in_revisione">In revisione</option>
+          <option value="in_corso">In corso</option>
+        </select>
+        <select value={filtroChecklist} onChange={(e) => setFiltroChecklist(e.target.value)} className="input-base text-sm py-1 w-40">
+          <option value="">Tutte le checklist</option>
+          <option value="completa">Completa (100%)</option>
+          <option value="parziale">Parzialmente completata</option>
+          <option value="vuota">Non inizializzata</option>
+        </select>
+        <span className="text-xs text-ink-mute ml-auto">{filtrati.length} cartelle</span>
+      </div>
+
+      {/* Lista per mese */}
+      {filtrati.length === 0 ? (
+        <div className="card text-center py-12 text-ink-mute text-sm">Nessuna cartella chiusa nel periodo selezionato.</div>
+      ) : (
+        mesiOrdinati.map((mese) => {
+          const lista = perMese[mese];
+          const completeLista = lista.filter((p) => p.checklist.length > 0 && p.checklist.every((v) => v.completata));
+          const importoMese = lista.filter((p) => p.esito_paca === 'approvata').reduce((s, p) => s + (p.importo_drg ?? 0), 0);
+          return (
+            <div key={mese} className="space-y-2">
+              {/* Header mese */}
+              <div className="flex items-center justify-between sticky top-0 bg-bg py-1.5 z-10">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-bold text-ink">{formattaMeseLabel(mese)}</h3>
+                  <span className="text-xs text-ink-mute">{lista.length} cartelle · {completeLista.length} complete</span>
+                  {importoMese > 0 && <span className="text-xs font-semibold text-forest">{formattaEuro(importoMese)} DRG</span>}
+                </div>
+                <button
+                  onClick={() => stampaMese(mese, lista)}
+                  className="text-xs text-ink-mute hover:text-forest border border-line rounded px-2 py-1 flex items-center gap-1"
+                >
+                  <Printer className="w-3 h-3" /> Stampa mese
+                </button>
+              </div>
+              {/* Righe pazienti */}
+              <div className="space-y-2">
+                {lista.map((p) => (
+                  <RigaCartella key={p.id} paziente={p} orgId={orgId} userName={userName} />
+                ))}
+              </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
