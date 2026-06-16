@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import type { CurrentUserContext } from '@/lib/types';
 import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
-import { AutoRefresh } from '@/components/auto-refresh';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope, FileBarChart2, ShoppingCart } from 'lucide-react';
@@ -68,18 +67,9 @@ export default async function AppPage() {
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita} />
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="font-display text-xl font-semibold text-ink">
-              {ctx.profile.full_name?.split(' ').at(-1)}
-            </h1>
-            <p className="text-xs text-ink-mute">{ctx.organization.name}</p>
-          </div>
-        </div>
-
+      <main className="max-w-2xl mx-auto px-4 py-4">
         {/* Selezione unità operativa */}
-        <section className="mb-5">
+        <section className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Building2 className="w-3.5 h-3.5 text-ink-soft" />
             <h2 className="text-xs font-semibold text-ink-soft uppercase tracking-wide">Unità Operativa</h2>
