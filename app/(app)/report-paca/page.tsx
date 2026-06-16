@@ -38,7 +38,7 @@ export default async function ReportPacaPage() {
   // Carica pazienti con dati PACA/SDO (tutti — non solo UO attiva, per report completi)
   const query = supabase
     .from('pazienti')
-    .select('id, nominativo, sala, numero_letto, codice_sdo, data_ricovero, data_dimissione, diagnosi_principale, esito_paca, importo_drg, data_chiusura_cartella, note_paca, unita_operativa_id')
+    .select('id, nominativo, sala, numero_letto, codice_sdo, data_ricovero, data_dimissione, diagnosi_principale, esito_paca, importo_drg, data_chiusura_cartella, note_paca, unita_operativa_id, data_nascita, codice_fiscale')
     .eq('org_id', org.id)
     .order('data_chiusura_cartella', { ascending: false });
   if (uoAttivaId) query.eq('unita_operativa_id', uoAttivaId);

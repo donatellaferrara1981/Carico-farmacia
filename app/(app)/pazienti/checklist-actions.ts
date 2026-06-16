@@ -102,6 +102,8 @@ export async function aggiornaSdoPazienteAction(
   dataRicovero?: string,
   dataDimissione?: string,
   diagnosiPrincipale?: string,
+  dataNascita?: string,
+  codiceFiscale?: string,
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -114,6 +116,8 @@ export async function aggiornaSdoPazienteAction(
       data_ricovero: dataRicovero || null,
       data_dimissione: dataDimissione || null,
       diagnosi_principale: diagnosiPrincipale || null,
+      data_nascita: dataNascita || null,
+      codice_fiscale: codiceFiscale || null,
     })
     .eq('id', pazienteId);
 

@@ -20,6 +20,8 @@ interface PazientePaca {
   importo_drg: number | null;
   data_chiusura_cartella: string | null;
   note_paca: string | null;
+  data_nascita: string | null;
+  codice_fiscale: string | null;
   checklist: VoceChecklist[];
 }
 
@@ -373,11 +375,13 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
   const [note, setNote] = useState(p.note_paca ?? '');
   const [savedEsito, setSavedEsito] = useState(false);
 
-  // SDO base
+  // SDO base + anagrafica
   const [codiceSdo, setCodiceSdo] = useState(p.codice_sdo ?? '');
   const [dataRicovero, setDataRicovero] = useState(p.data_ricovero ?? '');
   const [dataDimissione, setDataDimissione] = useState(p.data_dimissione ?? '');
   const [diagnosi, setDiagnosi] = useState(p.diagnosi_principale ?? '');
+  const [dataNascita, setDataNascita] = useState(p.data_nascita ?? '');
+  const [codiceFiscale, setCodiceFiscale] = useState(p.codice_fiscale ?? '');
   const [savedSdo, setSavedSdo] = useState(false);
 
   // Checklist interattiva
@@ -400,7 +404,7 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
   function handleSaveSdo(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      await aggiornaSdoPazienteAction(p.id, codiceSdo, dataRicovero, dataDimissione, diagnosi);
+      await aggiornaSdoPazienteAction(p.id, codiceSdo, dataRicovero, dataDimissione, diagnosi, dataNascita, codiceFiscale);
       setSavedSdo(true);
       setTimeout(() => setSavedSdo(false), 2000);
     });
@@ -461,6 +465,29 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
       {open && (
         <div className="border-t border-line bg-bg-soft/40 px-3 py-3 space-y-4">
 
+          {/* Banner identificativo paziente — sempre visibile */}
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-ink/5 border border-line">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-ink">{p.nominativo}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                {dataNascita && (
+                  <span className="text-xs text-ink-mute">
+                    Nato/a il <strong className="text-ink">{new Date(dataNascita).toLocaleDateString('it-IT')}</strong>
+                  </span>
+                )}
+                {codiceFiscale && (
+                  <span className="text-xs text-ink-mute font-mono">
+                    CF <strong className="text-ink">{codiceFiscale.toUpperCase()}</strong>
+                  </span>
+                )}
+                {!dataNascita && !codiceFiscale && (
+                  <span className="text-xs text-ink-mute italic">Data di nascita e CF non ancora inseriti</span>
+                )}
+              </div>
+            </div>
+            <span className="text-xs text-ink-mute shrink-0">Letto {p.numero_letto} · {p.sala}</span>
+          </div>
+
           {/* Dati SDO base */}
           <form onSubmit={handleSaveSdo} className="space-y-1.5">
             <p className="text-[10px] font-bold text-ink-soft uppercase tracking-wide">Dati SDO / Ricovero</p>
@@ -480,6 +507,14 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
               <div>
                 <label className="text-[10px] text-ink-mute block mb-0.5">Data dimissione</label>
                 <input type="date" value={dataDimissione} onChange={(e) => setDataDimissione(e.target.value)} className="input-base text-xs py-1 w-full" />
+              </div>
+              <div>
+                <label className="text-[10px] text-ink-mute block mb-0.5">Data di nascita</label>
+                <input type="date" value={dataNascita} onChange={(e) => setDataNascita(e.target.value)} className="input-base text-xs py-1 w-full" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-[10px] text-ink-mute block mb-0.5">Codice fiscale</label>
+                <input type="text" value={codiceFiscale} onChange={(e) => setCodiceFiscale(e.target.value.toUpperCase())} placeholder="RSSMRA80A01H501U" className="input-base text-xs py-1 w-full font-mono uppercase" maxLength={16} />
               </div>
             </div>
             <button type="submit" disabled={pending} className="btn-primary text-xs py-1">
