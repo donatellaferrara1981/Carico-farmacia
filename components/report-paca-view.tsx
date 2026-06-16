@@ -507,11 +507,11 @@ ${righe}
         onClick={() => setOpen(!open)}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-ink truncate">{p.nominativo}</span>
-            {codiceSdo && <span className="text-[10px] text-ink-mute font-mono shrink-0">SDO {codiceSdo}</span>}
+          <p className="text-sm font-medium text-ink truncate">{p.nominativo || <span className="italic text-ink-mute">Nome non impostato</span>}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {codiceSdo && <span className="text-[10px] text-ink-mute font-mono">SDO {codiceSdo}</span>}
+            {diagnosi && <span className="text-xs text-ink-mute truncate">{diagnosi}</span>}
           </div>
-          {diagnosi && <p className="text-xs text-ink-mute truncate">{diagnosi}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {totV > 0 && (
