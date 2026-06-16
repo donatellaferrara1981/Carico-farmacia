@@ -433,19 +433,6 @@ function RigaCartella({ paziente: p, orgId, userName }: { paziente: PazientePaca
     });
   }
 
-  async function handleToggleVoce(id: string, attuale: boolean) {
-    setPendingVoce(id);
-    setChecklistItems(prev => prev.map(v => v.id === id ? { ...v, completata: !attuale } : v));
-    await toggleVoceChecklistPacaAction(id, !attuale, userName || 'Utente');
-    setPendingVoce(null);
-  }
-
-  async function handleInizializza() {
-    setInitPending(true);
-    await inizializzaChecklistPacaAction(p.id, orgId, p.codice_sdo ?? undefined);
-    setInitPending(false);
-  }
-
   return (
     <div className="rounded-lg border border-line overflow-hidden">
       <div
