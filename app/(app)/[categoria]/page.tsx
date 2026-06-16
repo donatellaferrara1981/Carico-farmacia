@@ -78,7 +78,7 @@ export default async function CategoriaPage({
           .eq('unita_operativa_id', uoAttivaId)
       : Promise.resolve({ data: [] }),
     cat === 'terapie'
-      ? supabase.from('pazienti').select('id, nominativo, sala, numero_letto').eq('org_id', org.id).eq('unita_operativa_id', uoAttivaId).order('numero_letto')
+      ? supabase.from('pazienti').select('id, nominativo, sala, numero_letto, piano').eq('org_id', org.id).eq('unita_operativa_id', uoAttivaId).order('numero_letto')
       : Promise.resolve({ data: [] }),
     cat === 'terapie'
       ? supabase.from('terapie_pazienti').select('paziente_id, principio_attivo, dosaggio, tipo').eq('org_id', org.id).eq('tipo', 'terapia')

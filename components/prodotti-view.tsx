@@ -30,17 +30,18 @@ interface Props {
   categoria: CategoriaArticolo;
   canEdit: boolean;
   uoAttivaId?: string | null;
-  pazienti?: { id: string; nominativo: string; sala: string; numero_letto: number }[];
+  pazienti?: { id: string; nominativo: string; sala: string; numero_letto: number; piano?: string | null }[];
   terapiePazienti?: { paziente_id: string; principio_attivo: string; dosaggio: string | null; tipo: string }[];
 }
 
 // ─── Riga compatta (tutti gli schermi) ────────────────────────────────────────
-function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1 }: {
+function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1, consumoOverride }: {
   prodotto: ProdottoConDocumenti;
   categoria: CategoriaArticolo;
   canEdit: boolean;
   giorni: number;
   moltiplicatore?: number;
+  consumoOverride?: number;
 }) {
   const [editing, setEditing]    = useState(false);
   const [menuOpen, setMenuOpen]  = useState(false);
@@ -51,7 +52,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
   const [isPendingQ, startQ]     = useTransition();
   const [isPendingN, startN]     = useTransition();
 
-  const consumo    = prodotto.consumo_giornaliero ?? 0;
+  const consumo    = consumoOverride ?? prodotto.consumo_giornaliero ?? 0;
   const fabbisogno = Math.ceil(consumo * moltiplicatore * giorni);
   const qty        = prodotto.quantita;
   const daOrdinare = Math.max(0, fabbisogno - qty);
@@ -371,21 +372,62 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
   const [ordine, setOrdine]                   = useState<'alfa' | 'fabb'>('alfa');
   const [isPendingReset, startReset]          = useTransition();
   const [pazienteId, setPazienteId]           = useState<string | 'tutti'>('tutti');
+  const [pianoFiltro, setPianoFiltro]         = useState<string | null>(null);
 
   const giorniEffettivi = modoCustom ? (parseInt(customGiorni) || 1) : giorni;
   const moltiplicatore  = categoria === 'sanitario' ? Math.max(1, numPazienti) : 1;
+
+  // Piani disponibili (solo terapie con pazienti multi-piano)
+  const pianiDisponibili = categoria === 'terapie'
+    ? [...new Set(pazienti.map((p) => p.piano).filter(Boolean) as string[])].sort()
+    : [];
+
+  // Pazienti filtrati per piano
+  const pazientiSulPiano = pianoFiltro === null
+    ? pazienti
+    : pazienti.filter((p) => p.piano === pianoFiltro);
+  const idsPazientiSulPiano = new Set(pazientiSulPiano.map((p) => p.id));
+
+  // Per-piano consumo: stima proporzionale dal conteggio pazienti in terapie_pazienti
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const pianoConsumoMap = new Map<string, number>();
+  if (pianoFiltro !== null && categoria === 'terapie') {
+    for (const prod of prodotti) {
+      const allTP = terapiePazienti.filter((t) =>
+        norm(t.principio_attivo) === norm(prod.principio_attivo)
+      );
+      const totalCount = allTP.length;
+      const floorCount = allTP.filter((t) => idsPazientiSulPiano.has(t.paziente_id)).length;
+      if (floorCount > 0 && totalCount > 0) {
+        pianoConsumoMap.set(prod.id, Math.max(1, Math.ceil((prod.consumo_giornaliero ?? 0) * floorCount / totalCount)));
+      }
+    }
+  }
 
   // Filtro per paziente selezionato (solo terapie)
   const farmacilPaziente = pazienteId === 'tutti'
     ? null
     : terapiePazienti.filter((t) => t.paziente_id === pazienteId).map((t) =>
-        (t.principio_attivo + (t.dosaggio ? ' ' + t.dosaggio : '')).toLowerCase()
+        norm(t.principio_attivo)
       );
-  const prodottiFiltroBase = farmacilPaziente === null
-    ? prodotti
-    : prodotti.filter((p) =>
-        farmacilPaziente.some((k) => k.includes(p.principio_attivo.toLowerCase()))
+
+  const prodottiFiltroBase = (() => {
+    let base = prodotti;
+    // Filtro piano: solo prodotti usati da pazienti sul piano selezionato
+    if (pianoFiltro !== null && categoria === 'terapie') {
+      const drugsOnFloor = new Set(
+        terapiePazienti
+          .filter((t) => idsPazientiSulPiano.has(t.paziente_id))
+          .map((t) => norm(t.principio_attivo))
       );
+      base = base.filter((p) => drugsOnFloor.has(norm(p.principio_attivo)));
+    }
+    // Filtro paziente singolo
+    if (farmacilPaziente !== null) {
+      base = base.filter((p) => farmacilPaziente.some((k) => k.includes(norm(p.principio_attivo))));
+    }
+    return base;
+  })();
 
   const hasSale = prodotti.some((p) => p.sala);
   const prodottiFiltrati = salaFiltro === null ? prodottiFiltroBase : prodottiFiltroBase.filter((p) => p.sala === salaFiltro);
@@ -471,6 +513,32 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
         </div>
       )}
 
+      {/* Selettore piano (solo terapie multi-piano) */}
+      {categoria === 'terapie' && pianiDisponibili.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-ink-soft">Piano:</span>
+          <button
+            onClick={() => { setPianoFiltro(null); setPazienteId('tutti'); }}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${pianoFiltro === null ? 'bg-ink text-bg border-ink' : 'border-line text-ink-soft hover:border-ink/40'}`}
+          >
+            Tutti i piani
+          </button>
+          {pianiDisponibili.map((piano) => {
+            const label = piano === 'terra' ? 'Piano Terra' : piano === 'primo' ? 'Primo Piano' : `Piano ${piano}`;
+            const count = pazienti.filter((p) => p.piano === piano).length;
+            return (
+              <button
+                key={piano}
+                onClick={() => { setPianoFiltro(piano); setPazienteId('tutti'); }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${pianoFiltro === piano ? 'bg-ink text-bg border-ink' : 'border-line text-ink-soft hover:border-ink/40'}`}
+              >
+                {label} <span className="opacity-60">({count} paz.)</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Selettore paziente (solo terapie) */}
       {categoria === 'terapie' && pazienti.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
@@ -481,7 +549,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
           >
             Tutti
           </button>
-          {pazienti.map((p) => (
+          {pazientiSulPiano.map((p) => (
             <button
               key={p.id}
               onClick={() => setPazienteId(p.id)}
@@ -634,7 +702,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                     </p>
                   </div>
                 );
-                abx.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />));
+                abx.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} consumoOverride={pianoConsumoMap.get(p.id)} />));
               }
 
               if (nom.length > 0) {
@@ -654,7 +722,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                     <p className="text-[10px] text-ink-mute font-medium uppercase tracking-wide">Altri farmaci</p>
                   </div>
                 );
-                altri.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} />));
+                altri.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} consumoOverride={pianoConsumoMap.get(p.id)} />));
               }
 
               return rows;

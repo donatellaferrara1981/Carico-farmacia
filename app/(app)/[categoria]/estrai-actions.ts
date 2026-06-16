@@ -399,6 +399,7 @@ Se nessun articolo trovato: {"articoli":[]}`,
       forma_farmaceutica: string;
       dosaggio: string | null;
       consumo_giornaliero: number;
+      posologia: string | null;
       note: string | null;
     }>;
   };
@@ -436,7 +437,8 @@ Per ogni farmaco:
 - nome_commerciale: string | null
 - forma_farmaceutica: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
 - dosaggio: string | null (es. "500 mg")
-- consumo_giornaliero: number (unità totali/die, default 1)
+- consumo_giornaliero: number (unità totali/die, default 1 — conta le somministrazioni giornaliere: es. "1cp x 3" = 3)
+- posologia: string | null (descrizione frequenza somministrazione, es. "1cp mattina e sera", "2fl/die", "ogni 8 ore")
 - note: string | null
 
 Rispondi SOLO con JSON valido:
@@ -447,7 +449,7 @@ Rispondi SOLO con JSON valido:
       "numero_letto": 1,
       "sala": "Stanza",
       "farmaci": [
-        {"principio_attivo":"Baclofene","nome_commerciale":null,"forma_farmaceutica":"compressa","dosaggio":"25 mg","consumo_giornaliero":3,"note":null}
+        {"principio_attivo":"Baclofene","nome_commerciale":null,"forma_farmaceutica":"compressa","dosaggio":"25 mg","consumo_giornaliero":3,"posologia":"1cp x 3 volte/die","note":null}
       ]
     }
   ]
@@ -562,7 +564,7 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
     const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
     const nuoveTP: Array<{
       org_id: string; paziente_id: string; prodotto_id: string | null;
-      principio_attivo: string; dosaggio: string | null; tipo: string;
+      principio_attivo: string; dosaggio: string | null; posologia: string | null; tipo: string;
     }> = [];
 
     for (const presc of prescrizioniPerPaziente) {
@@ -592,6 +594,7 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
           prodotto_id: prod?.id ?? null,
           principio_attivo: f.principio_attivo,
           dosaggio: f.dosaggio,
+          posologia: f.posologia ?? null,
           tipo: 'terapia',
         });
       }

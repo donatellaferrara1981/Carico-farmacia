@@ -50,16 +50,16 @@ export default async function ReportPacaPage() {
   const { data: checklistRaw } = pazIds.length > 0
     ? await supabase
         .from('checklist_dimissione')
-        .select('id, paziente_id, voce, completata, ordine')
+        .select('id, paziente_id, voce, completata, completata_da, completata_at, ordine')
         .in('paziente_id', pazIds)
         .order('ordine')
     : { data: [] };
 
   // Raggruppa voci per paziente
-  const checklistByPaziente: Record<string, { id: string; voce: string; completata: boolean }[]> = {};
+  const checklistByPaziente: Record<string, { id: string; voce: string; completata: boolean; completata_da: string | null; completata_at: string | null }[]> = {};
   for (const v of checklistRaw ?? []) {
     if (!checklistByPaziente[v.paziente_id]) checklistByPaziente[v.paziente_id] = [];
-    checklistByPaziente[v.paziente_id].push({ id: v.id, voce: v.voce, completata: v.completata });
+    checklistByPaziente[v.paziente_id].push({ id: v.id, voce: v.voce, completata: v.completata, completata_da: v.completata_da, completata_at: v.completata_at });
   }
 
   const datiPazienti = (pazienti ?? []).map((p) => ({
