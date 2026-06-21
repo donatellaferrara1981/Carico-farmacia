@@ -26,7 +26,7 @@ export const VOCI_STANDARD = [
   'Frontespizio cartella elettronica + diagnosi di ingresso e dimissione stampato e firmato',
 ];
 
-interface VoceChecklist {
+export interface VoceChecklist {
   id: string;
   voce: string;
   completata: boolean;
