@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
-import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin, ArrowUpDown, Check, X } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin, ArrowUpDown, Check, X, ChevronDown } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { classificaFarmaco, isAltoCosto, CLASSE_LABEL } from '@/lib/antibiotici';
 import { SALE, getSala } from '@/lib/sale';
@@ -32,7 +32,96 @@ interface Props {
   canEdit: boolean;
   uoAttivaId?: string | null;
   pazienti?: { id: string; nominativo: string; sala: string; numero_letto: number; piano?: string | null }[];
-  terapiePazienti?: { paziente_id: string; principio_attivo: string; dosaggio: string | null; tipo: string }[];
+  terapiePazienti?: { paziente_id: string; principio_attivo: string; dosaggio: string | null; tipo: string; posologia?: string | null }[];
+}
+
+// ─── Frequenza giornaliera da posologia ───────────────────────────────────────
+function parseFrequenzaGiornaliera(posologia: string | null): number {
+  if (!posologia) return 1;
+  const p = posologia.toLowerCase();
+  // Count "ore HH:MM" occurrences — most reliable signal
+  const oreMatches = (p.match(/ore\s+\d{1,2}[:h]\d{0,2}/g) ?? []).length;
+  if (oreMatches > 0) return oreMatches;
+  // Explicit frequency words
+  if (p.includes('3 volt') || p.includes('tre volt') || p.includes('ogni 8')) return 3;
+  if (p.includes('4 volt') || p.includes('ogni 6')) return 4;
+  if (p.includes('2 volt') || p.includes('due volt') || p.includes('ogni 12')) return 2;
+  if (p.includes('1 volt') || p.includes('una volt')) return 1;
+  return 1;
+}
+
+// ─── Carico Settimanale ───────────────────────────────────────────────────────
+function CaricoSettimanaleSection({
+  pazienti,
+  terapiePazienti,
+  pazienteId,
+}: {
+  pazienti: { id: string; nominativo: string; numero_letto: number }[];
+  terapiePazienti: { paziente_id: string; principio_attivo: string; dosaggio: string | null; posologia?: string | null }[];
+  pazienteId: string | 'tutti';
+}) {
+  const [aperto, setAperto] = useState(false);
+
+  const terapieFiltrate = pazienteId === 'tutti'
+    ? terapiePazienti
+    : terapiePazienti.filter((t) => t.paziente_id === pazienteId);
+
+  const righe: { nome: string; dosaggio: string | null; paziente: string; giornaliero: number; settimanale: number }[] = [];
+  for (const t of terapieFiltrate) {
+    const paz = pazienti.find((p) => p.id === t.paziente_id);
+    const giornaliero = parseFrequenzaGiornaliera(t.posologia ?? null);
+    righe.push({
+      nome: t.principio_attivo,
+      dosaggio: t.dosaggio,
+      paziente: paz ? `${paz.nominativo} (L.${paz.numero_letto})` : '—',
+      giornaliero,
+      settimanale: giornaliero * 7,
+    });
+  }
+  righe.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+
+  if (righe.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-line bg-bg-card overflow-hidden">
+      <button
+        onClick={() => setAperto((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-bg-soft transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-ink">Carico Settimanale</span>
+          <span className="text-xs text-ink-mute bg-line px-2 py-0.5 rounded-full">{righe.length} farmaci</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-ink-mute transition-transform ${aperto ? 'rotate-180' : ''}`} />
+      </button>
+      {aperto && (
+        <div className="border-t border-line overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-bg-soft">
+                <th className="text-left px-3 py-2 text-ink-soft font-medium">Farmaco</th>
+                <th className="text-left px-3 py-2 text-ink-soft font-medium">Dosaggio</th>
+                {pazienteId === 'tutti' && <th className="text-left px-3 py-2 text-ink-soft font-medium">Paziente</th>}
+                <th className="text-right px-3 py-2 text-ink-soft font-medium">Al giorno</th>
+                <th className="text-right px-3 py-2 text-ink-soft font-medium font-semibold">Settimana</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line/50">
+              {righe.map((r, i) => (
+                <tr key={i} className="hover:bg-bg-soft/40">
+                  <td className="px-3 py-2 font-medium text-ink">{r.nome}</td>
+                  <td className="px-3 py-2 text-ink-mute">{r.dosaggio ?? '—'}</td>
+                  {pazienteId === 'tutti' && <td className="px-3 py-2 text-ink-mute">{r.paziente}</td>}
+                  <td className="px-3 py-2 text-right tabular-nums text-ink">{r.giornaliero}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-bold text-forest">{r.settimanale}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Riga compatta (tutti gli schermi) ────────────────────────────────────────
@@ -570,6 +659,15 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
             </button>
           ))}
         </div>
+      )}
+
+      {/* Carico Settimanale */}
+      {categoria === 'terapie' && (
+        <CaricoSettimanaleSection
+          pazienti={pazienti}
+          terapiePazienti={terapiePazienti}
+          pazienteId={pazienteId}
+        />
       )}
 
       {ordinati.length === 0 && docsLiberi.length === 0 ? (
