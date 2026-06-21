@@ -11,6 +11,7 @@ import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
 import { deleteProdottoAction, aggiornaQuantitaAction, toggleNominativaAction, svuotaProdottiAction, aggiornaDataRichiestaAction } from '@/app/(app)/[categoria]/prodotti-actions';
 import { svuotaDocumentiAction } from '@/app/(app)/[categoria]/actions';
+import { eliminaTuttiPazientiUoAction } from '@/app/(app)/pazienti/actions';
 import type { CategoriaArticolo } from '@/lib/types';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 import { CAT_LABELS } from '@/lib/types';
@@ -468,6 +469,16 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
               {isPendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
               Svuota documenti
             </button>
+            {uoAttivaId && (
+              <button
+                onClick={() => { if (!confirm('Eliminare tutti i degenti di questa UO?')) return; startReset(async () => { await eliminaTuttiPazientiUoAction(orgId, uoAttivaId!); }); }}
+                disabled={isPendingReset || pazienti.length === 0}
+                className="btn-ghost text-abx hover:bg-abx/10 text-xs flex items-center gap-1.5 disabled:opacity-40"
+              >
+                {isPendingReset ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                Svuota degenti
+              </button>
+            )}
           </div>
           <button onClick={() => setShowForm(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> Nuovo prodotto
