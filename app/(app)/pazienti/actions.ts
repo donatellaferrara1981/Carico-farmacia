@@ -312,6 +312,17 @@ export async function eliminaPazienteAction(id: string) {
   return { ok: true };
 }
 
+// ── Elimina tutti pazienti UO ────────────────────────────────────────────────
+
+export async function eliminaTuttiPazientiUoAction(orgId: string, uoId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+  await supabase.from('pazienti').delete().eq('org_id', orgId).eq('unita_operativa_id', uoId);
+  revalidatePath('/pazienti');
+  return { ok: true };
+}
+
 // ── Aggiungi paziente manuale ────────────────────────────────────────────────
 
 export async function aggiungiPazienteAction(formData: FormData) {

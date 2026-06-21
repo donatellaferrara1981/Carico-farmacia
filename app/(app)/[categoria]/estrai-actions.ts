@@ -426,6 +426,16 @@ Se nessun articolo trovato: {"articoli":[]}`,
 
 Il PDF può contenere le terapie di UNO o PIÙ pazienti (foglio di reparto).
 
+FORMATI SUPPORTATI:
+
+Formato A (classico): foglio terapia con intestazione paziente + tabella farmaci con posologia testuale (es. "1cp x 3/die", "ogni 8 ore").
+
+Formato B (griglia con punti/cerchi): il nome del paziente è in CIMA al documento. I farmaci sono nella COLONNA SINISTRA con dosaggio. A destra c'è una GRIGLIA con punti/cerchi (●) che indicano i momenti di somministrazione giornalieri.
+- Conta i punti (●) nella riga di ciascun farmaco per determinare le somministrazioni/die
+- 1 punto = 1 volta/die, 2 punti = 2 volte/die, 3 punti = 3 volte/die, ecc.
+- Il numero di punti = consumo_giornaliero
+- Usa il numero di punti anche per costruire la posologia (es. 1 punto = "1 volta/die", 2 punti = "2 volte/die")
+
 Per ogni paziente trovato restituisci un oggetto in "pazienti":
 - nominativo: "COGNOME NOME" (maiuscolo come nel documento)
 - numero_letto: number | null
@@ -437,7 +447,7 @@ Per ogni farmaco:
 - nome_commerciale: string | null
 - forma_farmaceutica: "compressa","capsula","fiala","flacone","bustina","cerotto","supposte","sciroppo","crema","collirio","altro"
 - dosaggio: string | null (es. "500 mg")
-- consumo_giornaliero: number (unità totali/die, default 1 — conta le somministrazioni giornaliere: es. "1cp x 3" = 3)
+- consumo_giornaliero: number (unità totali/die, default 1 — nel formato A conta le somministrazioni; nel formato B conta i punti ●)
 - posologia: string | null (descrizione frequenza somministrazione, es. "1cp mattina e sera", "2fl/die", "ogni 8 ore")
 - note: string | null
 

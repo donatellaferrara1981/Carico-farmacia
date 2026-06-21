@@ -108,6 +108,7 @@ export default async function PazientiPage() {
           orgId={org.id}
           orgName={org.name}
           uoNome={uoNome}
+          uoId={uoAttivaId ?? null}
           uoPianaSingola={uoPianaSingola}
           prodotti={prodotti}
         />

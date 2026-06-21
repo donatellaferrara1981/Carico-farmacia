@@ -2,7 +2,7 @@
 
 import { useState, useRef, useTransition, useEffect } from 'react';
 import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square, Pencil } from 'lucide-react';
-import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction } from '@/app/(app)/pazienti/actions';
+import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction, eliminaTuttiPazientiUoAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
 import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaVoceTestoAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
@@ -41,6 +41,7 @@ interface Props {
   orgId: string;
   orgName: string;
   uoNome: string | null;
+  uoId?: string | null;
   uoPianaSingola?: boolean;
   prodotti?: ProdottoSuggestion[];
   userName?: string;
@@ -48,11 +49,20 @@ interface Props {
 
 const STORAGE_KEY = 'carico_selezione';
 
-export function PazientiView({ pazienti, orgId, orgName, uoNome, uoPianaSingola = false, prodotti = [] }: Props) {
+export function PazientiView({ pazienti, orgId, orgName, uoNome, uoId = null, uoPianaSingola = false, prodotti = [] }: Props) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selezione, setSelezione] = useState<Record<string, boolean>>({});
+  const [pazientiEsclusi, setPazientiEsclusi] = useState<Set<string>>(new Set());
+
+  function togglePazienteEscluso(id: string) {
+    setPazientiEsclusi(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Raggruppa per sala
@@ -225,6 +235,21 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, uoPianaSingola 
             >
               <Plus className="w-4 h-4" />
             </button>
+            {uoId && (
+              <button
+                onClick={() => {
+                  if (!window.confirm('Eliminare tutti i pazienti di questa UO?')) return;
+                  startTransition(async () => {
+                    await eliminaTuttiPazientiUoAction(orgId, uoId!);
+                  });
+                }}
+                title="Elimina tutti i pazienti"
+                className="btn-ghost text-sm text-abx hover:text-abx"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-xs">Elimina tutti</span>
+              </button>
+            )}
             <SharePrintBar
               titolo={`Pazienti — ${uoNome ?? orgName}`}
               testoCondivisione={testoCondivisione}
@@ -258,6 +283,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, uoPianaSingola 
               sala={sala}
               pazienti={bySala[sala].sort((a, b) => a.numero_letto - b.numero_letto)}
               prodotti={prodotti}
+              uoPianaSingola={uoPianaSingola}
             />
           ))}
         </div>
@@ -272,6 +298,8 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, uoPianaSingola 
           selezione={selezione}
           bySala={bySala}
           onToggle={toggleSala}
+          pazientiEsclusi={pazientiEsclusi}
+          onTogglePaziente={togglePazienteEscluso}
         />
       )}
     </div>
@@ -287,13 +315,15 @@ interface CaricoProps {
   selezione: Record<string, boolean>;
   bySala: Record<string, Paziente[]>;
   onToggle: (sala: string) => void;
+  pazientiEsclusi: Set<string>;
+  onTogglePaziente: (id: string) => void;
 }
 
-function CaricoFarmaciaSection({ saleTerra, salePrimo, uoPianaSingola, selezione, onToggle, bySala }: CaricoProps) {
+function CaricoFarmaciaSection({ saleTerra, salePrimo, uoPianaSingola, selezione, onToggle, bySala, pazientiEsclusi, onTogglePaziente }: CaricoProps) {
   function stampaFoglioCaricoHtml(sale: string[], titolo: string, data: string) {
     const selezionate = sale.filter((s) => selezione[s]);
     const blocchi = selezionate.map((sala) => {
-      const paz = (bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto);
+      const paz = (bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto).filter((p) => !pazientiEsclusi.has(p.id));
       const righe = paz.map((p) => {
         const farmaci = (p.terapie ?? []).filter((t) => t.tipo !== 'nutrizione');
         const nutrizioni = (p.terapie ?? []).filter((t) => t.tipo === 'nutrizione');
@@ -367,6 +397,8 @@ ${blocchi || '<p style="color:#9ca3af">Nessuna sala selezionata.</p>'}
           bySala={bySala}
           onToggle={onToggle}
           onPrint={() => stampaFoglioCaricoHtml(saleTerra, uoPianaSingola ? 'Foglio Carico Mercoledì' : 'Foglio Carico Mercoledì — Piano Terra', oggi)}
+          pazientiEsclusi={pazientiEsclusi}
+          onTogglePaziente={onTogglePaziente}
         />
         {!uoPianaSingola && (
           <CaricoCard
@@ -377,6 +409,8 @@ ${blocchi || '<p style="color:#9ca3af">Nessuna sala selezionata.</p>'}
             bySala={bySala}
             onToggle={onToggle}
             onPrint={() => stampaFoglioCaricoHtml(salePrimo, 'Foglio Carico Giovedì — Primo Piano', oggi)}
+            pazientiEsclusi={pazientiEsclusi}
+            onTogglePaziente={onTogglePaziente}
           />
         )}
       </div>
@@ -392,9 +426,11 @@ interface CaricoCardProps {
   bySala: Record<string, Paziente[]>;
   onToggle: (sala: string) => void;
   onPrint: () => void;
+  pazientiEsclusi: Set<string>;
+  onTogglePaziente: (id: string) => void;
 }
 
-function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, onPrint }: CaricoCardProps) {
+function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, onPrint, pazientiEsclusi, onTogglePaziente }: CaricoCardProps) {
   const selezionate = sale.filter((s) => selezione[s]).length;
 
   return (
@@ -422,19 +458,36 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
       ) : (
         <div className="divide-y divide-line/50">
           {sale.map((sala) => (
-            <label
-              key={sala}
-              className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-soft/40 transition-colors"
-            >
-              <input
-                type="checkbox"
-                checked={!!selezione[sala]}
-                onChange={() => onToggle(sala)}
-                className="w-3.5 h-3.5 accent-forest"
-              />
-              <span className="text-xs font-medium text-ink flex-1">{sala}</span>
-              <span className="text-[10px] text-ink-mute">{bySala[sala]?.length ?? 0} pz</span>
-            </label>
+            <div key={sala}>
+              <label
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-soft/40 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!selezione[sala]}
+                  onChange={() => onToggle(sala)}
+                  className="w-3.5 h-3.5 accent-forest"
+                />
+                <span className="text-xs font-medium text-ink flex-1">{sala}</span>
+                <span className="text-[10px] text-ink-mute">{bySala[sala]?.length ?? 0} pz</span>
+              </label>
+              {selezione[sala] && (bySala[sala] ?? []).length > 0 && (
+                <div className="pl-8 pr-3 pb-2 space-y-0.5">
+                  {(bySala[sala] ?? []).sort((a, b) => a.numero_letto - b.numero_letto).map((p) => (
+                    <label key={p.id} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!pazientiEsclusi.has(p.id)}
+                        onChange={() => onTogglePaziente(p.id)}
+                        className="w-3 h-3 accent-forest"
+                      />
+                      <span className="text-[10px] text-ink-mute w-5 text-right shrink-0">{p.numero_letto}</span>
+                      <span className="text-[10px] text-ink truncate">{p.nominativo}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -444,7 +497,7 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
 
 // ── Card compatta per sala ───────────────────────────────────────────────────
 
-function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Paziente[]; prodotti: ProdottoSuggestion[] }) {
+function SalaCard({ sala, pazienti, prodotti, uoPianaSingola }: { sala: string; pazienti: Paziente[]; prodotti: ProdottoSuggestion[]; uoPianaSingola?: boolean }) {
   const [pending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -472,7 +525,7 @@ function SalaCard({ sala, pazienti, prodotti }: { sala: string; pazienti: Pazien
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-medium text-ink truncate block">{p.nominativo}</span>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {p.piano && (
+                  {p.piano && !uoPianaSingola && (
                     <span className={`text-[9px] font-semibold px-1 py-0 rounded ${p.piano === 'terra' ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
                       {p.piano === 'terra' ? 'P.T.' : '1° P.'}
                     </span>
