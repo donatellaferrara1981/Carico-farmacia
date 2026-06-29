@@ -8,6 +8,54 @@ import { inflateSync } from 'zlib';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import Anthropic from '@anthropic-ai/sdk';
 
+// Normalizza un nominativo per il confronto: maiuscolo, accenti/apostrofi via,
+// spazi singoli, niente puntini di troncamento finali.
+function normNome(s: string): string {
+  return s
+    .toUpperCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // accenti
+    .replace(/['’`.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Trova il paziente che corrisponde a una prescrizione (per letto+sala o per nome).
+// Gestisce nomi troncati ("BRIGANDI AN...") e cognomi multi-parola ("DE CARO", "LA ROSA").
+function trovaPaziente<T extends { id: string; nominativo: string; sala: string; numero_letto: number }>(
+  pazienti: T[],
+  nominativo: string | null,
+  numeroLetto: number | null,
+  sala: string | null,
+): T | undefined {
+  // 1. letto + sala (più affidabile, se disponibili)
+  if (numeroLetto != null && sala) {
+    const s = normNome(sala);
+    const m = pazienti.find((p) => p.numero_letto === numeroLetto && normNome(p.sala) === s);
+    if (m) return m;
+  }
+  if (!nominativo) return undefined;
+  const target = normNome(nominativo).replace(/\.+$/, '').trim();
+  if (!target) return undefined;
+
+  // 2. uguaglianza esatta
+  let m = pazienti.find((p) => normNome(p.nominativo) === target);
+  if (m) return m;
+  // 3. uno contiene l'altro (gestisce troncamenti tipo "BRIGANDI AN...")
+  m = pazienti.find((p) => {
+    const n = normNome(p.nominativo);
+    return n.startsWith(target) || target.startsWith(n) || n.includes(target) || target.includes(n);
+  });
+  if (m) return m;
+  // 4. confronto sulle prime due parole (cognome composto)
+  const tk = target.split(' ');
+  if (tk.length >= 2) {
+    const cognome2 = `${tk[0]} ${tk[1]}`;
+    m = pazienti.find((p) => normNome(p.nominativo).startsWith(cognome2));
+    if (m) return m;
+  }
+  return undefined;
+}
+
 function decodePdfString(s: string): string {
   return s
     .replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\t/g, '\t')
@@ -256,19 +304,15 @@ Se nessun prodotto: {"prodotti":[],"prescrizioni":[]}`,
         .select('id, nominativo, sala, numero_letto')
         .eq('org_id', orgId);
 
-      // Rimuovi le nutrizioni precedenti per questa org (aggiornamento completo)
-      await supabase.from('terapie_pazienti').delete().eq('org_id', orgId).eq('tipo', 'nutrizione');
+      // Rimuovi le nutrizioni precedenti SOLO al primo PDF del batch,
+      // così i 3 turni (mattina/pomeriggio/notte) si accumulano invece di sovrascriversi.
+      if (isFirstInBatch) {
+        await supabase.from('terapie_pazienti').delete().eq('org_id', orgId).eq('tipo', 'nutrizione');
+      }
 
       const nuovePrescrizioni = [];
       for (const pr of prescrizioni) {
-        // Cerca paziente per sala+letto (più affidabile) o per nome
-        let paziente = (pazienti ?? []).find(
-          (p) => p.numero_letto === pr.numero_letto && normalizza(p.sala) === normalizza(pr.sala)
-        );
-        if (!paziente && pr.nominativo) {
-          const cognome = pr.nominativo.split(' ')[0].toLowerCase();
-          paziente = (pazienti ?? []).find((p) => p.nominativo.toLowerCase().includes(cognome));
-        }
+        const paziente = trovaPaziente(pazienti ?? [], pr.nominativo, pr.numero_letto, pr.sala);
         if (!paziente) continue;
 
         nuovePrescrizioni.push({
@@ -495,6 +539,19 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
+  // Al primo PDF del batch azzera i consumi terapie e svuota i collegamenti
+  // paziente→terapia, così ricaricare i 3 turni riparte pulito senza duplicare.
+  if (categoria === 'terapie' && isFirstInBatch) {
+    await supabase.from('prodotti')
+      .update({ consumo_giornaliero: 0 })
+      .eq('org_id', orgId)
+      .eq('categoria', 'terapie');
+    await supabase.from('terapie_pazienti')
+      .delete()
+      .eq('org_id', orgId)
+      .eq('tipo', 'terapia');
+  }
+
   // Prodotti org-wide: nessun filtro UO per terapie/nutrizioni
   const { data: esistenti } = await supabase
     .from('prodotti')
@@ -577,23 +634,25 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
       principio_attivo: string; dosaggio: string | null; posologia: string | null; tipo: string;
     }> = [];
 
+    // Collegamenti già presenti (dai PDF dei turni precedenti) per evitare duplicati
+    const { data: tpEsistenti } = await supabase
+      .from('terapie_pazienti')
+      .select('paziente_id, principio_attivo, dosaggio, posologia')
+      .eq('org_id', orgId)
+      .eq('tipo', 'terapia');
+    const chiave = (pid: string, pa: string, dos: string | null, pos: string | null) =>
+      `${pid}|${norm(pa)}|${norm(dos ?? '')}|${norm(pos ?? '')}`;
+    const viste = new Set((tpEsistenti ?? []).map((t) => chiave(t.paziente_id, t.principio_attivo, t.dosaggio, t.posologia)));
+
     for (const presc of prescrizioniPerPaziente) {
-      // Trova paziente: prima per letto+sala, poi per cognome
-      let paziente = (pazientiDb ?? []).find(
-        (p) => presc.numero_letto != null && p.numero_letto === presc.numero_letto &&
-          presc.sala && norm(p.sala) === norm(presc.sala)
-      );
-      if (!paziente && presc.nominativo) {
-        const cognome = presc.nominativo.split(' ')[0];
-        paziente = (pazientiDb ?? []).find((p) => p.nominativo.toLowerCase().includes(cognome.toLowerCase()));
-      }
+      const paziente = trovaPaziente(pazientiDb ?? [], presc.nominativo, presc.numero_letto, presc.sala);
       if (!paziente) continue;
 
-      // Rimuovi terapie precedenti di questo paziente per questo documento
-      await supabase.from('terapie_pazienti').delete()
-        .eq('paziente_id', paziente.id).eq('tipo', 'terapia');
-
       for (const f of presc.farmaci) {
+        const k = chiave(paziente.id, f.principio_attivo, f.dosaggio, f.posologia ?? null);
+        if (viste.has(k)) continue; // stesso farmaco/turno già collegato
+        viste.add(k);
+
         const prod = (prodottiDb ?? []).find(
           (p) => norm(p.principio_attivo) === norm(f.principio_attivo) &&
             norm(p.dosaggio ?? '') === norm(f.dosaggio ?? '')
