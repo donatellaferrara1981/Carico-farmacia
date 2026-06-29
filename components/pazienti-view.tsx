@@ -4,7 +4,8 @@ import { useState, useRef, useTransition, useEffect } from 'react';
 import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction, eliminaTuttiPazientiUoAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
-import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaVoceTestoAction, aggiornaSdoPazienteAction, getChecklistAction, type VoceChecklist } from '@/app/(app)/pazienti/checklist-actions';
+import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaVoceTestoAction, aggiornaSdoPazienteAction, getChecklistAction } from '@/app/(app)/pazienti/checklist-actions';
+import type { VoceChecklist } from '@/app/(app)/pazienti/checklist-voci';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 
 export interface TerapiaPaziente {
