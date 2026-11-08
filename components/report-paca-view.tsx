@@ -160,12 +160,12 @@ export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName, rel
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;color:#111;padding:24px;font-size:11px}
-h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}
-h2{font-size:12px;font-weight:700;color:#1f3d2b;margin:20px 0 8px;border-bottom:1px solid #d1fae5;padding-bottom:4px}
+h1{font-size:16px;font-weight:700;color:#0a4d7a;margin-bottom:4px}
+h2{font-size:12px;font-weight:700;color:#0a4d7a;margin:20px 0 8px;border-bottom:1px solid #d1fae5;padding-bottom:4px}
 .sub{font-size:10px;color:#6b7280;margin-bottom:16px}
 .kpi{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
 .kpi-box{border:1px solid #d1d5db;border-radius:8px;padding:10px 16px;min-width:110px}
-.kpi-box .val{font-size:20px;font-weight:700;color:#1f3d2b}
+.kpi-box .val{font-size:20px;font-weight:700;color:#0a4d7a}
 .kpi-box .lbl{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}
 table{width:100%;border-collapse:collapse;margin-bottom:16px}
 th{background:#f3f4f6;padding:5px 7px;text-align:left;font-size:10px;color:#374151;font-weight:600}
@@ -319,7 +319,7 @@ ${criticita.length > 0 ? `
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard icon={<FileText className="w-5 h-5 text-ink-soft" />} valore={totale} label="Cartelle analizzate" />
-        <KpiCard icon={<CheckSquare className="w-5 h-5 text-forest" />} valore={approvate} label="Approvate PACA" color="text-forest" />
+        <KpiCard icon={<CheckSquare className="w-5 h-5 text-ok" />} valore={approvate} label="Approvate PACA" color="text-ok" />
         <KpiCard icon={<X className="w-5 h-5 text-red-500" />} valore={rifiutate} label="Rifiutate" color="text-red-600" />
         <KpiCard icon={<AlertTriangle className="w-5 h-5 text-amber" />} valore={inRevisione} label="In revisione" color="text-amber" />
         <KpiCard
@@ -506,9 +506,9 @@ function ArchivioCartelle({ pazienti, orgId, orgName, uoNome, userName }: Props)
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Archivio ${formattaMeseLabel(mese)} — ${orgName}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:11px}
-h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}h2{font-size:13px;color:#1f3d2b;margin:0 0 12px}
+h1{font-size:16px;font-weight:700;color:#0a4d7a;margin-bottom:4px}h2{font-size:13px;color:#0a4d7a;margin:0 0 12px}
 .sub{font-size:10px;color:#6b7280;margin-bottom:20px}.kpi{display:flex;gap:16px;margin-bottom:16px}
-.kpi div{border:1px solid #d1d5db;border-radius:6px;padding:8px 12px}.kpi .v{font-size:18px;font-weight:700;color:#1f3d2b}.kpi .l{font-size:9px;color:#6b7280}
+.kpi div{border:1px solid #d1d5db;border-radius:6px;padding:8px 12px}.kpi .v{font-size:18px;font-weight:700;color:#0a4d7a}.kpi .l{font-size:9px;color:#6b7280}
 table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;padding:5px 7px;text-align:left;font-size:10px}
 td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:11px}
 .footer{font-size:9px;color:#9ca3af;text-align:right;margin-top:20px}
@@ -693,7 +693,7 @@ function RigaCartella({ paziente: p, orgId, orgName, userName }: { paziente: Paz
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Note — ${p.nominativo}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:12px}
-h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}
+h1{font-size:16px;font-weight:700;color:#0a4d7a;margin-bottom:4px}
 .sub{font-size:10px;color:#6b7280;margin-bottom:20px}
 @media print{@page{size:A4;margin:1.5cm}body{padding:0}}</style></head><body>
 <h1>Note cliniche — ${p.nominativo}</h1>
@@ -929,7 +929,7 @@ table{width:100%;border-collapse:collapse}
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
               <div className="flex items-center gap-3">
-                <span className={`text-xs font-bold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totV}</span>
+                <span className={`text-xs font-bold ${pct === 100 ? 'text-ok' : 'text-amber'}`}>{completate}/{totV}</span>
                 {voci.length > 0 && (
                   <button type="button" onClick={stampaChecklist} className="text-[10px] text-forest hover:underline flex items-center gap-0.5 font-semibold">
                     <Printer className="w-2.5 h-2.5" /> Stampa PDF

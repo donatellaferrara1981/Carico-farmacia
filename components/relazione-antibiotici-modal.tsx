@@ -81,10 +81,10 @@ function buildHtml(
     @page { size: A4; margin: 2cm 2cm 2.5cm 2cm; }
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #111; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 14pt; }
-    th { background: #1f3d2b; color: #fff; padding: 6pt 8pt; text-align: left; font-size: 10pt; }
-    h2 { font-size: 12pt; color: #1f3d2b; border-bottom: 2pt solid #1f3d2b; padding-bottom: 3pt; margin: 18pt 0 8pt; }
+    th { background: #0a4d7a; color: #fff; padding: 6pt 8pt; text-align: left; font-size: 10pt; }
+    h2 { font-size: 12pt; color: #0a4d7a; border-bottom: 2pt solid #0a4d7a; padding-bottom: 3pt; margin: 18pt 0 8pt; }
     .kpi-box { display: inline-block; border: 1pt solid #d1d5db; border-radius: 4pt; padding: 8pt 14pt; margin: 4pt 6pt 4pt 0; text-align: center; min-width: 80pt; }
-    .kpi-val { font-size: 18pt; font-weight: 700; color: #1f3d2b; }
+    .kpi-val { font-size: 18pt; font-weight: 700; color: #0a4d7a; }
     .kpi-val.red { color: #991b1b; }
     .kpi-lbl { font-size: 8pt; color: #6b7280; margin-top: 2pt; }
   ` : `
@@ -97,11 +97,11 @@ function buildHtml(
     }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 0; padding: 20px; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 14px; font-size: 11px; }
-    th { background: #1f3d2b; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
-    h2 { font-size: 13px; color: #1f3d2b; border-bottom: 2px solid #1f3d2b; padding-bottom: 4px; margin: 20px 0 8px; }
+    th { background: #0a4d7a; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+    h2 { font-size: 13px; color: #0a4d7a; border-bottom: 2px solid #0a4d7a; padding-bottom: 4px; margin: 20px 0 8px; }
     .kpi-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .kpi-box { border: 1px solid #d1d5db; border-radius: 6px; padding: 8px 14px; text-align: center; min-width: 90px; }
-    .kpi-val { font-size: 20px; font-weight: 700; color: #1f3d2b; }
+    .kpi-val { font-size: 20px; font-weight: 700; color: #0a4d7a; }
     .kpi-val.red { color: #991b1b; }
     .kpi-lbl { font-size: 9px; color: #6b7280; margin-top: 2px; }
   `;
@@ -113,9 +113,9 @@ function buildHtml(
 <title>Studio consumo antibiotici — ${struttura || orgName}</title>
 <style>
 ${docStyle}
-.header-box { border: 2px solid #1f3d2b; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+.header-box { border: 2px solid #0a4d7a; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
 .header-logo-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
-.header-title { font-size: 18px; font-weight: 700; color: #1f3d2b; letter-spacing: -0.3px; }
+.header-title { font-size: 18px; font-weight: 700; color: #0a4d7a; letter-spacing: -0.3px; }
 .header-subtitle { font-size: 12px; color: #374151; margin-top: 2px; }
 .header-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-top: 10px; font-size: 11px; }
 .header-meta-item { display: flex; gap: 6px; }

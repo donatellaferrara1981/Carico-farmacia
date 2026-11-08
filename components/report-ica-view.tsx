@@ -138,7 +138,7 @@ export function ReportIcaView({ esami: esaGlobali, orgId, orgName, userName, rel
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
 <title>Report ICA — ${esc(orgName)}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:11px}
-h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}
+h1{font-size:16px;font-weight:700;color:#0a4d7a;margin-bottom:4px}
 .sub{font-size:10px;color:#6b7280;margin-bottom:16px}
 .kpi{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .kpi div{border:1px solid #e5e7eb;border-radius:6px;padding:8px 14px}

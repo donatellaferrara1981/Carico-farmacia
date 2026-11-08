@@ -43,21 +43,21 @@ function buildTableHtml(prodotti: ProdottoConDocumenti[], titolo: string): strin
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Calibri', 'Segoe UI', Arial, sans-serif; color: #1a2421; margin: 24px; }
-  h1 { font-size: 20px; margin: 0 0 2px; color: #1f4d3a; }
-  .meta { font-size: 12px; color: #5a6b63; margin-bottom: 14px; }
+  h1 { font-size: 20px; margin: 0 0 2px; color: #0a4d7a; }
+  .meta { font-size: 12px; color: #5b6b75; margin-bottom: 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; }
   thead th {
-    background: #1f4d3a; color: #fff; text-align: left; padding: 6px 8px;
-    font-weight: 600; border: 1px solid #1f4d3a;
+    background: #0a4d7a; color: #fff; text-align: left; padding: 6px 8px;
+    font-weight: 600; border: 1px solid #0a4d7a;
   }
   th.ctr, td.ctr { text-align: center; }
-  tbody td { padding: 4px 8px; border: 1px solid #d4ddd8; vertical-align: top; }
-  tbody tr:nth-child(even) { background: #f3f7f5; }
-  td.num { width: 32px; text-align: center; color: #7a8a82; }
+  tbody td { padding: 4px 8px; border: 1px solid #d3dfe6; vertical-align: top; }
+  tbody tr:nth-child(even) { background: #f1f6f9; }
+  td.num { width: 32px; text-align: center; color: #7a8a94; }
   td.art { font-weight: 600; }
-  td.cod { color: #5a6b63; font-size: 10px; }
+  td.cod { color: #5b6b75; font-size: 10px; }
   th.ctr, td.ctr { width: 70px; }
-  .footer { margin-top: 16px; font-size: 10px; color: #9aa7a0; text-align: right; }
+  .footer { margin-top: 16px; font-size: 10px; color: #9aa8b2; text-align: right; }
   @media print {
     body { margin: 12mm; }
     thead { display: table-header-group; }

@@ -167,7 +167,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
 
   const qtyColor =
     qty === 0 ? 'text-abx font-bold' :
-    qty <= 3  ? 'text-amber font-bold' : 'text-forest font-bold';
+    qty <= 3  ? 'text-amber font-bold' : 'text-ok font-bold';
 
   function openQty() { setDraftQty(String(qty)); setEditQty(true); }
   function saveQty() {
@@ -363,7 +363,7 @@ function RigaNominativa({ prodotto, categoria, cognomi = [] }: { prodotto: Prodo
   }
 
   const semaforoClass =
-    stato === 'ok'        ? 'bg-forest text-white' :
+    stato === 'ok'        ? 'bg-ok text-white' :
     stato === 'imminente' ? 'bg-amber text-white'  :
     stato === 'scaduto'   ? 'bg-abx text-white'    : 'bg-bg-soft text-ink-mute border border-line';
 

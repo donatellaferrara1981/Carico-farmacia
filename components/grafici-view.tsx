@@ -12,7 +12,7 @@ import { classificaFarmaco, isAltoCosto, CLASSE_LABEL, type ClasseAntibiotico } 
 import { RelazioneAntibioticiModal, type AbxProdotto } from '@/components/relazione-antibiotici-modal';
 
 // Palette colori
-const COLORS = ['#1f3d2b','#2d5a3d','#b8842a','#c0392b','#4a7c59','#e8a838','#6b9e7a','#d4956a'];
+const COLORS = ['#0a4d7a','#1aa3a3','#b8842a','#c0392b','#3f8fc0','#e8a838','#6fc2c2','#d4956a'];
 
 interface Prodotto {
   id: string;
@@ -149,7 +149,7 @@ function GraficoScorte({ prodotti }: { prodotti: Prodotto[] }) {
     .map((p) => ({
       nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
       scorta: p.quantita,
-      fill: p.quantita === 0 ? '#c0392b' : p.quantita <= 3 ? '#b8842a' : '#1f3d2b',
+      fill: p.quantita === 0 ? '#c0392b' : p.quantita <= 3 ? '#b8842a' : '#0a4d7a',
     }));
 
   if (!dati.length) return <Empty />;
@@ -192,7 +192,7 @@ function GraficoConsumo({ prodotti }: { prodotti: Prodotto[] }) {
           <XAxis type="number" />
           <YAxis type="category" dataKey="nome" width={180} tick={{ fontSize: 11 }} />
           <Tooltip formatter={(v) => [`${v} pz/die`, 'Consumo']} />
-          <Bar dataKey="consumo" fill="#2d5a3d" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="consumo" fill="#127c93" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </>
@@ -218,7 +218,7 @@ function GraficoCategorie({ prodotti }: { prodotti: Prodotto[] }) {
           <YAxis allowDecimals={false} />
           <Tooltip />
           <Legend />
-          <Bar dataKey="prodotti" name="Totale" fill="#1f3d2b" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="prodotti" name="Totale" fill="#0a4d7a" radius={[4, 4, 0, 0]} />
           <Bar dataKey="esauriti" name="Esauriti" fill="#c0392b" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -274,7 +274,7 @@ function GraficoCaricamenti({ documenti }: { documenti: Documento[] }) {
           <XAxis dataKey="data" tick={{ fontSize: 11 }} />
           <YAxis allowDecimals={false} />
           <Tooltip formatter={(v) => [`${v}`, 'Documenti']} />
-          <Line type="monotone" dataKey="n" stroke="#1f3d2b" strokeWidth={2} dot={{ fill: '#1f3d2b', r: 4 }} name="Documenti" />
+          <Line type="monotone" dataKey="n" stroke="#0a4d7a" strokeWidth={2} dot={{ fill: '#0a4d7a', r: 4 }} name="Documenti" />
         </LineChart>
       </ResponsiveContainer>
     </>
@@ -285,8 +285,8 @@ function GraficoCaricamenti({ documenti }: { documenti: Documento[] }) {
 const TURNI = ['mattino', 'pomeriggio', 'notte'] as const;
 const TURNO_COLOR: Record<string, string> = {
   mattino: '#b8842a',
-  pomeriggio: '#2d5a3d',
-  notte: '#1f3d2b',
+  pomeriggio: '#127c93',
+  notte: '#0a4d7a',
   nessuno: '#9a9a9a',
 };
 
@@ -440,9 +440,9 @@ function StudioIca({ terapie, pazienti, orgName }: { terapie: TerapiaIca[]; pazi
       )
     ).join('');
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Report ICA — ${orgName}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}h1{font-size:18px;margin-bottom:4px}h2{font-size:14px;margin-top:24px;margin-bottom:8px;color:#1f3d2b}p.sub{color:#666;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;font-weight:600;padding:6px 8px;text-align:left;border-bottom:2px solid #d1d5db}td{padding:5px 8px;border-bottom:1px solid #e5e7eb}.disclaimer{margin-top:32px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:10px;color:#92400e}@media print{.no-print{display:none}}</style></head>
+<style>body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}h1{font-size:18px;margin-bottom:4px}h2{font-size:14px;margin-top:24px;margin-bottom:8px;color:#0a4d7a}p.sub{color:#666;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;font-weight:600;padding:6px 8px;text-align:left;border-bottom:2px solid #d1d5db}td{padding:5px 8px;border-bottom:1px solid #e5e7eb}.disclaimer{margin-top:32px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:10px;color:#92400e}@media print{.no-print{display:none}}</style></head>
 <body>
-<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:6px 14px;background:#1f3d2b;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Stampa</button>
+<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:6px 14px;background:#0a4d7a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Stampa</button>
 <h1>Report ICA — Infezioni Correlate all'Assistenza</h1>
 <p class="sub">${orgName} · Generato il ${now}</p>
 <h2>Distribuzione per sala</h2>
@@ -648,7 +648,7 @@ function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; 
     .map((p) => ({
       nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
       consumo: p.consumoPeriodo,
-      fill: p.altoCosto ? '#c0392b' : p.classe === 'carbapenemi' || p.classe === 'glicopeptidi' || p.classe === 'polimixine' || p.classe === 'ossazolidinoni' ? '#b8842a' : '#1f3d2b',
+      fill: p.altoCosto ? '#c0392b' : p.classe === 'carbapenemi' || p.classe === 'glicopeptidi' || p.classe === 'polimixine' || p.classe === 'ossazolidinoni' ? '#b8842a' : '#0a4d7a',
     }));
 
   const byClasse: Record<string, number> = {};

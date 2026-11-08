@@ -166,7 +166,7 @@ export function PazientiView({ pazienti, orgId, orgName, uoNome, uoId = null, uo
         .sort((a, b) => a.numero_letto - b.numero_letto)
         .map((p) => `<tr><td class="num">${p.numero_letto}</td><td>${p.nominativo}</td></tr>`)
         .join('');
-      return `<h2 style="font-size:11px;font-weight:700;margin:10px 0 4px;text-transform:uppercase;color:#1f3d2b">${sala} — ${bySala[sala].length} pazienti</h2>
+      return `<h2 style="font-size:11px;font-weight:700;margin:10px 0 4px;text-transform:uppercase;color:#0a4d7a">${sala} — ${bySala[sala].length} pazienti</h2>
 <table><thead><tr><th class="num">Letto</th><th>Nominativo</th></tr></thead><tbody>${righe}</tbody></table>`;
     }).join('');
     return htmlBase(
@@ -343,7 +343,7 @@ function CaricoFarmaciaSection({ saleTerra, salePrimo, uoPianaSingola, selezione
       }).join('');
       return `
         <div style="break-inside:avoid;margin-bottom:20px">
-          <div style="background:#1f3d2b;color:white;padding:6px 10px;border-radius:6px 6px 0 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">
+          <div style="background:#0a4d7a;color:white;padding:6px 10px;border-radius:6px 6px 0 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">
             ${sala} <span style="font-weight:400;opacity:.7;margin-left:8px">${paz.length} pz</span>
           </div>
           <table style="width:100%;border-collapse:collapse;font-size:11px">
@@ -727,7 +727,7 @@ function ChecklistDimissione({ paziente, orgId }: { paziente: Paziente; orgId: s
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] font-bold text-amber uppercase tracking-wide">Checklist chiusura cartella PACA</p>
           <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-semibold ${pct === 100 ? 'text-forest' : 'text-amber'}`}>{completate}/{totale} ({pct}%)</span>
+            <span className={`text-[10px] font-semibold ${pct === 100 ? 'text-ok' : 'text-amber'}`}>{completate}/{totale} ({pct}%)</span>
             {voci !== null && (
               <button
                 type="button"

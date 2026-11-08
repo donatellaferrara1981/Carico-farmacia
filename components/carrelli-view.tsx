@@ -141,10 +141,10 @@ export function CarrelliView({ carrelli, unita, orgId, canEdit }: Props) {
                       className="flex items-center gap-3 p-4 rounded-xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 transition-all"
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        stato === 'urgente' ? 'bg-red-100' : stato === 'warning' ? 'bg-amber/10' : 'bg-forest-tint'
+                        stato === 'urgente' ? 'bg-red-100' : stato === 'warning' ? 'bg-amber/10' : 'bg-ok-tint'
                       }`}>
                         <ShoppingCart className={`w-5 h-5 ${
-                          stato === 'urgente' ? 'text-red-600' : stato === 'warning' ? 'text-amber' : 'text-forest'
+                          stato === 'urgente' ? 'text-red-600' : stato === 'warning' ? 'text-amber' : 'text-ok'
                         }`} />
                       </div>
                       <div className="flex-1 min-w-0">

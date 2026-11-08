@@ -9,14 +9,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Palette ripresa dall'icona dell'app: blu profondo e turchese.
+        // (il nome "forest" resta per compatibilità con le classi già usate)
         forest: {
-          DEFAULT: '#1f3d2b',
-          soft: '#2d5a3d',
-          tint: '#e8f0eb',
+          DEFAULT: '#0a4d7a',
+          soft: '#127c93',
+          tint: '#e3f1f5',
+        },
+        // Verde riservato ai significati di stato "ok / completato"
+        ok: {
+          DEFAULT: '#2f7d4f',
+          tint: '#e6f4ea',
         },
         bg: {
-          DEFAULT: '#faf6ef',
-          soft: '#f3ede3',
+          DEFAULT: '#f4f8fa',
+          soft: '#e9f1f5',
           card: '#ffffff',
         },
         ink: {
@@ -28,7 +35,7 @@ const config: Config = {
           DEFAULT: '#c0392b',
           soft: '#fdf0ee',
         },
-        line: '#ddd8cf',
+        line: '#d5e0e6',
         amber: {
           DEFAULT: '#b8842a',
         },
