@@ -4,6 +4,7 @@ import React, { useState, useTransition } from 'react';
 import { Plus, FileText, Pencil, Trash2, Minus, Plus as PlusIcon, Loader2, Tag, RotateCcw, CalendarPlus, MoreVertical, ShieldAlert, PackageOpen, MapPin, ArrowUpDown, Check, X, ChevronDown } from 'lucide-react';
 import { formaLabel, type ProdottoConDocumenti } from '@/lib/prodotti';
 import { classificaFarmaco, isAltoCosto, CLASSE_LABEL } from '@/lib/antibiotici';
+import { etichettePazienti } from '@/lib/cognome';
 import { SALE, getSala } from '@/lib/sale';
 import { ProdottoForm } from '@/components/prodotto-form';
 import { SalvaPianoModal } from '@/components/salva-piano-modal';
@@ -32,7 +33,21 @@ interface Props {
   canEdit: boolean;
   uoAttivaId?: string | null;
   pazienti?: { id: string; nominativo: string; sala: string; numero_letto: number; piano?: string | null }[];
-  terapiePazienti?: { paziente_id: string; principio_attivo: string; dosaggio: string | null; tipo: string; posologia?: string | null }[];
+  terapiePazienti?: { paziente_id: string; prodotto_id?: string | null; principio_attivo: string; dosaggio: string | null; tipo: string; posologia?: string | null }[];
+}
+
+// ─── Cognomi dei pazienti a cui è prescritta una nominativa ──────────────────
+function CognomiPazienti({ cognomi, mostraVuoto }: { cognomi: string[]; mostraVuoto: boolean }) {
+  if (cognomi.length === 0) {
+    return mostraVuoto
+      ? <p className="text-[10px] text-ink-mute italic leading-none mt-0.5">nessun paziente collegato</p>
+      : null;
+  }
+  return (
+    <p className="text-[10px] font-semibold text-amber-800 leading-snug mt-0.5 truncate">
+      👤 {cognomi.join(', ')}
+    </p>
+  );
 }
 
 // ─── Frequenza giornaliera da posologia ───────────────────────────────────────
@@ -125,13 +140,14 @@ function CaricoSettimanaleSection({
 }
 
 // ─── Riga compatta (tutti gli schermi) ────────────────────────────────────────
-function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1, consumoOverride }: {
+function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1, consumoOverride, cognomi = [] }: {
   prodotto: ProdottoConDocumenti;
   categoria: CategoriaArticolo;
   canEdit: boolean;
   giorni: number;
   moltiplicatore?: number;
   consumoOverride?: number;
+  cognomi?: string[];
 }) {
   const [editing, setEditing]    = useState(false);
   const [menuOpen, setMenuOpen]  = useState(false);
@@ -187,6 +203,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
             {altoCosto && (
               <p className="text-[9px] text-orange-600 font-medium leading-none mt-0.5">⚠ prescrizione motivata</p>
             )}
+            {prodotto.nominativa && <CognomiPazienti cognomi={cognomi} mostraVuoto={categoria === 'terapie'} />}
             <div className="flex items-center gap-1 flex-wrap">
               {abx.isAntibiotico && abx.classe && (
                 <span className="text-[9px] px-1 py-0.5 rounded bg-red-100 text-red-700 font-semibold border border-red-200 shrink-0">
@@ -313,7 +330,7 @@ function RigaCompatta({ prodotto, categoria, canEdit, giorni, moltiplicatore = 1
 }
 
 // ─── Riga nominativa con semaforo rinnovo ─────────────────────────────────────
-function RigaNominativa({ prodotto, categoria }: { prodotto: ProdottoConDocumenti; categoria: CategoriaArticolo }) {
+function RigaNominativa({ prodotto, categoria, cognomi = [] }: { prodotto: ProdottoConDocumenti; categoria: CategoriaArticolo; cognomi?: string[] }) {
   const [editData, setEditData]       = useState(false);
   const [editGiorni, setEditGiorni]   = useState(false);
   const [draftData, setDraftData]     = useState(prodotto.data_ultima_richiesta ?? '');
@@ -361,6 +378,7 @@ function RigaNominativa({ prodotto, categoria }: { prodotto: ProdottoConDocument
         {/* Nome */}
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-amber-800 truncate">{prodotto.principio_attivo}</p>
+          <CognomiPazienti cognomi={cognomi} mostraVuoto={categoria === 'terapie'} />
           {(() => {
             const abx = classificaFarmaco(prodotto.principio_attivo);
             return (
@@ -480,6 +498,23 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
 
   // Per-piano consumo: stima proporzionale dal conteggio pazienti in terapie_pazienti
   const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  // Cognomi dei pazienti (della UO attiva) a cui è prescritta ogni nominativa:
+  // collegamento per prodotto_id, oppure per principio attivo + dosaggio se il collegamento manca.
+  const nominativoPerPaziente = new Map(pazienti.map((p) => [p.id, p.nominativo]));
+  const cognomiDi = (prod: ProdottoConDocumenti): string[] => {
+    if (categoria !== 'terapie' || !prod.nominativa) return [];
+    const ids = new Set(
+      terapiePazienti
+        .filter((t) => t.prodotto_id
+          ? t.prodotto_id === prod.id
+          : norm(t.principio_attivo) === norm(prod.principio_attivo) && norm(t.dosaggio ?? '') === norm(prod.dosaggio ?? ''))
+        .map((t) => t.paziente_id)
+    );
+    const nominativi = [...ids].map((id) => nominativoPerPaziente.get(id)).filter((n): n is string => !!n);
+    return etichettePazienti(nominativi);
+  };
+
   const pianoConsumoMap = new Map<string, number>();
   if (pianoFiltro !== null && categoria === 'terapie') {
     for (const prod of prodotti) {
@@ -811,7 +846,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                     </p>
                   </div>
                 );
-                abx.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} consumoOverride={pianoConsumoMap.get(p.id)} />));
+                abx.forEach((p) => rows.push(<RigaCompatta key={p.id} prodotto={p} categoria={categoria} canEdit={canEdit} giorni={giorniEffettivi} moltiplicatore={moltiplicatore} consumoOverride={pianoConsumoMap.get(p.id)} cognomi={cognomiDi(p)} />));
               }
 
               if (nom.length > 0) {
@@ -822,7 +857,7 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                     </p>
                   </div>
                 );
-                nom.forEach((p) => rows.push(<RigaNominativa key={p.id} prodotto={p} categoria={categoria} />));
+                nom.forEach((p) => rows.push(<RigaNominativa key={p.id} prodotto={p} categoria={categoria} cognomi={cognomiDi(p)} />));
               }
 
               if (altri.length > 0) {
