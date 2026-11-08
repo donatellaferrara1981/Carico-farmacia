@@ -83,6 +83,15 @@ export default async function ReportPacaPage() {
     note: noteByPaziente[p.id] ?? [],
   }));
 
+  // Relazioni archiviate (senza il contenuto HTML, che si carica solo all'apertura)
+  const { data: relazioni } = await supabase
+    .from('relazioni_archiviate')
+    .select('id, titolo, periodo, created_at, created_by_nome')
+    .eq('org_id', org.id)
+    .eq('tipo', 'paca')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} />
@@ -100,6 +109,7 @@ export default async function ReportPacaPage() {
           orgName={org.name}
           uoNome={uoNome}
           userName={ctx.profile.full_name ?? ''}
+          relazioni={relazioni ?? []}
         />
       </main>
     </div>

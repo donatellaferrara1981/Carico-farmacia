@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useTransition, useRef } from 'react';
-import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw, StickyNote, Trash2, Share2 } from 'lucide-react';
+import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw, StickyNote, Trash2, Share2, Archive } from 'lucide-react';
 import { aggiornaEsitoPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
+import { archiviaRelazioneAction } from '@/app/(app)/relazioni/actions';
+import { ArchivioRelazioni, type RelazioneArchiviata } from '@/components/archivio-relazioni';
+import { esc } from '@/lib/html';
 import { toggleVoceAction, inizializzaChecklistAction, reinizializzaChecklistAction, aggiornaSdoPazienteAction, aggiungiNotaAction, eliminaNotaAction } from '@/app/(app)/pazienti/checklist-actions';
 
 interface VoceChecklist { id: string; voce: string; completata: boolean; completata_da: string | null; completata_at: string | null; }
@@ -33,6 +36,7 @@ interface Props {
   orgName: string;
   uoNome: string | null;
   userName: string;
+  relazioni?: RelazioneArchiviata[];
 }
 
 const ESITI_LABEL: Record<string, { label: string; color: string; bg: string }> = {
@@ -46,9 +50,11 @@ function esitoInfo(esito: string | null) {
   return ESITI_LABEL[esito ?? 'in_corso'] ?? ESITI_LABEL.in_corso;
 }
 
-export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName }: Props) {
+export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName, relazioni = [] }: Props) {
   const now = new Date();
-  const [tab, setTab] = useState<'statistiche' | 'archivio'>('statistiche');
+  const [tab, setTab] = useState<'statistiche' | 'archivio' | 'relazioni'>('statistiche');
+  const [archiviando, startArchivia] = useTransition();
+  const [esitoArchivio, setEsitoArchivio] = useState<{ ok: boolean; msg: string } | null>(null);
   const [annoFiltro, setAnnoFiltro] = useState(String(now.getFullYear()));
   const [meseFiltro, setMeseFiltro] = useState('');
 
@@ -119,26 +125,27 @@ export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName }: P
     return `${['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'][parseInt(m) - 1]} ${y}`;
   }
 
-  function stampaReport() {
+  // Costruisce l'HTML della relazione: usato sia per stamparla sia per archiviarla
+  function costruisciReport(): { html: string; periodo: string } {
     const righe = pazientiFiltrati.map((p) => {
       const esito = esitoInfo(p.esito_paca);
       const completate = p.checklist.filter((v) => v.completata).length;
       const totV = p.checklist.length;
       return `<tr>
-        <td>${p.nominativo}</td>
-        <td style="font-family:monospace">${p.codice_sdo ?? '—'}</td>
+        <td>${esc(p.nominativo)}</td>
+        <td style="font-family:monospace">${esc(p.codice_sdo ?? '—')}</td>
         <td>${p.data_ricovero ? new Date(p.data_ricovero).toLocaleDateString('it-IT') : '—'}</td>
         <td>${p.data_dimissione ? new Date(p.data_dimissione).toLocaleDateString('it-IT') : '—'}</td>
-        <td>${p.diagnosi_principale ?? '—'}</td>
+        <td>${esc(p.diagnosi_principale ?? '—')}</td>
         <td><span style="font-weight:600">${esito.label}</span></td>
         <td style="text-align:right">${p.importo_drg ? formattaEuro(p.importo_drg) : '—'}</td>
         <td style="text-align:center">${completate}/${totV}</td>
-        <td>${p.note_paca ?? ''}</td>
+        <td>${esc(p.note_paca)}</td>
       </tr>`;
     }).join('');
 
     const criticitaRighe = criticita.map(([voce, c]) => `<tr>
-      <td>${voce}</td>
+      <td>${esc(voce)}</td>
       <td style="text-align:center">${c.incomplete}</td>
       <td style="text-align:center">${c.totale}</td>
       <td style="text-align:center">${Math.round((c.incomplete / c.totale) * 100)}%</td>
@@ -149,7 +156,7 @@ export function ReportPacaView({ pazienti, orgId, orgName, uoNome, userName }: P
       : annoFiltro ? `Anno ${annoFiltro}` : 'Tutti i periodi';
 
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
-<title>Report PACA/DRG — ${orgName}</title>
+<title>Report PACA/DRG — ${esc(orgName)}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;color:#111;padding:24px;font-size:11px}
@@ -166,8 +173,8 @@ td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top}
 .footer{margin-top:24px;font-size:9px;color:#9ca3af;text-align:right}
 @media print{@page{size:A4 landscape;margin:1cm}body{padding:0}}
 </style></head><body>
-<h1>Report PACA / DRG — ${uoNome ?? orgName}</h1>
-<div class="sub">Periodo: ${periodo} · Generato il ${new Date().toLocaleDateString('it-IT')} da ${userName}</div>
+<h1>Report PACA / DRG — ${esc(uoNome ?? orgName)}</h1>
+<div class="sub">Periodo: ${esc(periodo)} · Generato il ${new Date().toLocaleDateString('it-IT')} da ${esc(userName)}</div>
 
 <div class="kpi">
   <div class="kpi-box"><div class="val">${totale}</div><div class="lbl">Cartelle analizzate</div></div>
@@ -191,13 +198,33 @@ ${criticita.length > 0 ? `
 <tbody>${criticitaRighe}</tbody>
 </table>` : ''}
 
-<div class="footer">Gestionale Infermieristico · ${orgName} · ${uoNome ?? ''}</div>
+<div class="footer">Gestionale Infermieristico · ${esc(orgName)} · ${esc(uoNome ?? '')}</div>
 </body></html>`;
 
+    return { html, periodo };
+  }
+
+  function stampaReport() {
+    const { html } = costruisciReport();
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const w = window.open(url, '_blank');
     if (w) w.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
+  }
+
+  function archiviaReport() {
+    const { html, periodo } = costruisciReport();
+    const titolo = `Report PACA / DRG — ${periodo}${uoNome ? ` · ${uoNome}` : ''}`;
+    setEsitoArchivio(null);
+    startArchivia(async () => {
+      const res = await archiviaRelazioneAction(orgId, 'paca', titolo, periodo, html);
+      if ('error' in res && res.error) {
+        setEsitoArchivio({ ok: false, msg: res.error });
+      } else {
+        setEsitoArchivio({ ok: true, msg: 'Relazione archiviata' });
+        setTimeout(() => setEsitoArchivio(null), 4000);
+      }
+    });
   }
 
   const anni = [...new Set(pazienti
@@ -232,7 +259,16 @@ ${criticita.length > 0 ? `
           Archivio cartelle chiuse
           {cartellChiuse.length > 0 && <span className="text-xs bg-line rounded-full px-1.5 py-0.5 text-ink-mute">{cartellChiuse.length}</span>}
         </button>
+        <button
+          onClick={() => setTab('relazioni')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${tab === 'relazioni' ? 'border-forest text-forest' : 'border-transparent text-ink-mute hover:text-ink'}`}
+        >
+          Relazioni archiviate
+          {relazioni.length > 0 && <span className="text-xs bg-line rounded-full px-1.5 py-0.5 text-ink-mute">{relazioni.length}</span>}
+        </button>
       </div>
+
+      {tab === 'relazioni' && <ArchivioRelazioni tipo="paca" relazioni={relazioni} />}
 
       {tab === 'archivio' && (
         <ArchivioCartelle pazienti={cartellChiuse} orgId={orgId} orgName={orgName} uoNome={uoNome} userName={userName} />
@@ -261,9 +297,23 @@ ${criticita.length > 0 ? `
           {['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
             .map((m, i) => <option key={i+1} value={String(i+1).padStart(2,'0')}>{m}</option>)}
         </select>
-        <button onClick={stampaReport} className="btn-primary text-sm ml-auto flex items-center gap-1.5">
-          <Printer className="w-4 h-4" /> Stampa / PDF
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {esitoArchivio && (
+            <span className={`text-xs ${esitoArchivio.ok ? 'text-forest' : 'text-abx'}`}>
+              {esitoArchivio.ok ? '✓ ' : ''}{esitoArchivio.msg}
+            </span>
+          )}
+          <button onClick={stampaReport} className="btn-primary text-sm flex items-center gap-1.5">
+            <Printer className="w-4 h-4" /> Stampa / PDF
+          </button>
+          <button
+            onClick={archiviaReport}
+            disabled={archiviando}
+            className="btn-primary text-sm flex items-center gap-1.5 bg-forest/80 disabled:opacity-60"
+          >
+            {archiviando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />} Archivia
+          </button>
+        </div>
       </div>
 
       {/* KPI */}

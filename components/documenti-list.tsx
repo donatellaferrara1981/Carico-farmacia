@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { FileText, ImageIcon, Download, Trash2, Loader2, Sparkles, CheckCircle2, AlertCircle, Eye, X } from 'lucide-react';
-import { deleteDocumentoAction, getDownloadUrlAction } from '@/app/(app)/[categoria]/actions';
+import { deleteDocumentoAction, deleteDocumentiAction, getDownloadUrlAction } from '@/app/(app)/[categoria]/actions';
 import { estraiProdottiDaPdfAction, estraiProdottiDaImmagineAction } from '@/app/(app)/[categoria]/estrai-actions';
 import type { CategoriaArticolo } from '@/lib/types';
 
@@ -46,6 +46,8 @@ export function DocumentiList({
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExtracting, startExtract] = useTransition();
+  const [isDeletingSel, startDeleteSel] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [extractResult, setExtractResult] = useState<{ ok?: boolean; count?: number; aggiornati?: number; error?: string; current?: string } | null>(null);
 
   const pdfDocs = documenti.filter((d) => !isImage(d.nome_file));
@@ -67,6 +69,22 @@ export function DocumentiList({
       setSelectedIds(new Set(allExtractable.map((d) => d.id)));
     }
     setExtractResult(null);
+  }
+
+  function handleDeleteSelected() {
+    const ids = allExtractable.filter((d) => selectedIds.has(d.id)).map((d) => d.id);
+    if (!ids.length) return;
+    if (!confirm(`Eliminare definitivamente ${ids.length} file selezionat${ids.length === 1 ? 'o' : 'i'}? L'operazione non è reversibile.`)) return;
+    setDeleteError(null);
+    startDeleteSel(async () => {
+      const res = await deleteDocumentiAction(ids, categoria);
+      if ('error' in res && res.error) {
+        setDeleteError(res.error);
+        return;
+      }
+      setSelectedIds(new Set());
+      setExtractResult(null);
+    });
   }
 
   function handleExtract() {
@@ -173,6 +191,24 @@ export function DocumentiList({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={selectedIds.size === 0 || isDeletingSel || isExtracting}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-abx/40 text-abx hover:bg-abx-soft transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isDeletingSel ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Elimino…</>
+              ) : (
+                <><Trash2 className="w-4 h-4" /> Elimina{selectedIds.size > 0 ? ` (${selectedIds.size})` : ' selezionati'}</>
+              )}
+            </button>
+            {deleteError && (
+              <span className="flex items-center gap-1 text-xs text-abx">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {deleteError}
+              </span>
+            )}
             <button
               type="button"
               onClick={handleExtract}

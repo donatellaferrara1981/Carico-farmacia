@@ -33,6 +33,15 @@ export default async function ReportIcaPage() {
     .eq('org_id', org.id)
     .order('data_invio', { ascending: false });
 
+  // Relazioni archiviate (senza il contenuto HTML, che si carica solo all'apertura)
+  const { data: relazioni } = await supabase
+    .from('relazioni_archiviate')
+    .select('id, titolo, periodo, created_at, created_by_nome')
+    .eq('org_id', org.id)
+    .eq('tipo', 'ica')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} />
@@ -49,6 +58,7 @@ export default async function ReportIcaPage() {
           orgId={org.id}
           orgName={org.name}
           userName={ctx.profile.full_name ?? ''}
+          relazioni={relazioni ?? []}
         />
       </main>
     </div>

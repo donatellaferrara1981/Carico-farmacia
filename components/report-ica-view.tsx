@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Printer, Plus, Trash2, Pencil, Check, X, AlertTriangle, FlaskConical, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Printer, Plus, Trash2, Pencil, Check, X, AlertTriangle, FlaskConical, ChevronDown, ChevronUp, Loader2, Archive } from 'lucide-react';
 import { aggiungiEsameIcaAction, aggiornaEsameIcaAction, eliminaEsameIcaAction } from '@/app/(app)/report-ica/actions';
+import { archiviaRelazioneAction } from '@/app/(app)/relazioni/actions';
+import { ArchivioRelazioni, type RelazioneArchiviata } from '@/components/archivio-relazioni';
+import { esc } from '@/lib/html';
 
 interface EsameIca {
   id: string;
@@ -19,6 +22,7 @@ interface Props {
   orgId: string;
   orgName: string;
   userName: string;
+  relazioni?: RelazioneArchiviata[];
 }
 
 const TIPI_ESAME = [
@@ -51,8 +55,10 @@ function isPositivo(risultato: string | null): boolean | null {
   return true;
 }
 
-export function ReportIcaView({ esami: esaGlobali, orgId, orgName, userName }: Props) {
+export function ReportIcaView({ esami: esaGlobali, orgId, orgName, userName, relazioni = [] }: Props) {
   const now = new Date();
+  const [archiviando, startArchivia] = useTransition();
+  const [esitoArchivio, setEsitoArchivio] = useState<{ ok: boolean; msg: string } | null>(null);
   const [esami, setEsami] = useState<EsameIca[]>(esaGlobali);
   const [annoFiltro, setAnnoFiltro] = useState(String(now.getFullYear()));
   const [meseFiltro, setMeseFiltro] = useState('');
@@ -112,24 +118,25 @@ export function ReportIcaView({ esami: esaGlobali, orgId, orgName, userName }: P
   const mesiOrd = Object.keys(perMese).sort().slice(-12);
   const maxTotale = Math.max(...mesiOrd.map((m) => perMese[m].totale), 1);
 
-  function stampaReport() {
+  // Costruisce l'HTML della relazione: usato sia per stamparla sia per archiviarla
+  function costruisciReport(): { html: string; periodo: string } {
     const righe = filtrati.map((e) => {
       const pos = isPositivo(e.risultato);
       const colore = pos === true ? '#dc2626' : pos === false ? '#065f46' : '#6b7280';
       return `<tr>
-        <td><strong>${e.paziente}</strong></td>
-        <td>${e.tipologia_esame}</td>
+        <td><strong>${esc(e.paziente)}</strong></td>
+        <td>${esc(e.tipologia_esame)}</td>
         <td>${e.data_invio ? new Date(e.data_invio).toLocaleDateString('it-IT') : '—'}</td>
         <td>${e.data_referto ? new Date(e.data_referto).toLocaleDateString('it-IT') : '—'}</td>
-        <td style="color:${colore};font-weight:${pos === true ? 'bold' : 'normal'}">${e.risultato ?? 'In attesa'}</td>
-        <td>${e.note ?? ''}</td>
+        <td style="color:${colore};font-weight:${pos === true ? 'bold' : 'normal'}">${esc(e.risultato ?? 'In attesa')}</td>
+        <td>${esc(e.note)}</td>
       </tr>`;
     }).join('');
     const periodo = meseFiltro
       ? `${MESI_FULL[parseInt(meseFiltro) - 1]} ${annoFiltro}`
       : annoFiltro ? `Anno ${annoFiltro}` : 'Tutti i periodi';
     const html = `<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">
-<title>Report ICA — ${orgName}</title>
+<title>Report ICA — ${esc(orgName)}</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:24px;font-size:11px}
 h1{font-size:16px;font-weight:700;color:#1f3d2b;margin-bottom:4px}
 .sub{font-size:10px;color:#6b7280;margin-bottom:16px}
@@ -141,8 +148,8 @@ th{background:#f3f4f6;padding:5px 8px;text-align:left;font-size:10px;font-weight
 td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align:top}
 .footer{font-size:9px;color:#9ca3af;text-align:right;margin-top:16px}
 @media print{@page{size:A4 landscape;margin:1cm}body{padding:0}}</style></head><body>
-<h1>Sorveglianza ICA — ${orgName}</h1>
-<div class="sub">Periodo: ${periodo} · ${pazienteFiltro || 'Tutti i pazienti'} · Stampato il ${new Date().toLocaleString('it-IT')} da ${userName}</div>
+<h1>Sorveglianza ICA — ${esc(orgName)}</h1>
+<div class="sub">Periodo: ${esc(periodo)} · ${esc(pazienteFiltro || 'Tutti i pazienti')} · Generata il ${new Date().toLocaleString('it-IT')} da ${esc(userName)}</div>
 <div class="kpi">
   <div><div class="v">${filtrati.length}</div><div class="l">Totale esami</div></div>
   <div><div class="v" style="color:#dc2626">${positivi}</div><div class="l">Positivi</div></div>
@@ -152,12 +159,32 @@ td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align
 </div>
 <table><thead><tr><th>Paziente</th><th>Tipo esame</th><th>Data invio</th><th>Data referto</th><th>Risultato</th><th>Note</th></tr></thead>
 <tbody>${righe || '<tr><td colspan="6" style="text-align:center;color:#9ca3af">Nessun esame nel periodo</td></tr>'}</tbody></table>
-<div class="footer">${orgName} · Report ICA · Gestionale Infermieristico</div>
+<div class="footer">${esc(orgName)} · Report ICA · Gestionale Infermieristico</div>
 </body></html>`;
+    return { html, periodo };
+  }
+
+  function stampaReport() {
+    const { html } = costruisciReport();
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const w = window.open(url, '_blank');
     if (w) w.addEventListener('load', () => { w.print(); URL.revokeObjectURL(url); });
+  }
+
+  function archiviaReport() {
+    const { html, periodo } = costruisciReport();
+    const titolo = `Sorveglianza ICA — ${periodo}${pazienteFiltro ? ` · ${pazienteFiltro}` : ''}`;
+    setEsitoArchivio(null);
+    startArchivia(async () => {
+      const res = await archiviaRelazioneAction(orgId, 'ica', titolo, periodo, html);
+      if ('error' in res && res.error) {
+        setEsitoArchivio({ ok: false, msg: res.error });
+      } else {
+        setEsitoArchivio({ ok: true, msg: 'Relazione archiviata' });
+        setTimeout(() => setEsitoArchivio(null), 4000);
+      }
+    });
   }
 
   return (
@@ -188,8 +215,20 @@ td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align
         </select>
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-ink-mute">{filtrati.length} esami</span>
+          {esitoArchivio && (
+            <span className={`text-xs ${esitoArchivio.ok ? 'text-forest' : 'text-abx'}`}>
+              {esitoArchivio.ok ? '✓ ' : ''}{esitoArchivio.msg}
+            </span>
+          )}
           <button onClick={stampaReport} className="btn-primary text-xs py-1.5 flex items-center gap-1">
             <Printer className="w-3.5 h-3.5" /> Stampa
+          </button>
+          <button
+            onClick={archiviaReport}
+            disabled={archiviando}
+            className="btn-primary text-xs py-1.5 flex items-center gap-1 bg-forest/80 disabled:opacity-60"
+          >
+            {archiviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />} Archivia
           </button>
           <button onClick={() => setShowAddForm(true)} className="btn-primary text-xs py-1.5 flex items-center gap-1 bg-forest/80">
             <Plus className="w-3.5 h-3.5" /> Aggiungi
@@ -307,6 +346,9 @@ td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align
           </div>
         )}
       </div>
+
+      {/* Relazioni archiviate */}
+      <ArchivioRelazioni tipo="ica" relazioni={relazioni} />
     </div>
   );
 }

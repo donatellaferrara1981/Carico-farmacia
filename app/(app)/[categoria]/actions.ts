@@ -95,6 +95,34 @@ export async function deleteDocumentoAction(id: string, storagePath: string, cat
   return { ok: true };
 }
 
+// Elimina più documenti selezionati (file nello storage + righe in tabella).
+// I permessi sono comunque garantiti dalle policy RLS della tabella documenti.
+export async function deleteDocumentiAction(ids: string[], categoria: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+  if (!ids.length) return { error: 'Nessun file selezionato.' };
+
+  const { data: docs, error: selError } = await supabase
+    .from('documenti')
+    .select('id, storage_path')
+    .in('id', ids);
+  if (selError) return { error: selError.message };
+  if (!docs || docs.length === 0) return { error: 'File non trovati.' };
+
+  const { error: delError } = await supabase
+    .from('documenti')
+    .delete()
+    .in('id', docs.map((d) => d.id));
+  if (delError) return { error: delError.message };
+
+  // Il file viene rimosso dallo storage solo dopo che la riga è stata cancellata
+  await supabase.storage.from('documenti').remove(docs.map((d) => d.storage_path));
+
+  revalidatePath(`/${categoria}`);
+  return { ok: true, count: docs.length };
+}
+
 export async function getDownloadUrlAction(storagePath: string) {
   const supabase = await createClient();
   const { data, error } = await supabase.storage
