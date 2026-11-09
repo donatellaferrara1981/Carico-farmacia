@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { ReportPacaIcon } from '@/components/report-paca-icon';
 import { CarrelloIcon } from '@/components/carrello-icon';
-import { Bell, LogOut, ClipboardList, Settings, BarChart2, CalendarDays, Users, Gavel, FileBarChart2, Activity } from 'lucide-react';
+import { Bell, LogOut, ClipboardList, Settings, BarChart2, CalendarDays, Users, Gavel, Activity } from 'lucide-react';
 import { Logo } from './logo';
 import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
@@ -52,7 +53,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
             { href: '/calendario',         label: 'Calendario',  Icon: CalendarDays  },
             { href: '/gare',               label: 'Gare',        Icon: Gavel         },
             { href: '/approvvigionamento', label: 'Ordini',      Icon: ClipboardList },
-            { href: '/report-paca',        label: 'Report PACA', Icon: FileBarChart2 },
+            { href: '/report-paca',        label: 'Report PACA', Icon: ReportPacaIcon },
             { href: '/carrelli',           label: 'Carrelli',    Icon: CarrelloIcon  },
             { href: '/report-ica',         label: 'Report ICA',  Icon: Activity      },
           ].map(({ href, label, Icon }) => (
@@ -62,7 +63,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
               title={label}
               className="group relative flex items-center px-2.5 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
             >
-              <Icon className={Icon === CarrelloIcon ? 'w-6 h-6' : 'w-4 h-4'} />
+              <Icon className={Icon === CarrelloIcon || Icon === ReportPacaIcon ? 'w-6 h-6' : 'w-4 h-4'} />
               <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                 {label}
               </span>

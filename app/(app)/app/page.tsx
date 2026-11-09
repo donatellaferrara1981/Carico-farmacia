@@ -7,8 +7,9 @@ import { AppHeader } from '@/components/app-header';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import { GermAlertIcon } from '@/components/germ-alert-icon';
+import { ReportPacaIcon } from '@/components/report-paca-icon';
 import { CarrelloIcon } from '@/components/carrello-icon';
-import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, FileBarChart2 } from 'lucide-react';
+import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -141,12 +142,12 @@ export default async function AppPage() {
                 { href: '/approvvigionamento', Icon: ClipboardList,  label: 'Ordini',        color: 'text-amber hover:bg-amber/10 hover:border-amber/30' },
                 { href: '/gare',               Icon: Gavel,          label: 'Gare',          color: 'text-purple-600 hover:bg-purple-50 hover:border-purple-200' },
                 { href: '/germ-alert',         Icon: GermAlertIcon,  label: 'Germ Alert',    color: 'hover:bg-red-50 hover:border-red-200' },
-                { href: '/report-paca',        Icon: FileBarChart2,  label: 'Report PACA',   color: 'text-amber hover:bg-amber/10 hover:border-amber/30' },
+                { href: '/report-paca',        Icon: ReportPacaIcon, label: 'Report PACA',   color: 'hover:bg-amber/10 hover:border-amber/30' },
                 { href: '/carrelli',           Icon: CarrelloIcon,   label: 'Carrelli',      color: 'hover:bg-red-50 hover:border-red-200' },
               ] as const).map(({ href, Icon, label, color }) => (
                 <Link key={href} href={href} title={label}
                   className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all ${color}`}>
-                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon ? 'w-9 h-9' : 'w-5 h-5'} />
+                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon ? 'w-9 h-9' : 'w-5 h-5'} />
                   <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                     {label}
                   </span>
