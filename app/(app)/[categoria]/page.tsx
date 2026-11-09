@@ -12,6 +12,7 @@ import { getUoAttivaId } from '@/lib/uo-cookie';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
 import { SanitarioToolbar } from '@/components/sanitario-toolbar';
+import { RichiestaEconomaleMail } from '@/components/richiesta-economale-mail';
 
 const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario', 'economale'];
 
@@ -128,6 +129,13 @@ export default async function CategoriaPage({
               <UploadButton categoria={cat} orgId={org.id} />
               <SanitarioToolbar orgId={org.id} hasItems={prodotti.length > 0} categoria={cat} />
             </div>
+            {cat === 'economale' && uoAttiva && (
+              <RichiestaEconomaleMail
+                uoNome={uoAttiva.nome}
+                nomeRichiedente={ctx.profile.full_name ?? ''}
+                articoli={prodotti.map((p) => p.principio_attivo)}
+              />
+            )}
             <SanitarioView prodotti={prodotti} orgId={org.id} canEdit={canEdit} categoria={cat} />
             {(docsLiberiRes.data ?? []).length > 0 && (
               <div>
