@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, FileSignature, Package, Users } from 'lucide-react';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 import { isAltoCosto } from '@/lib/antibiotici';
@@ -50,8 +50,15 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
   orgName: string;
   uoNome: string;
 }) {
+  const sale = useMemo(() => [...new Set(pazienti.map((p) => p.sala).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it')), [pazienti]);
+  const [escluse, setEscluse] = useState<Set<string>>(new Set());
+  const selezionate = sale.filter((x) => !escluse.has(x));
+  const tutteSel = escluse.size === 0;
+  const toggleSala = (x: string) =>
+    setEscluse((prev) => { const n = new Set(prev); if (n.has(x)) n.delete(x); else n.add(x); return n; });
+
   const dati = useMemo(() => {
-    const nomePaz = new Map(pazienti.map((p) => [p.id, p.nominativo]));
+    const nomePaz = new Map(pazienti.filter((p) => !escluse.has(p.sala)).map((p) => [p.id, p.nominativo]));
     const farmaci = prodotti.filter((p) => p.categoria === 'terapie');
 
     // pazienti per prodotto (collegamento diretto, altrimenti per principio attivo + dosaggio)
@@ -113,13 +120,13 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
       cartacee: tutte.filter((r) => r.nominativa),
       totale: tutte.length,
     };
-  }, [prodotti, terapie, pazienti]);
+  }, [prodotti, terapie, pazienti, escluse]);
 
   const vuoto = dati.gruppi.length === 0 && dati.integratori.length === 0;
   const oggi = new Date().toLocaleDateString('it-IT');
 
   function testoCondivisione() {
-    const L: string[] = [`💊 Consumo giornaliero — ${uoNome || orgName}`, `Data: ${oggi}`, ''];
+    const L: string[] = [`💊 Consumo giornaliero — ${uoNome || orgName}`, `Data: ${oggi}${tutteSel ? '' : ' · Sale: ' + selezionate.join(', ')}`, ''];
     for (const g of dati.gruppi) {
       L.push(`— ${g.label.toUpperCase()}`);
       for (const r of g.righe) {
@@ -160,15 +167,36 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
     var h=document.body.scrollHeight,w=document.body.scrollWidth;
     var k=Math.min(1,H/h,W/w); if(k<1) document.body.style.zoom=k;})();
 </script>`;
-    return htmlBase(`Consumo giornaliero — ${esc(uoNome || orgName)}`, `Data: ${oggi} · fabbisogno settimanale = consumo die × 7`, corpo).replace('</body>', `${extra}</body>`);
+    return htmlBase(`Consumo giornaliero — ${esc(uoNome || orgName)}`, `Data: ${oggi}${tutteSel ? '' : ' · Sale: ' + esc(selezionate.join(', '))} · fabbisogno settimanale = consumo die × 7`, corpo).replace('</body>', `${extra}</body>`);
   }
+
+  const filtroSale = sale.length > 1 && (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-ink-soft mr-1">Sale:</span>
+      {sale.map((x) => {
+        const on = !escluse.has(x);
+        return (
+          <button key={x} type="button" onClick={() => toggleSala(x)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${on ? 'bg-forest text-white border-forest' : 'bg-bg-soft text-ink-mute border-line hover:border-forest/40'}`}>
+            {x}
+          </button>
+        );
+      })}
+      <button type="button" onClick={() => setEscluse(tutteSel ? new Set(sale) : new Set())} className="text-xs underline text-ink-soft ml-1">
+        {tutteSel ? 'Deseleziona tutte' : 'Seleziona tutte'}
+      </button>
+    </div>
+  );
 
   if (vuoto) {
     return (
+      <div className="space-y-4">
+      {filtroSale}
       <div className="rounded-xl border border-dashed border-line p-8 text-center text-ink-mute">
         <Package className="w-10 h-10 mx-auto mb-3 opacity-20" />
         <p className="text-sm">Nessuna terapia abbinata ai pazienti di questa unità operativa.</p>
         <p className="text-xs mt-1">Carica il file e premi «Estrai»: il calcolo comparirà qui.</p>
+      </div>
       </div>
     );
   }
@@ -207,6 +235,7 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
 
   return (
     <div className="space-y-5">
+      {filtroSale}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-ink-soft">{dati.totale} farmaci · {uoNome}</p>
         <SharePrintBar titolo={`Consumo giornaliero — ${uoNome || orgName}`} testoCondivisione={testoCondivisione} generaHtml={generaHtml} />
