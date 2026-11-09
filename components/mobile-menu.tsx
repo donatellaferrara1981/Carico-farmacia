@@ -50,7 +50,7 @@ export function MobileMenu({
       </button>
 
       {open && (
-        <div className="sm:hidden fixed top-14 left-0 right-0 z-20 bg-bg/98 backdrop-blur border-b border-line shadow-lg">
+        <div className="sm:hidden fixed top-[80px] left-0 right-0 z-20 max-h-[calc(100vh-80px)] overflow-y-auto bg-bg backdrop-blur border-b border-line shadow-lg">
           {/* UO switcher mobile */}
           {attive.length > 0 && (
             <div className="border-b border-line">
