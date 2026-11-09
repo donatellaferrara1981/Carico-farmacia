@@ -60,9 +60,9 @@ export default async function AppPage() {
   // Icona del tasto "Pazienti ricoverati" in base all'unità operativa attiva
   const nomeUo = (uoAttiva?.nome ?? '').toLowerCase();
   const iconaPazienti =
-    /gca\s*1/.test(nomeUo) ? '/icone/uo-gca1.png'
-    : /spinale/.test(nomeUo) ? '/icone/uo-spinale.png'
-    : /gca\s*3/.test(nomeUo) ? '/icone/uo-gca3.png'
+    /gca\s*1/.test(nomeUo) ? '/icone/pazienti-gca1.png'
+    : /spinale/.test(nomeUo) ? '/icone/pazienti-spinale.png'
+    : /gca\s*3/.test(nomeUo) ? '/icone/pazienti-gca3.png'
     : null;
 
   return (
