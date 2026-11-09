@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Menu, X, BarChart2, CalendarDays, ClipboardList, Building2, Check, Loader2, Users } from 'lucide-react';
+import { GraficiIcon } from '@/components/grafici-icon';
+import { Menu, X, CalendarDays, ClipboardList, Building2, Check, Loader2, Users } from 'lucide-react';
 import { selezionaUoAction } from '@/app/(app)/seleziona-uo/actions';
 
 const NAV_LINKS = [
   { href: '/pazienti',           label: 'Pazienti',   Icon: Users         },
-  { href: '/grafici',            label: 'Grafici',    Icon: BarChart2     },
+  { href: '/grafici',            label: 'Grafici',    Icon: GraficiIcon   },
   { href: '/calendario',         label: 'Calendario', Icon: CalendarDays  },
   { href: '/approvvigionamento', label: 'Ordini',     Icon: ClipboardList },
 ];
@@ -80,7 +81,7 @@ export function MobileMenu({
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-5 py-3.5 hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className={Icon === GraficiIcon ? 'w-6 h-6 shrink-0' : 'w-4 h-4 shrink-0'} />
                 {label}
               </Link>
             ))}
