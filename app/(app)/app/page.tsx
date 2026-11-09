@@ -6,7 +6,8 @@ import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
-import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope, FileBarChart2, ShoppingCart } from 'lucide-react';
+import { CarrelloIcon } from '@/components/carrello-icon';
+import { FileText, ClipboardList, BarChart2, Building2, CalendarDays, Users, Gavel, Microscope, FileBarChart2 } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
 
@@ -140,11 +141,11 @@ export default async function AppPage() {
                 { href: '/gare',               Icon: Gavel,          label: 'Gare',          color: 'text-purple-600 hover:bg-purple-50 hover:border-purple-200' },
                 { href: '/germ-alert',         Icon: Microscope,     label: 'Germ Alert',    color: 'text-red-600 hover:bg-red-50 hover:border-red-200' },
                 { href: '/report-paca',        Icon: FileBarChart2,  label: 'Report PACA',   color: 'text-amber hover:bg-amber/10 hover:border-amber/30' },
-                { href: '/carrelli',           Icon: ShoppingCart,   label: 'Carrelli',      color: 'text-red-600 hover:bg-red-50 hover:border-red-200' },
+                { href: '/carrelli',           Icon: CarrelloIcon,   label: 'Carrelli',      color: 'hover:bg-red-50 hover:border-red-200' },
               ] as const).map(({ href, Icon, label, color }) => (
                 <Link key={href} href={href} title={label}
                   className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all ${color}`}>
-                  <Icon className="w-5 h-5" />
+                  <Icon className={Icon === CarrelloIcon ? 'w-9 h-9' : 'w-5 h-5'} />
                   <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                     {label}
                   </span>

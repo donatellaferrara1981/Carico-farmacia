@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ShoppingCart, Plus, AlertTriangle, Clock } from 'lucide-react';
+import { CarrelloIcon } from '@/components/carrello-icon';
+import { Plus, AlertTriangle, Clock } from 'lucide-react';
 import { creaCarrelloAction } from '@/app/(app)/carrelli/actions';
 
 interface ArticoloMinimo {
@@ -79,7 +80,7 @@ export function CarrelliView({ carrelli, unita, orgId, canEdit }: Props) {
           <section key={uo.id}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-ink flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-ink-soft" />
+                <CarrelloIcon className="w-5 h-5" />
                 {uo.nome}
               </h2>
               {canEdit && (
@@ -126,7 +127,7 @@ export function CarrelliView({ carrelli, unita, orgId, canEdit }: Props) {
 
             {carrelliUO.length === 0 ? (
               <div className="rounded-xl border border-dashed border-line p-6 text-center text-ink-mute">
-                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <CarrelloIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Nessun carrello per questa UO.</p>
               </div>
             ) : (
@@ -143,9 +144,7 @@ export function CarrelliView({ carrelli, unita, orgId, canEdit }: Props) {
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         stato === 'urgente' ? 'bg-red-100' : stato === 'warning' ? 'bg-amber/10' : 'bg-ok-tint'
                       }`}>
-                        <ShoppingCart className={`w-5 h-5 ${
-                          stato === 'urgente' ? 'text-red-600' : stato === 'warning' ? 'text-amber' : 'text-ok'
-                        }`} />
+                        <CarrelloIcon className="w-8 h-8" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-ink text-sm truncate">{carrello.nome}</p>
@@ -174,7 +173,7 @@ export function CarrelliView({ carrelli, unita, orgId, canEdit }: Props) {
 
       {unitaAttive.length === 0 && (
         <div className="rounded-xl border border-dashed border-line p-8 text-center text-ink-mute">
-          <ShoppingCart className="w-10 h-10 mx-auto mb-3 opacity-20" />
+          <CarrelloIcon className="w-14 h-14 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Nessuna unità operativa configurata.</p>
         </div>
       )}
