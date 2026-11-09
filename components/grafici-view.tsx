@@ -1,18 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart,
+  Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
+import { Save, Trash2, BarChart3 } from 'lucide-react';
 import { formaLabel } from '@/lib/prodotti';
 import { CAT_LABELS, type CategoriaArticolo } from '@/lib/types';
-import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
-import { classificaFarmaco, isAltoCosto, CLASSE_LABEL, type ClasseAntibiotico } from '@/lib/antibiotici';
-import { RelazioneAntibioticiModal, type AbxProdotto } from '@/components/relazione-antibiotici-modal';
+import { classificaFarmaco, CLASSE_LABEL } from '@/lib/antibiotici';
 
-// Palette colori
-const COLORS = ['#0a4d7a','#1aa3a3','#b8842a','#c0392b','#3f8fc0','#e8a838','#6fc2c2','#d4956a'];
+/* ───────────────────────── tipi ───────────────────────── */
 
 interface Prodotto {
   id: string;
@@ -23,13 +21,6 @@ interface Prodotto {
   quantita: number;
   consumo_giornaliero: number;
   unita_operativa_id: string | null;
-}
-
-interface Gara {
-  id: string;
-  descrizione: string;
-  prezzo_unitario: number | null;
-  unita_misura: string | null;
 }
 interface Documento {
   id: string;
@@ -42,807 +33,488 @@ interface Documento {
 }
 interface UnitaOperativa { id: string; nome: string; }
 
-interface TerapiaIca { id: string; principio_attivo: string; dosaggio: string | null; posologia: string | null; paziente_id: string; }
-interface PazienteIca { id: string; nominativo: string; sala: string; numero_letto: number; piano: string | null; }
+interface Punto { nome: string; valore: number; colore?: string }
 
-type TipoGrafico = 'barre' | 'linea' | 'torta' | 'gantt' | 'scorte' | 'consumo' | 'antibiotici' | 'ica';
+type Tipo = 'barre' | 'colonne' | 'linea' | 'ciambella';
+type Misura = 'quantita' | 'consumo' | 'autonomia' | 'prodotti' | 'documenti';
+type Dimensione = 'principio' | 'categoria' | 'forma' | 'uo' | 'classe' | 'turno' | 'giorno' | 'settimana' | 'mese';
 
-const TABS: { id: TipoGrafico; label: string }[] = [
-  { id: 'scorte',       label: 'Scorte' },
-  { id: 'consumo',      label: 'Consumo/die' },
-  { id: 'antibiotici',  label: '🦠 Antibiotici' },
-  { id: 'ica',          label: '🏥 ICA' },
-  { id: 'barre',        label: 'Per categoria' },
-  { id: 'torta',        label: 'Distribuzione forme' },
-  { id: 'linea',        label: 'Caricamenti nel tempo' },
-  { id: 'gantt',        label: 'Gantt turni' },
+interface Config {
+  misura: Misura;
+  dimensione: Dimensione;
+  tipo: Tipo;
+  categoria: string; // 'tutte' | categoria
+  uo: string;        // 'tutte' | id
+  top: number;       // 0 = tutti
+  ordine: 'desc' | 'asc';
+}
+interface Salvato { id: string; nome: string; cfg: Config }
+
+/* ───────────────────────── palette e formati ───────────────────────── */
+
+const PALETTE = ['#0a4d7a', '#1aa3a3', '#3f8fc0', '#b8842a', '#6fc2c2', '#e8a838', '#c0392b', '#d4956a'];
+const BLU = '#0a4d7a';
+const ROSSO = '#c0392b';
+const AMBRA = '#b8842a';
+const VERDE = '#2f7d4f';
+
+const nf = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 1 });
+const fmt = (n: number) => nf.format(n);
+const taglia = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+
+/* ───────────────────────── opzioni del costruttore ───────────────────────── */
+
+const MISURE: { id: Misura; label: string; unita: string; fonte: 'prodotti' | 'documenti'; dimensioni: Dimensione[] }[] = [
+  { id: 'quantita',  label: 'Scorta (pezzi)',         unita: 'pz',        fonte: 'prodotti',  dimensioni: ['principio', 'categoria', 'forma', 'uo', 'classe'] },
+  { id: 'consumo',   label: 'Consumo giornaliero',    unita: 'pz/die',    fonte: 'prodotti',  dimensioni: ['principio', 'categoria', 'forma', 'uo', 'classe'] },
+  { id: 'autonomia', label: 'Autonomia (giorni)',     unita: 'giorni',    fonte: 'prodotti',  dimensioni: ['principio', 'categoria', 'forma', 'uo', 'classe'] },
+  { id: 'prodotti',  label: 'Numero di prodotti',     unita: 'prodotti',  fonte: 'prodotti',  dimensioni: ['categoria', 'forma', 'uo', 'classe'] },
+  { id: 'documenti', label: 'Documenti caricati',     unita: 'documenti', fonte: 'documenti', dimensioni: ['categoria', 'uo', 'turno', 'giorno', 'settimana', 'mese'] },
 ];
 
-export function GraficiView({ prodotti, documenti, unita, gare = [], orgName = '', terapiePazienti = [], pazientiIca = [] }: {
-  prodotti: Prodotto[];
-  documenti: Documento[];
-  unita: UnitaOperativa[];
-  gare?: Gara[];
-  orgName?: string;
-  terapiePazienti?: TerapiaIca[];
-  pazientiIca?: PazienteIca[];
-}) {
-  const [tab, setTab] = useState<TipoGrafico>('scorte');
+const DIM_LABEL: Record<Dimensione, string> = {
+  principio: 'Principio attivo',
+  categoria: 'Categoria',
+  forma: 'Forma farmaceutica',
+  uo: 'Unità operativa',
+  classe: 'Classe antibiotica',
+  turno: 'Turno',
+  giorno: 'Giorno',
+  settimana: 'Settimana',
+  mese: 'Mese',
+};
+const DIM_TEMPO: Dimensione[] = ['giorno', 'settimana', 'mese'];
 
-  function testoTabella() {
-    if (tab === 'scorte') {
-      const righe = prodotti.filter(p => p.quantita >= 0).sort((a,b) => a.quantita - b.quantita).slice(0,20);
-      return `📊 Scorte attuali\n${righe.map(p => `• ${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}: ${p.quantita} pz`).join('\n')}`;
+const TIPI: { id: Tipo; label: string }[] = [
+  { id: 'barre', label: 'Barre' },
+  { id: 'colonne', label: 'Colonne' },
+  { id: 'linea', label: 'Linea' },
+  { id: 'ciambella', label: 'Ciambella' },
+];
+
+const CONFIG_INIZIALE: Config = {
+  misura: 'consumo', dimensione: 'principio', tipo: 'barre', categoria: 'tutte', uo: 'tutte', top: 10, ordine: 'desc',
+};
+
+const CHIAVE_SALVATI = 'grafici-salvati-v1';
+
+/* ───────────────────────── calcolo dati ───────────────────────── */
+
+function lunedi(d: Date) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const giorno = (x.getDay() + 6) % 7; // 0 = lunedì
+  x.setDate(x.getDate() - giorno);
+  return x;
+}
+const isoGiorno = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function calcola(cfg: Config, prodotti: Prodotto[], documenti: Documento[], unita: UnitaOperativa[]): Punto[] {
+  const misura = MISURE.find((m) => m.id === cfg.misura)!;
+  const nomeUo = (id: string | null) => (id ? unita.find((u) => u.id === id)?.nome ?? 'Altra UO' : 'Tutta l’organizzazione');
+  const nomeCat = (c: string) => CAT_LABELS[c as CategoriaArticolo] ?? c;
+
+  // gruppi: chiave → { nome, ordineTempo, somma, consumo, n }
+  const gruppi = new Map<string, { nome: string; chiave: string; q: number; c: number; n: number }>();
+  const aggiungi = (chiave: string, nome: string, q: number, c: number) => {
+    const g = gruppi.get(chiave) ?? { nome, chiave, q: 0, c: 0, n: 0 };
+    g.q += q; g.c += c; g.n += 1;
+    gruppi.set(chiave, g);
+  };
+
+  if (misura.fonte === 'prodotti') {
+    for (const p of prodotti) {
+      if (cfg.categoria !== 'tutte' && p.categoria !== cfg.categoria) continue;
+      if (cfg.uo !== 'tutte' && p.unita_operativa_id !== cfg.uo) continue;
+      const q = p.quantita ?? 0;
+      const c = p.consumo_giornaliero ?? 0;
+      if ((cfg.misura === 'quantita' || cfg.misura === 'autonomia') && q < 0) continue;
+      if (cfg.misura === 'consumo' && c <= 0) continue;
+      if (cfg.misura === 'autonomia' && c <= 0) continue;
+
+      let chiave: string; let nome: string;
+      switch (cfg.dimensione) {
+        case 'principio': nome = p.principio_attivo; chiave = p.principio_attivo.toLowerCase(); break;
+        case 'categoria': nome = nomeCat(p.categoria); chiave = p.categoria; break;
+        case 'forma': nome = formaLabel(p.forma_farmaceutica); chiave = p.forma_farmaceutica; break;
+        case 'uo': nome = nomeUo(p.unita_operativa_id); chiave = p.unita_operativa_id ?? '-'; break;
+        default: {
+          const info = classificaFarmaco(p.principio_attivo);
+          if (!info.isAntibiotico || !info.classe) continue; // solo antibiotici
+          nome = CLASSE_LABEL[info.classe] ?? info.classe; chiave = info.classe;
+        }
+      }
+      aggiungi(chiave, nome, q, c);
     }
-    if (tab === 'consumo') {
-      const righe = prodotti.filter(p => p.consumo_giornaliero > 0).sort((a,b) => b.consumo_giornaliero - a.consumo_giornaliero).slice(0,20);
-      return `📊 Consumo giornaliero\n${righe.map(p => `• ${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}: ${p.consumo_giornaliero} pz/die`).join('\n')}`;
+  } else {
+    for (const d of documenti) {
+      if (cfg.categoria !== 'tutte' && d.categoria !== cfg.categoria) continue;
+      if (cfg.uo !== 'tutte' && d.unita_operativa_id !== cfg.uo) continue;
+      const data = new Date(d.data_riferimento ?? d.created_at);
+      if (Number.isNaN(data.getTime())) continue;
+      let chiave: string; let nome: string;
+      switch (cfg.dimensione) {
+        case 'categoria': nome = nomeCat(d.categoria); chiave = d.categoria; break;
+        case 'uo': nome = nomeUo(d.unita_operativa_id); chiave = d.unita_operativa_id ?? '-'; break;
+        case 'turno': nome = d.turno ? d.turno[0].toUpperCase() + d.turno.slice(1) : 'Non indicato'; chiave = d.turno ?? '-'; break;
+        case 'giorno':
+          chiave = isoGiorno(data); nome = data.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }); break;
+        case 'settimana': {
+          const l = lunedi(data); chiave = isoGiorno(l);
+          nome = 'sett. ' + l.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }); break;
+        }
+        default:
+          chiave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+          nome = data.toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
+      }
+      aggiungi(chiave, nome, 0, 0);
     }
-    const bycat = Object.entries(
-      prodotti.reduce<Record<string, number>>((acc, p) => { acc[p.categoria] = (acc[p.categoria] ?? 0) + p.quantita; return acc; }, {})
-    );
-    return `📊 Distribuzione prodotti\n${bycat.map(([c, v]) => `• ${CAT_LABELS[c as CategoriaArticolo] ?? c}: ${v} pz`).join('\n')}`;
   }
 
-  function htmlTabella() {
-    const titolo = TABS.find(t => t.id === tab)?.label ?? 'Grafici';
-    let corpo = '';
-    if (tab === 'scorte') {
-      const righe = prodotti.filter(p => p.quantita >= 0).sort((a,b) => a.quantita - b.quantita).slice(0,20);
-      corpo = `<table><thead><tr><th>Principio attivo</th><th>Forma</th><th class="num">Scorta</th></tr></thead><tbody>${righe.map(p => `<tr><td>${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}</td><td>${formaLabel(p.forma_farmaceutica)}</td><td class="num ${p.quantita === 0 ? 'red' : ''}">${p.quantita}</td></tr>`).join('')}</tbody></table>`;
-    } else if (tab === 'consumo') {
-      const righe = prodotti.filter(p => p.consumo_giornaliero > 0).sort((a,b) => b.consumo_giornaliero - a.consumo_giornaliero).slice(0,20);
-      corpo = `<table><thead><tr><th>Principio attivo</th><th>Forma</th><th class="num">Consumo/die</th></tr></thead><tbody>${righe.map(p => `<tr><td>${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}</td><td>${formaLabel(p.forma_farmaceutica)}</td><td class="num">${p.consumo_giornaliero}</td></tr>`).join('')}</tbody></table>`;
-    } else {
-      const bycat = Object.entries(prodotti.reduce<Record<string, number>>((acc, p) => { acc[p.categoria] = (acc[p.categoria] ?? 0) + p.quantita; return acc; }, {}));
-      corpo = `<table><thead><tr><th>Categoria</th><th class="num">Quantità totale</th></tr></thead><tbody>${bycat.map(([c, v]) => `<tr><td>${CAT_LABELS[c as CategoriaArticolo] ?? c}</td><td class="num">${v}</td></tr>`).join('')}</tbody></table>`;
-    }
-    return htmlBase(titolo, new Date().toLocaleDateString('it-IT'), corpo);
+  let punti = Array.from(gruppi.values()).map((g) => {
+    let valore = 0;
+    if (cfg.misura === 'quantita') valore = g.q;
+    else if (cfg.misura === 'consumo') valore = g.c;
+    else if (cfg.misura === 'autonomia') valore = g.c > 0 ? g.q / g.c : 0;
+    else valore = g.n;
+    return { nome: g.nome, chiave: g.chiave, valore: Math.round(valore * 10) / 10 };
+  });
+
+  if (DIM_TEMPO.includes(cfg.dimensione)) {
+    // cronologico, ultimi N periodi
+    punti.sort((a, b) => a.chiave.localeCompare(b.chiave));
+    if (cfg.top > 0) punti = punti.slice(-cfg.top);
+  } else {
+    punti.sort((a, b) => (cfg.ordine === 'desc' ? b.valore - a.valore : a.valore - b.valore));
+    if (cfg.top > 0) punti = punti.slice(0, cfg.top);
   }
-
-  return (
-    <div className="space-y-6">
-      {/* Tab selector + Share */}
-      <div className="flex flex-wrap gap-2 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-              tab === t.id
-                ? 'bg-forest text-white border-forest'
-                : 'border-line text-ink-soft hover:border-forest/40 hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-        </div>
-        <SharePrintBar
-          titolo={TABS.find(t => t.id === tab)?.label ?? 'Grafici'}
-          testoCondivisione={testoTabella}
-          generaHtml={htmlTabella}
-        />
-      </div>
-
-      <div className="card">
-        {tab === 'scorte'      && <GraficoScorte prodotti={prodotti} />}
-        {tab === 'consumo'     && <GraficoConsumo prodotti={prodotti} />}
-        {tab === 'antibiotici' && <StudioAntibiotici prodotti={prodotti} gare={gare} orgName={orgName} />}
-        {tab === 'ica'         && <StudioIca terapie={terapiePazienti} pazienti={pazientiIca} orgName={orgName} />}
-        {tab === 'barre'       && <GraficoCategorie prodotti={prodotti} />}
-        {tab === 'torta'       && <GraficoForme prodotti={prodotti} />}
-        {tab === 'linea'       && <GraficoCaricamenti documenti={documenti} />}
-        {tab === 'gantt'       && <GraficoGantt documenti={documenti} unita={unita} />}
-      </div>
-    </div>
-  );
+  return punti.map(({ nome, valore }) => ({ nome, valore }));
 }
 
-/* ── Scorte per prodotto ── */
-function GraficoScorte({ prodotti }: { prodotti: Prodotto[] }) {
-  const dati = prodotti
-    .filter((p) => p.quantita >= 0)
-    .sort((a, b) => a.quantita - b.quantita)
-    .slice(0, 20)
-    .map((p) => ({
-      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      scorta: p.quantita,
-      fill: p.quantita === 0 ? '#c0392b' : p.quantita <= 3 ? '#b8842a' : '#0a4d7a',
-    }));
+/* ───────────────────────── disegno del grafico ───────────────────────── */
 
-  if (!dati.length) return <Empty />;
+function Grafico({ tipo, dati, unita, altezzaMin = 220 }: { tipo: Tipo; dati: Punto[]; unita: string; altezzaMin?: number }) {
+  if (dati.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-ink-mute text-sm py-10">
+        <BarChart3 className="w-8 h-8 opacity-30 mb-2" />
+        Nessun dato per questa selezione
+      </div>
+    );
+  }
+
+  const tip = (v: unknown) => `${fmt(Number(v))} ${unita}`;
+  const colore = (p: Punto, i: number) => p.colore ?? (tipo === 'ciambella' ? PALETTE[i % PALETTE.length] : BLU);
+
+  if (tipo === 'ciambella') {
+    const totale = dati.reduce((s, d) => s + d.valore, 0) || 1;
+    return (
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="w-44 h-44 shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={dati} dataKey="valore" nameKey="nome" innerRadius="58%" outerRadius="95%" paddingAngle={2} stroke="none" isAnimationActive={false}>
+                {dati.map((p, i) => <Cell key={p.nome} fill={colore(p, i)} />)}
+              </Pie>
+              <Tooltip formatter={tip} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <ul className="flex-1 min-w-0 w-full space-y-1.5 text-sm">
+          {dati.map((p, i) => (
+            <li key={p.nome} className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: colore(p, i) }} />
+              <span className="truncate flex-1 text-ink">{p.nome}</span>
+              <span className="text-ink-soft tabular-nums">{fmt(p.valore)}</span>
+              <span className="text-ink-mute text-xs w-10 text-right tabular-nums">{Math.round((p.valore / totale) * 100)}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (tipo === 'barre') {
+    const altezza = Math.max(altezzaMin, dati.length * 34 + 16);
+    const larghEtichette = Math.min(170, Math.max(90, Math.max(...dati.map((d) => d.nome.length)) * 6.2));
+    return (
+      <div style={{ height: altezza }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={dati} layout="vertical" margin={{ top: 4, right: 48, bottom: 4, left: 0 }} barCategoryGap="28%">
+            <XAxis type="number" hide domain={[0, 'dataMax']} />
+            <YAxis type="category" dataKey="nome" width={larghEtichette} tickLine={false} axisLine={false}
+              tick={{ fontSize: 12, fill: '#1c1c1c' }} tickFormatter={(v: string) => taglia(v, 26)} />
+            <Tooltip formatter={tip} cursor={{ fill: 'rgba(10,77,122,0.06)' }} />
+            <Bar dataKey="valore" radius={[0, 6, 6, 0]}>
+              {dati.map((p, i) => <Cell key={p.nome} fill={colore(p, i)} />)}
+              <LabelList dataKey="valore" position="right" formatter={(v: unknown) => fmt(Number(v))} style={{ fontSize: 12, fill: '#5a5a5a' }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  const inclina = dati.length > 6;
+  const altezza = inclina ? altezzaMin + 40 : altezzaMin;
+  if (tipo === 'linea') {
+    return (
+      <div style={{ height: altezza }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={dati} margin={{ top: 16, right: 16, bottom: inclina ? 24 : 4, left: -8 }}>
+            <CartesianGrid vertical={false} stroke="#d5e0e6" />
+            <XAxis dataKey="nome" tickLine={false} axisLine={{ stroke: '#d5e0e6' }} tick={{ fontSize: 11, fill: '#5a5a5a' }}
+              interval={0} angle={inclina ? -35 : 0} textAnchor={inclina ? 'end' : 'middle'} tickFormatter={(v: string) => taglia(v, 14)} />
+            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#9a9a9a' }} width={40} allowDecimals={false} />
+            <Tooltip formatter={tip} />
+            <Line type="monotone" dataKey="valore" stroke={BLU} strokeWidth={2.5} dot={{ r: 3.5, fill: BLU, strokeWidth: 0 }} activeDot={{ r: 5 }}>
+              <LabelList dataKey="valore" position="top" formatter={(v: unknown) => fmt(Number(v))} style={{ fontSize: 11, fill: '#5a5a5a' }} />
+            </Line>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <h3 className="font-semibold text-ink mb-4">Scorte attuali (rosso=esaurito, ambra=basso)</h3>
-      <ResponsiveContainer width="100%" height={Math.max(300, dati.length * 28)}>
-        <BarChart data={dati} layout="vertical" margin={{ left: 20, right: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" allowDecimals={false} />
-          <YAxis type="category" dataKey="nome" width={180} tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => [`${v} pz`, 'Scorta']} />
-          <Bar dataKey="scorta" radius={[0, 4, 4, 0]}>
-            {dati.map((d, i) => <Cell key={i} fill={d.fill} />)}
+    <div style={{ height: altezza }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={dati} margin={{ top: 20, right: 8, bottom: inclina ? 24 : 4, left: -8 }} barCategoryGap="24%">
+          <CartesianGrid vertical={false} stroke="#d5e0e6" />
+          <XAxis dataKey="nome" tickLine={false} axisLine={{ stroke: '#d5e0e6' }} tick={{ fontSize: 11, fill: '#5a5a5a' }}
+            interval={0} angle={inclina ? -35 : 0} textAnchor={inclina ? 'end' : 'middle'} tickFormatter={(v: string) => taglia(v, 14)} />
+          <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#9a9a9a' }} width={40} allowDecimals={false} />
+          <Tooltip formatter={tip} cursor={{ fill: 'rgba(10,77,122,0.06)' }} />
+          <Bar dataKey="valore" radius={[6, 6, 0, 0]}>
+            {dati.map((p, i) => <Cell key={p.nome} fill={colore(p, i)} />)}
+            <LabelList dataKey="valore" position="top" formatter={(v: unknown) => fmt(Number(v))} style={{ fontSize: 11, fill: '#5a5a5a' }} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </>
-  );
-}
-
-/* ── Consumo giornaliero ── */
-function GraficoConsumo({ prodotti }: { prodotti: Prodotto[] }) {
-  const dati = prodotti
-    .filter((p) => p.consumo_giornaliero > 0)
-    .sort((a, b) => b.consumo_giornaliero - a.consumo_giornaliero)
-    .slice(0, 20)
-    .map((p) => ({
-      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      consumo: p.consumo_giornaliero,
-    }));
-
-  if (!dati.length) return <Empty msg="Imposta il consumo/die sui prodotti per visualizzare questo grafico." />;
-  return (
-    <>
-      <h3 className="font-semibold text-ink mb-4">Consumo giornaliero (pz/die)</h3>
-      <ResponsiveContainer width="100%" height={Math.max(300, dati.length * 28)}>
-        <BarChart data={dati} layout="vertical" margin={{ left: 20, right: 30 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-          <XAxis type="number" />
-          <YAxis type="category" dataKey="nome" width={180} tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v) => [`${v} pz/die`, 'Consumo']} />
-          <Bar dataKey="consumo" fill="#127c93" radius={[0, 4, 4, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </>
-  );
-}
-
-/* ── Prodotti per categoria ── */
-function GraficoCategorie({ prodotti }: { prodotti: Prodotto[] }) {
-  const cats = ['terapie', 'nutrizioni', 'sanitario'] as CategoriaArticolo[];
-  const dati = cats.map((cat) => ({
-    categoria: CAT_LABELS[cat],
-    prodotti: prodotti.filter((p) => p.categoria === cat).length,
-    esauriti: prodotti.filter((p) => p.categoria === cat && p.quantita === 0).length,
-  }));
-
-  return (
-    <>
-      <h3 className="font-semibold text-ink mb-4">Prodotti per categoria</h3>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={dati} margin={{ bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="categoria" />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="prodotti" name="Totale" fill="#0a4d7a" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="esauriti" name="Esauriti" fill="#c0392b" radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </>
-  );
-}
-
-/* ── Distribuzione forme farmaceutiche ── */
-function GraficoForme({ prodotti }: { prodotti: Prodotto[] }) {
-  const map = new Map<string, number>();
-  for (const p of prodotti) {
-    const label = formaLabel(p.forma_farmaceutica);
-    map.set(label, (map.get(label) ?? 0) + 1);
-  }
-  const dati = [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-
-  if (!dati.length) return <Empty />;
-  return (
-    <>
-      <h3 className="font-semibold text-ink mb-4">Distribuzione forme farmaceutiche</h3>
-      <ResponsiveContainer width="100%" height={320}>
-        <PieChart>
-          <Pie data={dati} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-            {dati.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Pie>
-          <Tooltip formatter={(v, n) => [`${v} prodotti`, n]} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
-    </>
-  );
-}
-
-/* ── Caricamenti documenti nel tempo ── */
-function GraficoCaricamenti({ documenti }: { documenti: Documento[] }) {
-  const map = new Map<string, number>();
-  for (const d of documenti) {
-    const data = d.created_at.slice(0, 10);
-    map.set(data, (map.get(data) ?? 0) + 1);
-  }
-  const dati = [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-30)
-    .map(([data, n]) => ({ data: data.slice(5), n }));
-
-  if (!dati.length) return <Empty msg="Nessun documento caricato ancora." />;
-  return (
-    <>
-      <h3 className="font-semibold text-ink mb-4">Documenti caricati (ultimi 30 giorni)</h3>
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={dati} margin={{ bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-          <YAxis allowDecimals={false} />
-          <Tooltip formatter={(v) => [`${v}`, 'Documenti']} />
-          <Line type="monotone" dataKey="n" stroke="#0a4d7a" strokeWidth={2} dot={{ fill: '#0a4d7a', r: 4 }} name="Documenti" />
-        </LineChart>
-      </ResponsiveContainer>
-    </>
-  );
-}
-
-/* ── Gantt turni ── */
-const TURNI = ['mattino', 'pomeriggio', 'notte'] as const;
-const TURNO_COLOR: Record<string, string> = {
-  mattino: '#b8842a',
-  pomeriggio: '#127c93',
-  notte: '#0a4d7a',
-  nessuno: '#9a9a9a',
-};
-
-function GraficoGantt({ documenti, unita }: { documenti: Documento[]; unita: UnitaOperativa[] }) {
-  // Raggruppa per data_riferimento e unità
-  const docsConData = documenti.filter((d) => d.data_riferimento);
-
-  if (!docsConData.length) {
-    return <Empty msg="Il Gantt mostra i turni per data. Carica documenti con data e turno per visualizzarlo." />;
-  }
-
-  const date = [...new Set(docsConData.map((d) => d.data_riferimento!))].sort();
-  const unitaMap = new Map(unita.map((u) => [u.id, u.nome]));
-
-  // Crea righe: una per unità operativa (o "Generale")
-  const righe = unita.length > 0 ? unita : [{ id: '', nome: 'Generale' }];
-
-  return (
-    <>
-      <h3 className="font-semibold text-ink mb-1">Gantt — Copertura turni per data</h3>
-      <p className="text-xs text-ink-mute mb-4">Ogni cella indica se esiste un documento per quel turno in quella data</p>
-
-      <div className="overflow-x-auto">
-        <table className="text-xs w-full">
-          <thead>
-            <tr>
-              <th className="text-left px-2 py-2 text-ink-soft font-medium w-32">Unità / Data</th>
-              {date.map((d) => (
-                <th key={d} className="px-1 py-2 text-ink-soft font-medium text-center min-w-[60px]">
-                  {new Date(d).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {righe.map((u) => (
-              TURNI.map((turno, ti) => (
-                <tr key={`${u.id}-${turno}`} className={ti === 0 ? 'border-t-2 border-line' : ''}>
-                  <td className="px-2 py-1.5 text-ink-soft">
-                    {ti === 0 ? <span className="font-medium text-ink">{u.nome}</span> : ''}
-                    <span className="ml-1 capitalize text-ink-mute">{turno}</span>
-                  </td>
-                  {date.map((d) => {
-                    const haDoc = docsConData.some(
-                      (doc) =>
-                        doc.data_riferimento === d &&
-                        doc.turno === turno &&
-                        (u.id === '' || doc.unita_operativa_id === u.id),
-                    );
-                    return (
-                      <td key={d} className="px-1 py-1.5 text-center">
-                        {haDoc ? (
-                          <span
-                            className="inline-block w-8 h-5 rounded text-white text-[10px] leading-5"
-                            style={{ backgroundColor: TURNO_COLOR[turno] }}
-                          >
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="inline-block w-8 h-5 rounded bg-bg-soft" />
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Legenda */}
-      <div className="flex flex-wrap gap-3 mt-4">
-        {TURNI.map((t) => (
-          <span key={t} className="flex items-center gap-1.5 text-xs text-ink-soft">
-            <span className="w-4 h-4 rounded inline-block" style={{ backgroundColor: TURNO_COLOR[t] }} />
-            {t}
-          </span>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function Empty({ msg }: { msg?: string }) {
-  return (
-    <div className="text-center py-16 text-ink-mute">
-      <p className="text-sm">{msg ?? 'Nessun dato disponibile ancora.'}</p>
     </div>
   );
 }
 
-/* ── Studio ICA ── */
-function StudioIca({ terapie, pazienti, orgName }: { terapie: TerapiaIca[]; pazienti: PazienteIca[]; orgName: string }) {
-  // Filtra solo terapie antibiotiche
-  const terapieAbx = terapie.filter((t) => classificaFarmaco(t.principio_attivo).isAntibiotico);
-
-  // Paziente IDs in terapia antibiotica
-  const pazIdSet = new Set(terapieAbx.map((t) => t.paziente_id));
-  const pazientiInTerapia = pazienti.filter((p) => pazIdSet.has(p.id));
-
-  // Sale coinvolte
-  const saleSet = new Set(pazientiInTerapia.map((p) => p.sala));
-  const saleN = saleSet.size;
-
-  // % pazienti su antibiotico
-  const percPaz = pazienti.length > 0 ? Math.round((pazientiInTerapia.length / pazienti.length) * 100) : 0;
-
-  // Antibiotici ad alto costo
-  const altoCostoSet = new Set(terapieAbx.filter((t) => isAltoCosto(t.principio_attivo)).map((t) => t.principio_attivo.toLowerCase()));
-
-  // Bar chart data: per sala, conteggio per classe
-  const classiUsate = new Set<string>();
-  const bySala: Record<string, Record<string, number>> = {};
-  for (const t of terapieAbx) {
-    const paz = pazienti.find((p) => p.id === t.paziente_id);
-    if (!paz) continue;
-    const classe = classificaFarmaco(t.principio_attivo).classe ?? 'altri';
-    const label = CLASSE_LABEL[classe as ClasseAntibiotico] ?? classe;
-    classiUsate.add(label);
-    if (!bySala[paz.sala]) bySala[paz.sala] = {};
-    bySala[paz.sala][label] = (bySala[paz.sala][label] ?? 0) + 1;
-  }
-  const classiArr = [...classiUsate];
-  const barData = Object.entries(bySala).map(([sala, counts]) => ({ sala, ...counts }));
-
-  // Tabella per sala
-  const saleRows = [...new Set(pazienti.map((p) => p.sala))].sort().map((sala) => {
-    const pazSala = pazienti.filter((p) => p.sala === sala);
-    const inTerapia = pazSala.filter((p) => pazIdSet.has(p.id));
-    const terapieSala = terapieAbx.filter((t) => inTerapia.some((p) => p.id === t.paziente_id));
-    const farmaci = [...new Set(terapieSala.map((t) => t.principio_attivo))].join(', ');
-    const piano = pazSala[0]?.piano ?? '—';
-    return { sala, piano, totali: pazSala.length, inTerapia: inTerapia.length, farmaci };
-  });
-
-  // Tabella per paziente in terapia
-  const righeParzienti = pazientiInTerapia.sort((a, b) => a.sala.localeCompare(b.sala)).map((p) => {
-    const tPaz = terapieAbx.filter((t) => t.paziente_id === p.id);
-    return { paziente: p, terapie: tPaz };
-  });
-
-  function apriReportIca() {
-    const now = new Date().toLocaleDateString('it-IT');
-    const rows1 = saleRows.map((r) =>
-      `<tr><td>${r.sala}</td><td>${r.piano}</td><td style="text-align:right">${r.totali}</td><td style="text-align:right">${r.inTerapia}</td><td>${r.farmaci || '—'}</td></tr>`
-    ).join('');
-    const rows2 = righeParzienti.flatMap(({ paziente: p, terapie: ts }) =>
-      ts.map((t) =>
-        `<tr><td>${p.numero_letto}</td><td>${p.nominativo}</td><td>${p.sala}</td><td>${t.principio_attivo}${t.dosaggio ? ' ' + t.dosaggio : ''}</td><td>${t.posologia ?? '—'}</td><td>${isAltoCosto(t.principio_attivo) ? '<span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:bold">ALTO COSTO</span>' : ''}</td></tr>`
-      )
-    ).join('');
-    const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Report ICA — ${orgName}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:24px}h1{font-size:18px;margin-bottom:4px}h2{font-size:14px;margin-top:24px;margin-bottom:8px;color:#0a4d7a}p.sub{color:#666;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#f3f4f6;font-weight:600;padding:6px 8px;text-align:left;border-bottom:2px solid #d1d5db}td{padding:5px 8px;border-bottom:1px solid #e5e7eb}.disclaimer{margin-top:32px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:10px;color:#92400e}@media print{.no-print{display:none}}</style></head>
-<body>
-<button class="no-print" onclick="window.print()" style="margin-bottom:16px;padding:6px 14px;background:#0a4d7a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 Stampa</button>
-<h1>Report ICA — Infezioni Correlate all'Assistenza</h1>
-<p class="sub">${orgName} · Generato il ${now}</p>
-<h2>Distribuzione per sala</h2>
-<table><thead><tr><th>Sala</th><th>Piano</th><th style="text-align:right">Paz. totali</th><th style="text-align:right">In terapia Ab</th><th>Antibiotici in uso</th></tr></thead><tbody>${rows1}</tbody></table>
-<h2>Pazienti in terapia antibiotica</h2>
-<table><thead><tr><th>Letto</th><th>Paziente</th><th>Sala</th><th>Farmaco</th><th>Posologia</th><th></th></tr></thead><tbody>${rows2}</tbody></table>
-<div class="disclaimer"><strong>Nota sulla privacy:</strong> Il presente documento contiene dati personali e sanitari. Deve essere trattato come documento riservato, conservato e smaltito secondo le normative vigenti (Reg. UE 2016/679 – GDPR). Non distribuire senza autorizzazione del responsabile del trattamento.</div>
-</body></html>`;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); }
-  }
-
-  if (terapie.length === 0 && pazienti.length === 0) {
-    return <Empty msg="Nessun dato ICA disponibile. Assicurati di aver caricato pazienti e terapie." />;
-  }
-
+function Scheda({ titolo, sotto, azioni, children }: { titolo: string; sotto?: string; azioni?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <>
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h3 className="font-semibold text-ink">Infezioni Correlate all'Assistenza (ICA)</h3>
-        <button onClick={apriReportIca} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-          Genera report ICA
-        </button>
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-blue-700">{pazientiInTerapia.length}</p>
-          <p className="text-xs text-blue-500 mt-0.5">Pazienti in terapia antibiotica</p>
+    <section className="rounded-2xl border border-line bg-bg-card p-4 sm:p-5">
+      <header className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-ink leading-tight">{titolo}</h3>
+          {sotto && <p className="text-xs text-ink-mute mt-0.5">{sotto}</p>}
         </div>
-        <div className="rounded-lg bg-bg-card border border-line px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-ink">{saleN}</p>
-          <p className="text-xs text-ink-mute mt-0.5">Sale coinvolte</p>
-        </div>
-        <div className="rounded-lg bg-amber/10 border border-amber/30 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-amber-700">{percPaz}%</p>
-          <p className="text-xs text-amber-600 mt-0.5">% pazienti su antibiotico</p>
-        </div>
-        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-red-700">{altoCostoSet.size}</p>
-          <p className="text-xs text-red-500 mt-0.5">Antibiotici ad alto costo in uso</p>
-        </div>
-      </div>
-
-      {/* Bar chart antibiotici per sala */}
-      {barData.length > 0 && (
-        <>
-          <h4 className="text-sm font-medium text-ink mb-2">Antibiotici per sala</h4>
-          <ResponsiveContainer width="100%" height={Math.max(220, barData.length * 40)}>
-            <BarChart data={barData} margin={{ left: 8, right: 16, bottom: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="sala" tick={{ fontSize: 11 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              {classiArr.map((cl, i) => (
-                <Bar key={cl} dataKey={cl} stackId="a" fill={COLORS[i % COLORS.length]} radius={i === classiArr.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </>
-      )}
-
-      {/* Tabella per sala */}
-      <h4 className="text-sm font-medium text-ink mt-5 mb-2">Riepilogo per sala</h4>
-      <div className="overflow-x-auto rounded-xl border border-line mb-5">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-bg-soft border-b border-line text-left">
-              <th className="px-3 py-2 font-medium text-ink-soft">Sala</th>
-              <th className="px-3 py-2 font-medium text-ink-soft">Piano</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Paz. totali</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">In terapia Ab</th>
-              <th className="px-3 py-2 font-medium text-ink-soft">Antibiotici in uso</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {saleRows.map((r) => (
-              <tr key={r.sala} className="bg-bg-card">
-                <td className="px-3 py-1.5 font-medium text-ink">{r.sala}</td>
-                <td className="px-3 py-1.5 text-ink-soft">{r.piano}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-ink">{r.totali}</td>
-                <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${r.inTerapia > 0 ? 'text-blue-700' : 'text-ink-mute'}`}>{r.inTerapia}</td>
-                <td className="px-3 py-1.5 text-ink-soft">{r.farmaci || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Tabella per paziente */}
-      <h4 className="text-sm font-medium text-ink mt-5 mb-2">Pazienti in terapia antibiotica</h4>
-      {righeParzienti.length === 0 ? (
-        <p className="text-xs text-ink-mute py-4 text-center">Nessun paziente in terapia antibiotica.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-line">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-bg-soft border-b border-line text-left">
-                <th className="px-3 py-2 font-medium text-ink-soft">Letto</th>
-                <th className="px-3 py-2 font-medium text-ink-soft">Paziente</th>
-                <th className="px-3 py-2 font-medium text-ink-soft">Sala</th>
-                <th className="px-3 py-2 font-medium text-ink-soft">Farmaco</th>
-                <th className="px-3 py-2 font-medium text-ink-soft">Posologia</th>
-                <th className="px-3 py-2 font-medium text-ink-soft"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {righeParzienti.flatMap(({ paziente: p, terapie: ts }) =>
-                ts.map((t, ti) => (
-                  <tr key={`${p.id}-${t.id}`} className={isAltoCosto(t.principio_attivo) ? 'bg-red-50' : 'bg-bg-card'}>
-                    <td className="px-3 py-1.5 tabular-nums text-ink-soft">{ti === 0 ? p.numero_letto : ''}</td>
-                    <td className="px-3 py-1.5 font-medium text-ink">{ti === 0 ? p.nominativo : ''}</td>
-                    <td className="px-3 py-1.5 text-ink-soft">{ti === 0 ? p.sala : ''}</td>
-                    <td className="px-3 py-1.5 text-ink">{t.principio_attivo}{t.dosaggio ? ` ${t.dosaggio}` : ''}</td>
-                    <td className="px-3 py-1.5 text-ink-soft">{t.posologia ?? '—'}</td>
-                    <td className="px-3 py-1.5">
-                      {isAltoCosto(t.principio_attivo) && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-200 text-red-700 font-bold uppercase whitespace-nowrap">Alto costo</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+        {azioni}
+      </header>
+      {children}
+    </section>
   );
 }
 
-/* ── Studio Antibiotici / Antivirali ── */
-function norm(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9àèìòù\s]/g, ' ').replace(/\s+/g, ' ').trim();
-}
+/* ───────────────────────── vista principale ───────────────────────── */
 
-function prezzoGara(pa: string, gare: Gara[]): number | null {
-  const n = norm(pa);
-  const found = gare.find((g) => {
-    const dn = norm(g.descrizione);
-    return dn.includes(n) || n.split(' ').filter((w) => w.length > 4).some((w) => dn.includes(w));
-  });
-  return found?.prezzo_unitario ?? null;
-}
+export function GraficiView({ prodotti, documenti, unita }: {
+  prodotti: Prodotto[];
+  documenti: Documento[];
+  unita: UnitaOperativa[];
+  // props mantenute per compatibilità con la pagina (non più usate)
+  gare?: unknown[];
+  orgName?: string;
+  terapiePazienti?: unknown[];
+  pazientiIca?: unknown[];
+}) {
+  /* — Panoramica (grafici fissi) — */
+  const panoramica = useMemo(() => {
+    const autonomia = calcola({ ...CONFIG_INIZIALE, misura: 'autonomia', dimensione: 'principio', top: 10, ordine: 'asc' }, prodotti, documenti, unita)
+      .map((p) => ({ ...p, colore: p.valore < 3 ? ROSSO : p.valore < 7 ? AMBRA : VERDE }));
+    const consumi = calcola({ ...CONFIG_INIZIALE, misura: 'consumo', dimensione: 'principio', top: 10, ordine: 'desc' }, prodotti, documenti, unita);
+    const perCategoria = calcola({ ...CONFIG_INIZIALE, misura: 'prodotti', dimensione: 'categoria', top: 0 }, prodotti, documenti, unita);
+    const abx = calcola({ ...CONFIG_INIZIALE, misura: 'prodotti', dimensione: 'classe', top: 0 }, prodotti, documenti, unita);
+    const caricamenti = calcola({ ...CONFIG_INIZIALE, misura: 'documenti', dimensione: 'settimana', tipo: 'colonne', top: 12 }, prodotti, documenti, unita);
+    return { autonomia, consumi, perCategoria, abx, caricamenti };
+  }, [prodotti, documenti, unita]);
 
-function oggi() { return new Date().toISOString().slice(0, 10); }
-function unMeseFa() {
-  const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
-}
-function fmt(iso: string) { return new Date(iso).toLocaleDateString('it-IT'); }
-function diffGiorni(dal: string, al: string) {
-  return Math.max(1, Math.ceil((new Date(al).getTime() - new Date(dal).getTime()) / 86400000) + 1);
-}
+  /* — Costruttore — */
+  const [cfg, setCfg] = useState<Config>(CONFIG_INIZIALE);
+  const [nome, setNome] = useState('');
+  const [salvati, setSalvati] = useState<Salvato[]>([]);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CHIAVE_SALVATI);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setSalvati(arr);
+      }
+    } catch { /* storage non disponibile */ }
+  }, []);
 
-function StudioAntibiotici({ prodotti, gare, orgName }: { prodotti: Prodotto[]; gare: Gara[]; orgName: string }) {
-  const [vista, setVista] = useState<'consumo' | 'classe' | 'costo'>('consumo');
-  const [dal, setDal] = useState(unMeseFa());
-  const [al, setAl] = useState(oggi());
-  const [presetRange, setPresetRange] = useState<'7' | '30' | '90' | 'custom'>('30');
-  const [showRelazione, setShowRelazione] = useState(false);
-
-  function applicaPreset(p: '7' | '30' | '90' | 'custom') {
-    setPresetRange(p);
-    if (p === 'custom') return;
-    const days = parseInt(p);
-    const fine = new Date();
-    const inizio = new Date();
-    inizio.setDate(fine.getDate() - days + 1);
-    setDal(inizio.toISOString().slice(0, 10));
-    setAl(fine.toISOString().slice(0, 10));
+  function persisti(lista: Salvato[]) {
+    setSalvati(lista);
+    try { localStorage.setItem(CHIAVE_SALVATI, JSON.stringify(lista)); } catch { /* ignora */ }
   }
 
-  const giorni = diffGiorni(dal, al);
+  const misura = MISURE.find((m) => m.id === cfg.misura)!;
+  const tempo = DIM_TEMPO.includes(cfg.dimensione);
 
-  const abxProdotti = prodotti
-    .map((p) => {
-      const info = classificaFarmaco(p.principio_attivo);
-      if (!info.isAntibiotico) return null;
-      const altoCosto = isAltoCosto(p.principio_attivo);
-      const prezzo = prezzoGara(p.principio_attivo, gare);
-      const consumoPeriodo = p.consumo_giornaliero > 0 ? Math.round(p.consumo_giornaliero * giorni) : 0;
-      const costoPeriodo = prezzo != null && consumoPeriodo > 0 ? prezzo * consumoPeriodo : null;
-      return { ...p, classe: info.classe!, altoCosto, prezzo, consumoPeriodo, costoPeriodo };
-    })
-    .filter(Boolean) as AbxProdotto[];
-
-  if (!abxProdotti.length) {
-    return <Empty msg="Nessun antibiotico/antivirale riconosciuto nel magazzino. Carica farmaci per avviare lo studio." />;
+  function cambiaMisura(id: Misura) {
+    const m = MISURE.find((x) => x.id === id)!;
+    const dimensione = m.dimensioni.includes(cfg.dimensione) ? cfg.dimensione : m.dimensioni[0];
+    setCfg({ ...cfg, misura: id, dimensione });
+  }
+  function cambiaDimensione(d: Dimensione) {
+    const eraTempo = tempo; const ora = DIM_TEMPO.includes(d);
+    setCfg({
+      ...cfg, dimensione: d,
+      tipo: ora && !eraTempo ? 'linea' : !ora && eraTempo ? 'barre' : cfg.tipo,
+      top: ora && !eraTempo ? 12 : !ora && eraTempo ? 10 : cfg.top,
+    });
   }
 
-  const totaleCosto = abxProdotti.reduce((s, p) => s + (p.costoPeriodo ?? 0), 0);
-  const totalConsumo = abxProdotti.reduce((s, p) => s + p.consumoPeriodo, 0);
-  const altoCostoN = abxProdotti.filter((p) => p.altoCosto).length;
+  const dati = useMemo(() => calcola(cfg, prodotti, documenti, unita), [cfg, prodotti, documenti, unita]);
+  const titoloAuto = `${misura.label} per ${DIM_LABEL[cfg.dimensione].toLowerCase()}`;
 
-  const datoConsumo = abxProdotti
-    .filter((p) => p.consumoPeriodo > 0)
-    .sort((a, b) => b.consumoPeriodo - a.consumoPeriodo)
-    .slice(0, 20)
-    .map((p) => ({
-      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      consumo: p.consumoPeriodo,
-      fill: p.altoCosto ? '#c0392b' : p.classe === 'carbapenemi' || p.classe === 'glicopeptidi' || p.classe === 'polimixine' || p.classe === 'ossazolidinoni' ? '#b8842a' : '#0a4d7a',
-    }));
-
-  const byClasse: Record<string, number> = {};
-  for (const p of abxProdotti) {
-    const label = CLASSE_LABEL[p.classe];
-    byClasse[label] = (byClasse[label] ?? 0) + 1;
+  function salva() {
+    persisti([...salvati, { id: String(Date.now()), nome: nome.trim() || titoloAuto, cfg }]);
+    setNome('');
   }
-  const datoClasse = Object.entries(byClasse).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
 
-  const datoCosto = abxProdotti
-    .filter((p) => p.costoPeriodo != null && p.costoPeriodo > 0)
-    .sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0))
-    .slice(0, 15)
-    .map((p) => ({
-      nome: `${p.principio_attivo}${p.dosaggio ? ` ${p.dosaggio}` : ''}`,
-      costo: Math.round(p.costoPeriodo!),
-      fill: p.altoCosto ? '#c0392b' : '#b8842a',
-    }));
+  const selectCls = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:border-forest';
+  const labelCls = 'block text-xs font-semibold text-ink-soft mb-1';
 
   return (
-    <>
-      {/* ── Selettore periodo ── */}
-      <div className="rounded-xl border border-line bg-bg-soft px-4 py-3 mb-5">
-        <p className="text-xs font-semibold text-ink-mute uppercase tracking-wider mb-2">Periodo di analisi</p>
-        <div className="flex flex-wrap gap-2 items-center">
-          {([['7', '7 giorni'], ['30', '30 giorni'], ['90', '3 mesi'], ['custom', 'Personalizzato']] as const).map(([v, label]) => (
-            <button key={v} onClick={() => applicaPreset(v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${presetRange === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40 hover:text-ink'}`}>
-              {label}
+    <div className="space-y-8">
+      {/* Panoramica */}
+      <div>
+        <h2 className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-3">Panoramica</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Scheda titolo="Scorte in esaurimento" sotto="Giorni di autonomia (scorta ÷ consumo) · rosso < 3, ambra < 7">
+            <Grafico tipo="barre" dati={panoramica.autonomia} unita="giorni" />
+          </Scheda>
+          <Scheda titolo="Maggiori consumi" sotto="Pezzi al giorno, primi 10">
+            <Grafico tipo="barre" dati={panoramica.consumi} unita="pz/die" />
+          </Scheda>
+          <Scheda titolo="Prodotti per categoria" sotto="Numero di prodotti in catalogo">
+            <Grafico tipo="ciambella" dati={panoramica.perCategoria} unita="prodotti" />
+          </Scheda>
+          <Scheda titolo="Antibiotici per classe" sotto="Numero di prodotti per classe">
+            <Grafico tipo="barre" dati={panoramica.abx} unita="prodotti" />
+          </Scheda>
+          <div className="md:col-span-2">
+            <Scheda titolo="Documenti caricati" sotto="Ultime 12 settimane">
+              <Grafico tipo="colonne" dati={panoramica.caricamenti} unita="documenti" />
+            </Scheda>
+          </div>
+        </div>
+      </div>
+
+      {/* Costruttore */}
+      <div>
+        <h2 className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-3">Crea il tuo grafico</h2>
+        <div className="rounded-2xl border border-line bg-bg-card p-4 sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className={labelCls}>Cosa misurare</label>
+              <select className={selectCls} value={cfg.misura} onChange={(e) => cambiaMisura(e.target.value as Misura)}>
+                {MISURE.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Raggruppa per</label>
+              <select className={selectCls} value={cfg.dimensione} onChange={(e) => cambiaDimensione(e.target.value as Dimensione)}>
+                {misura.dimensioni.map((d) => <option key={d} value={d}>{DIM_LABEL[d]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Categoria</label>
+              <select className={selectCls} value={cfg.categoria} onChange={(e) => setCfg({ ...cfg, categoria: e.target.value })}>
+                <option value="tutte">Tutte</option>
+                {(Object.keys(CAT_LABELS) as CategoriaArticolo[]).map((c) => <option key={c} value={c}>{CAT_LABELS[c]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Unità operativa</label>
+              <select className={selectCls} value={cfg.uo} onChange={(e) => setCfg({ ...cfg, uo: e.target.value })}>
+                <option value="tutte">Tutte</option>
+                {unita.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>{tempo ? 'Ultimi periodi' : 'Quanti mostrare'}</label>
+              <select className={selectCls} value={cfg.top} onChange={(e) => setCfg({ ...cfg, top: Number(e.target.value) })}>
+                {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{tempo ? `Ultimi ${n}` : `Primi ${n}`}</option>)}
+                <option value={0}>Tutti</option>
+              </select>
+            </div>
+            {!tempo && (
+              <div>
+                <label className={labelCls}>Ordine</label>
+                <select className={selectCls} value={cfg.ordine} onChange={(e) => setCfg({ ...cfg, ordine: e.target.value as 'desc' | 'asc' })}>
+                  <option value="desc">Dal più alto</option>
+                  <option value="asc">Dal più basso</option>
+                </select>
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Tipo di grafico</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {TIPI.map((t) => (
+                  <button key={t.id} type="button" onClick={() => setCfg({ ...cfg, tipo: t.id })}
+                    className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                      cfg.tipo === t.id ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {cfg.uo !== 'tutte' && misura.fonte === 'prodotti' && (
+            <p className="text-xs text-ink-mute mt-3">
+              Terapie e nutrizioni sono di tutta l’organizzazione (senza unità operativa): con una UO selezionata compaiono solo i prodotti assegnati a quella UO.
+            </p>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-line">
+            <p className="font-semibold text-ink mb-3">{titoloAuto}</p>
+            <Grafico tipo={cfg.tipo} dati={dati} unita={misura.unita} />
+          </div>
+
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <input
+              value={nome} onChange={(e) => setNome(e.target.value)} placeholder={`Nome del grafico (es. ${titoloAuto})`}
+              className="flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm focus:outline-none focus:border-forest"
+            />
+            <button type="button" onClick={salva} disabled={dati.length === 0} className="btn-primary justify-center">
+              <Save className="w-4 h-4" /> Salva grafico
             </button>
-          ))}
-          <div className="flex items-center gap-2 ml-1">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-ink-mute">Dal</label>
-              <input type="date" value={dal} max={al} onChange={e => { setDal(e.target.value); setPresetRange('custom'); }}
-                className="input-base py-1 text-xs w-36" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-ink-mute">Al</label>
-              <input type="date" value={al} min={dal} max={oggi()} onChange={e => { setAl(e.target.value); setPresetRange('custom'); }}
-                className="input-base py-1 text-xs w-36" />
-            </div>
-            <span className="text-xs text-ink-mute font-medium">{giorni} giorni</span>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <h3 className="font-semibold text-ink">
-          Studio consumo antibiotici / antivirali
-          <span className="ml-2 text-xs font-normal text-ink-mute">{fmt(dal)} — {fmt(al)}</span>
-        </h3>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            {(['consumo', 'classe', 'costo'] as const).map((v) => (
-              <button key={v} onClick={() => setVista(v)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${vista === v ? 'bg-forest text-white border-forest' : 'border-line text-ink-soft hover:border-forest/40'}`}>
-                {v === 'consumo' ? 'Consumo' : v === 'classe' ? 'Per classe' : 'Costo'}
-              </button>
-            ))}
+      {/* Grafici salvati */}
+      {salvati.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1">I miei grafici</h2>
+          <p className="text-xs text-ink-mute mb-3">Salvati su questo dispositivo; i dati si aggiornano da soli.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {salvati.map((s) => {
+              const m = MISURE.find((x) => x.id === s.cfg.misura) ?? MISURE[0];
+              return (
+                <Scheda key={s.id} titolo={s.nome} sotto={`${m.label} per ${DIM_LABEL[s.cfg.dimensione].toLowerCase()}`}
+                  azioni={
+                    <button type="button" title="Elimina" onClick={() => persisti(salvati.filter((x) => x.id !== s.id))}
+                      className="p-1.5 rounded-lg text-ink-mute hover:text-abx hover:bg-abx-soft transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  }>
+                  <Grafico tipo={s.cfg.tipo} dati={calcola(s.cfg, prodotti, documenti, unita)} unita={m.unita} />
+                </Scheda>
+              );
+            })}
           </div>
-          <button
-            onClick={() => setShowRelazione(true)}
-            className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Genera relazione
-          </button>
         </div>
-      </div>
-
-      {/* KPI bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-red-700">{abxProdotti.length}</p>
-          <p className="text-xs text-red-500 mt-0.5">Antibiotici</p>
-        </div>
-        <div className="rounded-lg bg-amber/10 border border-amber/30 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-amber-700">{altoCostoN}</p>
-          <p className="text-xs text-amber-600 mt-0.5">Alto costo / last-resort</p>
-        </div>
-        <div className="rounded-lg bg-bg-card border border-line px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-ink">{totalConsumo > 0 ? totalConsumo : '—'}</p>
-          <p className="text-xs text-ink-mute mt-0.5">Unità consumate ({giorni}gg)</p>
-        </div>
-        <div className="rounded-lg bg-forest-tint border border-forest/20 px-3 py-2 text-center">
-          <p className="text-2xl font-bold text-forest">{totaleCosto > 0 ? `€ ${Math.round(totaleCosto).toLocaleString('it-IT')}` : '—'}</p>
-          <p className="text-xs text-forest/70 mt-0.5">Costo stimato periodo</p>
-        </div>
-      </div>
-
-      {/* Grafici */}
-      {vista === 'consumo' && (
-        datoConsumo.length === 0 ? <Empty msg="Imposta il consumo/die nei prodotti per visualizzare il grafico." /> :
-        <>
-          <p className="text-xs text-ink-mute mb-3">Consumo totale nel periodo selezionato · Rosso = alto costo · Ambra = classe critica</p>
-          <ResponsiveContainer width="100%" height={Math.max(300, datoConsumo.length * 30)}>
-            <BarChart data={datoConsumo} layout="vertical" margin={{ left: 20, right: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} label={{ value: 'unità', position: 'insideRight', offset: 10, fontSize: 10 }} />
-              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => [`${v} unità`, `Consumo ${giorni}gg`]} />
-              <Bar dataKey="consumo" radius={[0, 4, 4, 0]}>
-                {datoConsumo.map((d, i) => <Cell key={i} fill={d.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </>
       )}
-
-      {vista === 'classe' && (
-        <ResponsiveContainer width="100%" height={320}>
-          <PieChart>
-            <Pie data={datoClasse} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-              {datoClasse.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={(v) => [`${v} prodotti`, '']} />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      )}
-
-      {vista === 'costo' && (
-        datoCosto.length === 0 ? <Empty msg="Inserisci i prezzi nelle gare d'appalto e imposta il consumo/die nei prodotti." /> :
-        <>
-          <p className="text-xs text-ink-mute mb-3">Costo stimato nel periodo (consumo/die × {giorni} gg × prezzo da gara)</p>
-          <ResponsiveContainer width="100%" height={Math.max(300, datoCosto.length * 32)}>
-            <BarChart data={datoCosto} layout="vertical" margin={{ left: 20, right: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tickFormatter={(v) => `€${v.toLocaleString('it-IT')}`} tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => [`€ ${Number(v).toLocaleString('it-IT')}`, `Costo ${giorni}gg`]} />
-              <Bar dataKey="costo" radius={[0, 4, 4, 0]}>
-                {datoCosto.map((d, i) => <Cell key={i} fill={d.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </>
-      )}
-
-      {showRelazione && (
-        <RelazioneAntibioticiModal
-          prodotti={abxProdotti}
-          dal={dal} al={al} giorni={giorni}
-          orgName={orgName}
-          onClose={() => setShowRelazione(false)}
-        />
-      )}
-
-      {/* Tabella dettaglio */}
-      <div className="mt-6 overflow-x-auto rounded-xl border border-line">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-bg-soft border-b border-line text-left">
-              <th className="px-3 py-2 font-medium text-ink-soft">Principio attivo</th>
-              <th className="px-3 py-2 font-medium text-ink-soft">Classe</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Scorta att.</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Consumo/die</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right bg-forest/5">Consumo {giorni}gg</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right">Prezzo unit.</th>
-              <th className="px-3 py-2 font-medium text-ink-soft text-right bg-red-50">Costo periodo</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {abxProdotti.sort((a, b) => (b.costoPeriodo ?? 0) - (a.costoPeriodo ?? 0)).map((p) => (
-              <tr key={p.id} className={p.altoCosto ? 'bg-red-50' : 'bg-bg-card'}>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {p.altoCosto && <span className="text-[9px] px-1 py-0.5 rounded-full bg-red-200 text-red-700 font-bold uppercase">ALTO COSTO</span>}
-                    <span className={`font-medium ${p.altoCosto ? 'text-red-700' : 'text-red-600'}`}>{p.principio_attivo}</span>
-                    {p.dosaggio && <span className="text-ink-mute">{p.dosaggio}</span>}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-ink-soft">{CLASSE_LABEL[p.classe]}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{p.quantita}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{p.consumo_giornaliero > 0 ? p.consumo_giornaliero : '—'}</td>
-                <td className="px-3 py-2 text-right tabular-nums font-semibold text-ink bg-forest/5">{p.consumoPeriodo > 0 ? p.consumoPeriodo : '—'}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink-soft">{p.prezzo != null ? `€ ${p.prezzo.toLocaleString('it-IT', { minimumFractionDigits: 4 })}` : '—'}</td>
-                <td className={`px-3 py-2 text-right tabular-nums font-semibold bg-red-50 ${p.altoCosto ? 'text-red-700' : 'text-amber-700'}`}>
-                  {p.costoPeriodo != null && p.costoPeriodo > 0 ? `€ ${Math.round(p.costoPeriodo).toLocaleString('it-IT')}` : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-line bg-bg-soft">
-              <td colSpan={4} className="px-3 py-2 text-xs font-semibold text-ink-soft">TOTALE</td>
-              <td className="px-3 py-2 text-right tabular-nums font-bold text-ink bg-forest/5">{totalConsumo > 0 ? totalConsumo : '—'}</td>
-              <td className="px-3 py-2"></td>
-              <td className="px-3 py-2 text-right tabular-nums font-bold text-red-700 bg-red-50">{totaleCosto > 0 ? `€ ${Math.round(totaleCosto).toLocaleString('it-IT')}` : '—'}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </>
+    </div>
   );
 }
