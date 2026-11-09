@@ -60,9 +60,9 @@ export default async function AppPage() {
   // Icona del tasto "Pazienti ricoverati" in base all'unità operativa attiva
   const nomeUo = (uoAttiva?.nome ?? '').toLowerCase();
   const iconaPazienti =
-    /gca\s*1/.test(nomeUo) ? '/icone/pazienti-gca1.png'
-    : /spinale/.test(nomeUo) ? '/icone/pazienti-spinale.png'
-    : /gca\s*3/.test(nomeUo) ? '/icone/pazienti-gca3.png'
+    /gca\s*1/.test(nomeUo) ? '/icone/uo-gca1.png'
+    : /spinale/.test(nomeUo) ? '/icone/uo-spinale.png'
+    : /gca\s*3/.test(nomeUo) ? '/icone/uo-gca3.png'
     : null;
 
   return (
@@ -126,7 +126,7 @@ export default async function AppPage() {
                 { href: '/germ-alert',         src: '/icone/germ-alert.png',  label: 'Germ Alert' },
                 { href: '/report-paca',        src: '/icone/report-paca.png', label: 'Report PACA' },
                 { href: '/archivio',           src: '/icone/archivio.png',    label: 'Archivio' },
-                { href: '/carrelli',           src: '/icone/carrelli.png',    label: 'Carrelli' },
+                { href: '/carrelli',           src: '/icone/carrelli-v2.png',    label: 'Carrelli' },
               ].map(({ href, src, label }) => (
                 <Link key={href} href={href}
                   className="flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 active:scale-95 transition-all">

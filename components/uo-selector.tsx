@@ -10,6 +10,21 @@ interface UnitaOperativa {
   attiva: boolean;
 }
 
+function iconaUo(nome: string): string | null {
+  const n = nome.toLowerCase();
+  if (/gca\s*1/.test(n)) return '/icone/uo-gca1.png';
+  if (/spinale/.test(n)) return '/icone/uo-spinale.png';
+  if (/gca\s*3/.test(n)) return '/icone/uo-gca3.png';
+  return null;
+}
+
+function UoIcon({ nome, className }: { nome: string; className: string }) {
+  const src = iconaUo(nome);
+  // eslint-disable-next-line @next/next/no-img-element
+  if (src) return <img src={src} alt="" className={`rounded-xl object-contain shrink-0 ${className}`} />;
+  return <Building2 className="w-5 h-5 text-forest shrink-0" />;
+}
+
 export function UoSelector({
   unita,
   uoAttivaId,
@@ -84,9 +99,7 @@ export function UoSelector({
             className="flex items-center justify-between gap-3 p-4 rounded-xl border border-line hover:border-forest/40 hover:shadow-sm bg-bg-card text-left transition-all"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-forest-tint text-forest flex items-center justify-center shrink-0">
-                <Building2 className="w-5 h-5" />
-              </div>
+              <UoIcon nome={u.nome} className="w-14 h-14" />
               <p className="font-semibold text-ink text-sm">{u.nome}</p>
             </div>
             {isPending ? <Loader2 className="w-4 h-4 animate-spin text-ink-mute shrink-0" /> : null}
@@ -100,9 +113,11 @@ export function UoSelector({
   return (
     <div ref={ref} className="relative inline-block">
       <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-forest bg-forest/5">
-        <div className="w-9 h-9 rounded-lg bg-forest text-white flex items-center justify-center shrink-0">
-          {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Building2 className="w-5 h-5" />}
-        </div>
+        {isPending ? (
+          <div className="w-14 h-14 flex items-center justify-center shrink-0"><Loader2 className="w-5 h-5 animate-spin text-forest" /></div>
+        ) : (
+          <UoIcon nome={uoAttiva.nome} className="w-14 h-14" />
+        )}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink text-sm">{uoAttiva.nome}</p>
           <p className="text-xs text-forest">UO attiva</p>
@@ -127,7 +142,7 @@ export function UoSelector({
               disabled={isPending}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-forest/5 transition-colors"
             >
-              <Building2 className="w-4 h-4 text-ink-mute shrink-0" />
+              <UoIcon nome={u.nome} className="w-10 h-10" />
               <span className="font-medium text-ink">{u.nome}</span>
               {isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-ink-mute ml-auto" />}
             </button>
