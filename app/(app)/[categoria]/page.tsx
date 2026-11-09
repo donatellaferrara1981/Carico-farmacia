@@ -12,6 +12,7 @@ import { getUoAttivaId } from '@/lib/uo-cookie';
 import { DocumentiList } from '@/components/documenti-list';
 import { UploadButton } from '@/components/upload-button';
 import { SanitarioToolbar } from '@/components/sanitario-toolbar';
+import { RichiestaNominativaMail } from '@/components/richiesta-nominativa-mail';
 import { RichiestaEconomaleMail } from '@/components/richiesta-economale-mail';
 
 const VALIDE: CategoriaArticolo[] = ['terapie', 'nutrizioni', 'sanitario', 'economale'];
@@ -150,6 +151,17 @@ export default async function CategoriaPage({
             )}
           </div>
         ) : (
+          <>
+          {cat === 'terapie' && uoAttiva && (
+            <div className="mb-4">
+              <RichiestaNominativaMail
+                uoNome={uoAttiva.nome}
+                nomeRichiedente={ctx.profile.full_name ?? ''}
+                farmaci={prodotti.filter((p) => p.nominativa).map((p) => [p.principio_attivo, p.dosaggio].filter(Boolean).join(' '))}
+                pazienti={((pazientiRes.data ?? []) as { nominativo: string }[]).map((p) => p.nominativo)}
+              />
+            </div>
+          )}
           <ProdottiView
             prodotti={prodotti}
             docsLiberi={docsLiberiRes.data ?? []}
@@ -160,6 +172,7 @@ export default async function CategoriaPage({
             pazienti={cat === 'terapie' ? (pazientiRes.data ?? []) : []}
             terapiePazienti={cat === 'terapie' ? (terapiePazRes.data ?? []) : []}
           />
+          </>
         )}
       </main>
     </div>
