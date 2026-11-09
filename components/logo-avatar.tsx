@@ -22,15 +22,15 @@ export function LogoAvatar({ avatar }: { avatar?: string | null }) {
   }
 
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="relative flex items-center gap-1.5 min-w-0">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-label="Scegli avatar account" title="Scegli il tuo avatar"
         className={`shrink-0 rounded-xl active:scale-95 transition ${pending ? 'opacity-60' : ''}`}>
         {src
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={src} alt="" className="w-[72px] h-[72px] rounded-2xl object-cover" />
+          ? <img src={src} alt="" className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover" />
           : <Logo size={68} hideText />}
       </button>
-      <Link href="/app" className="font-display font-semibold text-forest text-base leading-tight">
+      <Link href="/app" className="font-display font-semibold text-forest text-[13px] sm:text-base leading-tight min-w-0">
         Gestionale<br />Infermieristico
       </Link>
 

@@ -17,6 +17,7 @@
   body {
     position: relative;
     min-height: 100vh;
+    overflow-x: clip;
   }
   body::before {
     content: '';

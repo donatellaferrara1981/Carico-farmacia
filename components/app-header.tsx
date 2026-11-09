@@ -27,8 +27,8 @@ interface Props {
 export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
   return (
     <header className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-line">
-      <div className="max-w-7xl mx-auto px-4 h-[88px] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 h-[72px] sm:h-[88px] flex items-center justify-between gap-1 sm:gap-3">
+        <div className="flex items-center gap-2 min-w-0">
           <LogoAvatar avatar={(ctx.profile as { avatar?: string | null }).avatar ?? null} />
         </div>
 
@@ -75,7 +75,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
           <Link href="/impostazioni" className="p-2 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors" title="Impostazioni">
             <Settings className="w-4 h-4" />
           </Link>
@@ -84,7 +84,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
             <AlertBellServer orgId={ctx.organization.id} />
           </Suspense>
 
-          <RoleBadge role={ctx.role} />
+          <span className="hidden sm:inline-flex"><RoleBadge role={ctx.role} /></span>
 
           <form action={logoutAction}>
             <button type="submit" className="btn-ghost p-2" aria-label="Esci">
