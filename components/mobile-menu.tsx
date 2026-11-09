@@ -85,7 +85,7 @@ export function MobileMenu({
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-5 py-3.5 hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
               >
-                <Icon className={Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-6 h-6 shrink-0' : 'w-4 h-4 shrink-0'} />
+                <Icon className={Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-9 h-9 shrink-0' : 'w-4 h-4 shrink-0'} />
                 {label}
               </Link>
             ))}

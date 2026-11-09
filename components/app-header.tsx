@@ -69,7 +69,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
               title={label}
               className="group relative flex items-center px-2.5 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
             >
-              <Icon className={Icon === CarrelloIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-6 h-6' : 'w-4 h-4'} />
+              <Icon className={Icon === CarrelloIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-8 h-8' : 'w-4 h-4'} />
               <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                 {label}
               </span>

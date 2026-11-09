@@ -6,24 +6,9 @@ import { CAT_LABELS } from '@/lib/types';
 import { AppHeader } from '@/components/app-header';
 import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
-import { GermAlertIcon } from '@/components/germ-alert-icon';
-import { ReportPacaIcon } from '@/components/report-paca-icon';
-import { ArchivioIcon } from '@/components/archivio-icon';
-import { OrdiniIcon } from '@/components/ordini-icon';
-import { CalendarioIcon } from '@/components/calendario-icon';
-import { GareIcon } from '@/components/gare-icon';
-import { GraficiIcon } from '@/components/grafici-icon';
-import { CarrelloIcon } from '@/components/carrello-icon';
-import { FileText, ClipboardList, Building2, CalendarDays, Users } from 'lucide-react';
+import { FileText, Building2, Users } from 'lucide-react';
 
 export const metadata = { title: 'Dashboard' };
-
-const CAT_ICONS: Record<string, string> = {
-  terapie:    '💊',
-  nutrizioni: '🥗',
-  sanitario:  '🩺',
-  economale:  '🗂️',
-};
 
 export default async function AppPage() {
   const supabase = await createClient();
@@ -115,48 +100,26 @@ export default async function AppPage() {
               )}
             </Link>
 
-            {/* Barra icone — tutte le sezioni */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {/* Primo bottone: hub Carico farmacia → sottocartelle Terapie e Nutrizioni */}
-              <Link href="/carico" title="Carico farmacia"
-                className="group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all hover:border-forest/40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icone/carico.png" alt="Carico farmacia" className="w-9 h-9 rounded-lg" />
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                  Carico farmacia
-                </span>
-              </Link>
-              {([
-                { href: '/sanitario',          icon: <img src="/icone/sanitario.png" alt="Sanitario" className="w-9 h-9 rounded-lg" />,  label: 'Sanitario',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/economale',          icon: <img src="/icone/economale.png" alt="Economale" className="w-9 h-9 rounded-lg" />,  label: 'Economale',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
-              ] as const).map(({ href, icon, label, color }) => (
-                <Link key={href} href={href} title={label}
-                  className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all text-xl ${color}`}>
-                  {icon}
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                    {label}
-                  </span>
-                </Link>
-              ))}
-
-              <div className="w-px h-6 bg-line mx-0.5" />
-
-              {([
-                { href: '/calendario',         Icon: CalendarioIcon, label: 'Calendario',   color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/grafici',            Icon: GraficiIcon,    label: 'Grafici',       color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/approvvigionamento', Icon: OrdiniIcon,  label: 'Ordini',        color: 'hover:bg-amber/10 hover:border-amber/30' },
-                { href: '/gare',               Icon: GareIcon,        label: 'Gare',          color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/germ-alert',         Icon: GermAlertIcon,  label: 'Germ Alert',    color: 'hover:bg-red-50 hover:border-red-200' },
-                { href: '/report-paca',        Icon: ReportPacaIcon, label: 'Report PACA',   color: 'hover:bg-amber/10 hover:border-amber/30' },
-                { href: '/archivio',          Icon: ArchivioIcon,   label: 'Archivio',      color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/carrelli',           Icon: CarrelloIcon,   label: 'Carrelli',      color: 'hover:bg-red-50 hover:border-red-200' },
-              ] as const).map(({ href, Icon, label, color }) => (
-                <Link key={href} href={href} title={label}
-                  className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all ${color}`}>
-                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-9 h-9' : 'w-5 h-5'} />
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                    {label}
-                  </span>
+            {/* Sezioni: icone grandi con nome, leggibili da cellulare */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+              {[
+                { href: '/carico',             src: '/icone/carico.png',      label: 'Carico farmacia' },
+                { href: '/sanitario',          src: '/icone/sanitario.png',   label: 'Sanitario' },
+                { href: '/economale',          src: '/icone/economale.png',   label: 'Economale' },
+                { href: '/approvvigionamento', src: '/icone/ordini.png',      label: 'Ordini' },
+                { href: '/calendario',         src: '/icone/calendario.png',  label: 'Calendario' },
+                { href: '/grafici',            src: '/icone/grafici.png',     label: 'Grafici' },
+                { href: '/gare',               src: '/icone/gare.png',        label: 'Gare' },
+                { href: '/germ-alert',         src: '/icone/germ-alert.png',  label: 'Germ Alert' },
+                { href: '/report-paca',        src: '/icone/report-paca.png', label: 'Report PACA' },
+                { href: '/archivio',           src: '/icone/archivio.png',    label: 'Archivio' },
+                { href: '/carrelli',           src: '/icone/carrelli.png',    label: 'Carrelli' },
+              ].map(({ href, src, label }) => (
+                <Link key={href} href={href}
+                  className="flex flex-col items-center gap-1.5 p-2 rounded-2xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 active:scale-95 transition-all">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-contain" />
+                  <span className="text-xs sm:text-sm font-medium text-ink text-center leading-tight">{label}</span>
                 </Link>
               ))}
             </div>
