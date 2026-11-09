@@ -1,11 +1,11 @@
--- Archivio delle relazioni generate (Report ICA e Report PACA/DRG).
+-- Archivio delle relazioni generate (Report ICA, Report PACA/DRG, antibiotici e altre relazioni).
 -- Tabella aggiuntiva: non modifica nessuna tabella esistente.
 -- Stesse regole di accesso di ica_esami (solo membri dell'organizzazione).
 
 create table if not exists public.relazioni_archiviate (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations(id) on delete cascade,
-  tipo text not null check (tipo in ('ica', 'paca')),
+  tipo text not null check (tipo in ('ica', 'paca', 'antibiotici', 'altro')),
   titolo text not null,
   periodo text,
   html text not null,

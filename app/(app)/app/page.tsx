@@ -8,6 +8,7 @@ import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import { GermAlertIcon } from '@/components/germ-alert-icon';
 import { ReportPacaIcon } from '@/components/report-paca-icon';
+import { ArchivioIcon } from '@/components/archivio-icon';
 import { OrdiniIcon } from '@/components/ordini-icon';
 import { CalendarioIcon } from '@/components/calendario-icon';
 import { GareIcon } from '@/components/gare-icon';
@@ -147,11 +148,12 @@ export default async function AppPage() {
                 { href: '/gare',               Icon: GareIcon,        label: 'Gare',          color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/germ-alert',         Icon: GermAlertIcon,  label: 'Germ Alert',    color: 'hover:bg-red-50 hover:border-red-200' },
                 { href: '/report-paca',        Icon: ReportPacaIcon, label: 'Report PACA',   color: 'hover:bg-amber/10 hover:border-amber/30' },
+                { href: '/archivio',          Icon: ArchivioIcon,   label: 'Archivio',      color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/carrelli',           Icon: CarrelloIcon,   label: 'Carrelli',      color: 'hover:bg-red-50 hover:border-red-200' },
               ] as const).map(({ href, Icon, label, color }) => (
                 <Link key={href} href={href} title={label}
                   className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all ${color}`}>
-                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon ? 'w-9 h-9' : 'w-5 h-5'} />
+                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-9 h-9' : 'w-5 h-5'} />
                   <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                     {label}
                   </span>

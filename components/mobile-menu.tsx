@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { ArchivioIcon } from '@/components/archivio-icon';
 import { OrdiniIcon } from '@/components/ordini-icon';
 import { CalendarioIcon } from '@/components/calendario-icon';
 import { GraficiIcon } from '@/components/grafici-icon';
@@ -13,6 +14,7 @@ const NAV_LINKS = [
   { href: '/grafici',            label: 'Grafici',    Icon: GraficiIcon   },
   { href: '/calendario',         label: 'Calendario', Icon: CalendarioIcon },
   { href: '/approvvigionamento', label: 'Ordini',     Icon: OrdiniIcon, },
+  { href: '/archivio',          label: 'Archivio',   Icon: ArchivioIcon  },
 ];
 
 interface UnitaOperativa { id: string; nome: string; attiva: boolean; }
@@ -83,7 +85,7 @@ export function MobileMenu({
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-5 py-3.5 hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors text-sm font-medium"
               >
-                <Icon className={Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon ? 'w-6 h-6 shrink-0' : 'w-4 h-4 shrink-0'} />
+                <Icon className={Icon === GraficiIcon || Icon === CalendarioIcon || Icon === OrdiniIcon || Icon === ArchivioIcon ? 'w-6 h-6 shrink-0' : 'w-4 h-4 shrink-0'} />
                 {label}
               </Link>
             ))}

@@ -14,6 +14,7 @@ export interface RelazioneArchiviata {
   periodo: string | null;
   created_at: string;
   created_by_nome: string | null;
+  tipo?: string;
 }
 
 function formatData(iso: string) {
@@ -30,7 +31,7 @@ export function ArchivioRelazioni({
   tipo,
   relazioni,
 }: {
-  tipo: TipoRelazione;
+  tipo?: TipoRelazione;
   relazioni: RelazioneArchiviata[];
 }) {
   const [selezionate, setSelezionate] = useState<Set<string>>(new Set());
@@ -143,7 +144,14 @@ export function ArchivioRelazioni({
                 aria-label={`Seleziona ${r.titolo}`}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ink truncate">{r.titolo}</p>
+                <p className="text-sm font-medium text-ink truncate">
+                  {r.tipo && !tipo && (
+                    <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-forest/10 text-forest border border-forest/20 uppercase align-middle">
+                      {r.tipo === 'altro' ? 'altra' : r.tipo}
+                    </span>
+                  )}
+                  {r.titolo}
+                </p>
                 <p className="text-xs text-ink-mute">
                   Archiviata il {formatData(r.created_at)}
                   {r.created_by_nome ? ` · ${r.created_by_nome}` : ''}
