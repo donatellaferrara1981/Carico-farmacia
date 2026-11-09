@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loginAction, type AuthState } from '../actions';
 import { ArrowRight, Loader2 } from 'lucide-react';
+import { PasswordInput } from '@/components/password-input';
 
 export function LoginForm() {
   const sp = useSearchParams();
@@ -62,10 +63,9 @@ export function LoginForm() {
               dimenticata?
             </Link>
           </div>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             minLength={8}

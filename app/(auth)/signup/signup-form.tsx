@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import Link from 'next/link';
 import { signupAction, type AuthState } from '../actions';
 import { ArrowRight, Loader2, MailCheck } from 'lucide-react';
+import { PasswordInput } from '@/components/password-input';
 
 export function SignupForm() {
   const [state, formAction, pending] = useActionState<AuthState | null, FormData>(
@@ -82,10 +83,9 @@ export function SignupForm() {
           <label htmlFor="password" className="label-base">
             Password
           </label>
-          <input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={8}

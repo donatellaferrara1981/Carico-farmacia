@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { PasswordInput } from '@/components/password-input';
 
 export function NuovaPasswordForm() {
   const [password, setPassword] = useState('');
@@ -47,10 +48,9 @@ export function NuovaPasswordForm() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="password" className="label-base">Nuova password</label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
-              required
+                required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -61,10 +61,9 @@ export function NuovaPasswordForm() {
           </div>
           <div>
             <label htmlFor="conferma" className="label-base">Conferma password</label>
-            <input
+            <PasswordInput
               id="conferma"
-              type="password"
-              required
+                required
               value={conferma}
               onChange={(e) => setConferma(e.target.value)}
               className="input-base"
