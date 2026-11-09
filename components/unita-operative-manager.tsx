@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Trash2, Eye, EyeOff, Loader2, Building2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { aggiungiUnitaAction, toggleUnitaAction, eliminaUnitaAction } from '@/app/(app)/impostazioni/actions';
 
 interface UnitaOperativa {
@@ -37,9 +37,8 @@ export function UnitaOperativeManager({
     <div className="space-y-6">
       <div className="card">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg bg-forest-tint flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-forest" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icone/unita-operative.png" alt="" className="w-12 h-12 rounded-xl shrink-0" />
           <div>
             <h2 className="font-semibold text-ink">Unità Operative</h2>
             <p className="text-xs text-ink-soft">Reparti che gestisci con questa app</p>
