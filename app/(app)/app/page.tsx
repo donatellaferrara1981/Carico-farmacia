@@ -60,7 +60,7 @@ export default async function AppPage() {
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita} />
-      <main className="max-w-2xl mx-auto px-4 py-4">
+      <main className="max-w-2xl mx-auto px-3 py-3">
         {/* Selezione unità operativa */}
         <section className="mb-4">
           <div className="flex items-center gap-2 mb-2">
@@ -100,8 +100,8 @@ export default async function AppPage() {
               )}
             </Link>
 
-            {/* Sezioni: icone grandi con nome, leggibili da cellulare */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+            {/* Sezioni: tutte visibili in una schermata da cellulare (4 colonne x 3 righe) */}
+            <div className="grid grid-cols-4 gap-2">
               {[
                 { href: '/carico',             src: '/icone/carico.png',      label: 'Carico farmacia' },
                 { href: '/sanitario',          src: '/icone/sanitario.png',   label: 'Sanitario' },
@@ -116,10 +116,10 @@ export default async function AppPage() {
                 { href: '/carrelli',           src: '/icone/carrelli.png',    label: 'Carrelli' },
               ].map(({ href, src, label }) => (
                 <Link key={href} href={href}
-                  className="flex flex-col items-center gap-1.5 p-2 rounded-2xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 active:scale-95 transition-all">
+                  className="flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 active:scale-95 transition-all">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-contain" />
-                  <span className="text-xs sm:text-sm font-medium text-ink text-center leading-tight">{label}</span>
+                  <img src={src} alt="" className="w-full aspect-square max-w-[84px] rounded-2xl object-contain" />
+                  <span className="text-[11px] sm:text-sm font-medium text-ink text-center leading-tight min-h-[2.2em] flex items-center">{label}</span>
                 </Link>
               ))}
             </div>
