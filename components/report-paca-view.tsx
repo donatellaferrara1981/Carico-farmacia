@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState, useTransition, useRef } from 'react';
-import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, Printer, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw, StickyNote, Trash2, Share2, Archive } from 'lucide-react';
+import { FileText, CheckSquare, Square, AlertTriangle, TrendingUp, Euro, ChevronDown, ChevronUp, Loader2, Plus, X, Pencil, RotateCcw, StickyNote, Trash2, Share2, Archive } from 'lucide-react';
 import { aggiornaEsitoPacaAction, type EsitoPaca } from '@/app/(app)/report-paca/actions';
 import { archiviaRelazioneAction } from '@/app/(app)/relazioni/actions';
 import { ArchivioRelazioni, type RelazioneArchiviata } from '@/components/archivio-relazioni';
@@ -304,7 +305,7 @@ ${criticita.length > 0 ? `
             </span>
           )}
           <button onClick={stampaReport} className="btn-primary text-sm flex items-center gap-1.5">
-            <Printer className="w-4 h-4" /> Stampa / PDF
+            <StampaIcon /> Stampa / PDF
           </button>
           <button
             onClick={archiviaReport}
@@ -579,7 +580,7 @@ td{padding:4px 7px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:
                   onClick={() => stampaMese(mese, lista)}
                   className="text-xs text-ink-mute hover:text-forest border border-line rounded px-2 py-1 flex items-center gap-1"
                 >
-                  <Printer className="w-3 h-3" /> Stampa mese
+                  <StampaIcon /> Stampa mese
                 </button>
               </div>
               {/* Righe pazienti */}
@@ -932,7 +933,7 @@ table{width:100%;border-collapse:collapse}
                 <span className={`text-xs font-bold ${pct === 100 ? 'text-ok' : 'text-amber'}`}>{completate}/{totV}</span>
                 {voci.length > 0 && (
                   <button type="button" onClick={stampaChecklist} className="text-[10px] text-forest hover:underline flex items-center gap-0.5 font-semibold">
-                    <Printer className="w-2.5 h-2.5" /> Stampa PDF
+                    <StampaIcon /> Stampa PDF
                   </button>
                 )}
                 {voci.length > 0 && (
@@ -999,7 +1000,7 @@ table{width:100%;border-collapse:collapse}
                   onClick={stampaNoteSelezionate}
                   className="text-[10px] font-semibold text-forest hover:underline flex items-center gap-1"
                 >
-                  <Printer className="w-3 h-3" /> Stampa {noteSelezionate.size} selezionat{noteSelezionate.size === 1 ? 'a' : 'e'}
+                  <StampaIcon /> Stampa {noteSelezionate.size} selezionat{noteSelezionate.size === 1 ? 'a' : 'e'}
                 </button>
               )}
             </div>

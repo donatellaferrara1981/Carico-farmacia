@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState, useTransition } from 'react';
-import { ChevronDown, ChevronUp, Trash2, Loader2, Calendar, Share2, Printer } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, Loader2, Calendar, Share2 } from 'lucide-react';
 import { eliminaPianoAction } from '@/app/(app)/[categoria]/piani-actions';
 import type { RigaPiano } from '@/app/(app)/[categoria]/piani-actions';
 
@@ -176,7 +177,7 @@ function PianoCard({ piano, canEdit }: { piano: Piano; canEdit: boolean }) {
                 onClick={() => stampaPiano(piano)}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line bg-bg-soft hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
               >
-                <Printer className="w-3.5 h-3.5" /> Stampa
+                <StampaIcon /> Stampa
               </button>
             </div>
             {canEdit && (

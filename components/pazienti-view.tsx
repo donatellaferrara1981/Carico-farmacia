@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState, useRef, useTransition, useEffect } from 'react';
-import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, Printer, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square, Pencil } from 'lucide-react';
+import { Upload, Users, Bed, Loader2, Plus, Trash2, X, Calendar, ChevronDown, ChevronUp, ClipboardCheck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { estraiPazientiDaImmagineAction, estraiPazientiDaHtmlAction, eliminaPazienteAction, aggiungiPazienteAction, eliminaTuttiPazientiUoAction } from '@/app/(app)/pazienti/actions';
 import { assegnaTerapiaAction, rimuoviTerapiaAction } from '@/app/(app)/pazienti/terapie-actions';
 import { inizializzaChecklistAction, reinizializzaChecklistAction, toggleVoceAction, aggiornaVoceTestoAction, aggiornaSdoPazienteAction, getChecklistAction } from '@/app/(app)/pazienti/checklist-actions';
@@ -450,7 +451,7 @@ function CaricoCard({ titolo, sottotitolo, sale, selezione, bySala, onToggle, on
             className="p-1 rounded text-forest hover:bg-forest/20 transition-colors"
             title="Stampa/condividi sale selezionate"
           >
-            <Printer className="w-3.5 h-3.5" />
+            <StampaIcon />
           </button>
         </div>
       </div>

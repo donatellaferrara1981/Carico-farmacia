@@ -1,7 +1,9 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState } from 'react';
-import { Printer, Share2, Mail, MessageCircle, Copy, Check, ChevronDown } from 'lucide-react';
+import { InviaEmailIcon } from '@/components/invia-email-icon';
+import { Share2, MessageCircle, Copy, Check, ChevronDown } from 'lucide-react';
 
 interface SharePrintBarProps {
   titolo: string;
@@ -56,7 +58,7 @@ export function SharePrintBar({ titolo, testoCondivisione, generaHtml, className
         onClick={stampa}
         className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line bg-bg-soft hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
       >
-        <Printer className="w-3.5 h-3.5" /> Stampa
+        <StampaIcon /> Stampa
       </button>
 
       <div className="relative">
@@ -82,7 +84,7 @@ export function SharePrintBar({ titolo, testoCondivisione, generaHtml, className
                 onClick={email}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-bg-soft text-ink transition-colors"
               >
-                <Mail className="w-4 h-4 text-forest shrink-0" /> Email
+                <InviaEmailIcon /> Email
               </button>
               <button
                 onClick={copia}

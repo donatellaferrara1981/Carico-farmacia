@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useEffect, useRef, useState } from 'react';
-import { Printer, Save, FileText, FileType, ChevronDown } from 'lucide-react';
+import { Save, FileText, FileType, ChevronDown } from 'lucide-react';
 import type { ProdottoConDocumenti } from '@/lib/prodotti';
 
 function escapeHtml(s: string) {
@@ -157,7 +158,7 @@ export function SanitarioExport({
         title="Stampa elenco"
         className="flex items-center justify-center w-7 h-7 rounded-md border border-line text-ink-soft hover:text-forest hover:border-forest/50 transition-colors"
       >
-        <Printer className="w-3.5 h-3.5" />
+        <StampaIcon />
       </button>
 
       {/* Salva (PDF / Word) */}

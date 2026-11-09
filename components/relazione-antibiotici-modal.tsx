@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState, useRef } from 'react';
-import { X, Printer, FileDown, FileText, Loader2 } from 'lucide-react';
+import { X, FileDown, FileText, Loader2 } from 'lucide-react';
 import { CLASSE_LABEL, type ClasseAntibiotico } from '@/lib/antibiotici';
 
 export interface AbxProdotto {
@@ -420,7 +421,7 @@ export function RelazioneAntibioticiModal({ prodotti, dal, al, giorni, orgName, 
               disabled={generating}
               className="btn-primary text-sm flex items-center gap-2"
             >
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <StampaIcon />}
               Stampa / PDF
             </button>
           </div>

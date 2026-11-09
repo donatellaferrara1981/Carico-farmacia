@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useRef, useState, useTransition } from 'react';
-import { Archive, Eye, Printer, Trash2, Loader2, X, AlertCircle } from 'lucide-react';
+import { Archive, Eye, Trash2, Loader2, X, AlertCircle } from 'lucide-react';
 import {
   getRelazioneHtmlAction,
   eliminaRelazioniAction,
@@ -195,7 +196,7 @@ export function ArchivioRelazioni({
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Apri / stampa
+                  <StampaIcon /> Apri / stampa
                 </a>
               ) : (
                 <button
@@ -203,7 +204,7 @@ export function ArchivioRelazioni({
                   onClick={stampaAperta}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Stampa
+                  <StampaIcon /> Stampa
                 </button>
               )}
               <button

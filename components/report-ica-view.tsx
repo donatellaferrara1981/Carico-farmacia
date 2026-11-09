@@ -1,7 +1,8 @@
 'use client';
 
+import { StampaIcon } from '@/components/stampa-icon';
 import { useState, useTransition } from 'react';
-import { Printer, Plus, Trash2, Pencil, Check, X, AlertTriangle, FlaskConical, ChevronDown, ChevronUp, Loader2, Archive } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, AlertTriangle, FlaskConical, ChevronDown, ChevronUp, Loader2, Archive } from 'lucide-react';
 import { aggiungiEsameIcaAction, aggiornaEsameIcaAction, eliminaEsameIcaAction } from '@/app/(app)/report-ica/actions';
 import { archiviaRelazioneAction } from '@/app/(app)/relazioni/actions';
 import { ArchivioRelazioni, type RelazioneArchiviata } from '@/components/archivio-relazioni';
@@ -221,7 +222,7 @@ td{padding:4px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align
             </span>
           )}
           <button onClick={stampaReport} className="btn-primary text-xs py-1.5 flex items-center gap-1">
-            <Printer className="w-3.5 h-3.5" /> Stampa
+            <StampaIcon /> Stampa
           </button>
           <button
             onClick={archiviaReport}
