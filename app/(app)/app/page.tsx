@@ -121,7 +121,7 @@ export default async function AppPage() {
               </Link>
               {([
                 { href: '/sanitario',          icon: <img src="/icone/sanitario.png" alt="Sanitario" className="w-9 h-9 rounded-lg" />,  label: 'Sanitario',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/economale',          icon: CAT_ICONS['economale'],  label: 'Economale',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
+                { href: '/economale',          icon: <img src="/icone/economale.png" alt="Economale" className="w-9 h-9 rounded-lg" />,  label: 'Economale',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
               ] as const).map(({ href, icon, label, color }) => (
                 <Link key={href} href={href} title={label}
                   className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all text-xl ${color}`}>
