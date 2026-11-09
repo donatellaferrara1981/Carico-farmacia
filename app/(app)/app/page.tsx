@@ -57,6 +57,14 @@ export default async function AppPage() {
     numeroPazienti = count ?? 0;
   }
 
+  // Icona del tasto "Pazienti ricoverati" in base all'unità operativa attiva
+  const nomeUo = (uoAttiva?.nome ?? '').toLowerCase();
+  const iconaPazienti =
+    /gca\s*1/.test(nomeUo) ? '/icone/pazienti-gca1.png'
+    : /spinale/.test(nomeUo) ? '/icone/pazienti-spinale.png'
+    : /gca\s*3/.test(nomeUo) ? '/icone/pazienti-gca3.png'
+    : null;
+
   return (
     <div className="min-h-screen bg-bg">
       <AppHeader ctx={ctx} uoAttiva={uoAttiva} unita={unita} />
@@ -86,9 +94,14 @@ export default async function AppPage() {
               href="/pazienti"
               className="flex items-center gap-3 px-3 py-2.5 mb-4 rounded-xl border border-forest/30 bg-forest/5 hover:bg-forest/10 hover:border-forest/50 transition-all group"
             >
-              <div className="w-8 h-8 rounded-lg bg-forest/10 flex items-center justify-center shrink-0 group-hover:bg-forest/20 transition-colors">
-                <Users className="w-4 h-4 text-forest" />
-              </div>
+              {iconaPazienti ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={iconaPazienti} alt="" className="w-12 h-12 rounded-xl shrink-0" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-forest/10 flex items-center justify-center shrink-0 group-hover:bg-forest/20 transition-colors">
+                  <Users className="w-6 h-6 text-forest" />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-ink text-sm">Pazienti ricoverati</p>
                 <p className="text-xs text-ink-mute truncate">{uoAttiva.nome}</p>
