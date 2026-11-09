@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { ReportPacaIcon } from '@/components/report-paca-icon';
+import { CalendarioIcon } from '@/components/calendario-icon';
 import { GareIcon } from '@/components/gare-icon';
 import { GraficiIcon } from '@/components/grafici-icon';
 import { CarrelloIcon } from '@/components/carrello-icon';
@@ -52,7 +53,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
         <nav className="hidden sm:flex items-center gap-1 flex-1">
           {[
             { href: '/grafici',            label: 'Grafici',     Icon: GraficiIcon   },
-            { href: '/calendario',         label: 'Calendario',  Icon: CalendarDays  },
+            { href: '/calendario',         label: 'Calendario',  Icon: CalendarioIcon },
             { href: '/gare',               label: 'Gare',        Icon: GareIcon      },
             { href: '/approvvigionamento', label: 'Ordini',      Icon: ClipboardList },
             { href: '/report-paca',        label: 'Report PACA', Icon: ReportPacaIcon },
@@ -65,7 +66,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
               title={label}
               className="group relative flex items-center px-2.5 py-1.5 rounded-lg hover:bg-bg-soft text-ink-soft hover:text-ink transition-colors"
             >
-              <Icon className={Icon === CarrelloIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon ? 'w-6 h-6' : 'w-4 h-4'} />
+              <Icon className={Icon === CarrelloIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon ? 'w-6 h-6' : 'w-4 h-4'} />
               <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                 {label}
               </span>

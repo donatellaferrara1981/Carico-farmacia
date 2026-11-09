@@ -8,6 +8,7 @@ import { UoSelector } from '@/components/uo-selector';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import { GermAlertIcon } from '@/components/germ-alert-icon';
 import { ReportPacaIcon } from '@/components/report-paca-icon';
+import { CalendarioIcon } from '@/components/calendario-icon';
 import { GareIcon } from '@/components/gare-icon';
 import { GraficiIcon } from '@/components/grafici-icon';
 import { CarrelloIcon } from '@/components/carrello-icon';
@@ -139,7 +140,7 @@ export default async function AppPage() {
               <div className="w-px h-6 bg-line mx-0.5" />
 
               {([
-                { href: '/calendario',         Icon: CalendarDays,   label: 'Calendario',   color: 'text-forest hover:bg-forest/10 hover:border-forest/30' },
+                { href: '/calendario',         Icon: CalendarioIcon, label: 'Calendario',   color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/grafici',            Icon: GraficiIcon,    label: 'Grafici',       color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/approvvigionamento', Icon: ClipboardList,  label: 'Ordini',        color: 'text-amber hover:bg-amber/10 hover:border-amber/30' },
                 { href: '/gare',               Icon: GareIcon,        label: 'Gare',          color: 'hover:bg-forest/10 hover:border-forest/30' },
@@ -149,7 +150,7 @@ export default async function AppPage() {
               ] as const).map(({ href, Icon, label, color }) => (
                 <Link key={href} href={href} title={label}
                   className={`group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all ${color}`}>
-                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon ? 'w-9 h-9' : 'w-5 h-5'} />
+                  <Icon className={Icon === CarrelloIcon || Icon === GermAlertIcon || Icon === ReportPacaIcon || Icon === GareIcon || Icon === GraficiIcon || Icon === CalendarioIcon ? 'w-9 h-9' : 'w-5 h-5'} />
                   <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                     {label}
                   </span>
