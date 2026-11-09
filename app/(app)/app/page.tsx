@@ -109,9 +109,16 @@ export default async function AppPage() {
 
             {/* Barra icone — tutte le sezioni */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Primo bottone: hub Carico farmacia → sottocartelle Terapie e Nutrizioni */}
+              <Link href="/carico" title="Carico farmacia"
+                className="group relative flex items-center justify-center w-11 h-11 rounded-xl border border-line bg-bg-card transition-all hover:border-forest/40">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icone/carico.png" alt="Carico farmacia" className="w-9 h-9 rounded-lg" />
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-0.5 rounded bg-ink text-bg text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  Carico farmacia
+                </span>
+              </Link>
               {([
-                { href: '/terapie',           icon: CAT_ICONS['terapie'],    label: 'Terapie',      emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
-                { href: '/nutrizioni',         icon: CAT_ICONS['nutrizioni'], label: 'Nutrizioni',   emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/sanitario',          icon: CAT_ICONS['sanitario'],  label: 'Sanitario',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
                 { href: '/economale',          icon: CAT_ICONS['economale'],  label: 'Economale',    emoji: true,  color: 'hover:bg-forest/10 hover:border-forest/30' },
               ] as const).map(({ href, icon, label, color }) => (
