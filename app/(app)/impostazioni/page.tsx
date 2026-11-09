@@ -4,6 +4,7 @@ import { AppHeader } from '@/components/app-header';
 import { BackButton } from '@/components/back-button';
 import { UnitaOperativeManager } from '@/components/unita-operative-manager';
 import { AlertConfigForm } from '@/components/alert-config-form';
+import { CambiaPasswordForm } from '@/components/cambia-password-form';
 import type { CurrentUserContext } from '@/lib/types';
 
 export const metadata = { title: 'Impostazioni' };
@@ -48,6 +49,12 @@ export default async function ImpostazioniPage() {
           orgId={org.id}
           canEdit={ctx.role === 'admin' || ctx.role === 'collaboratore'}
         />
+
+        <div className="mt-10">
+          <h2 className="font-semibold text-ink mb-1">Password account</h2>
+          <p className="text-xs text-ink-mute mb-4">Scegli una nuova password per il tuo accesso.</p>
+          <CambiaPasswordForm />
+        </div>
 
         <div className="mt-10">
           <h2 className="font-semibold text-ink mb-1">Alert e notifiche email</h2>
