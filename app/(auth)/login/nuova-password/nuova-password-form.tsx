@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -13,10 +13,26 @@ export function NuovaPasswordForm() {
   const [error, setError] = useState('');
   const [pending, start] = useTransition();
   const router = useRouter();
+  const [sessione, setSessione] = useState<'attesa' | 'ok' | 'scaduta'>('attesa');
+
+  // Il link della mail porta qui con ?code=...: va scambiato con una sessione prima di cambiare password.
+  useEffect(() => {
+    const supabase = createClient();
+    (async () => {
+      const code = new URLSearchParams(window.location.search).get('code');
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) window.history.replaceState(null, '', window.location.pathname);
+      }
+      const { data } = await supabase.auth.getSession();
+      setSessione(data.session ? 'ok' : 'scaduta');
+    })();
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    if (sessione !== 'ok') { setError('Link scaduto o già usato: richiedi una nuova mail da "Password dimenticata".'); return; }
     if (password.length < 8) { setError('La password deve essere di almeno 8 caratteri.'); return; }
     if (password !== conferma) { setError('Le password non coincidono.'); return; }
 

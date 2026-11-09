@@ -49,7 +49,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Utente autenticato che tenta di andare a /login o /signup → /app
-  if (user && (pathname.startsWith('/login') || pathname.startsWith('/signup'))) {
+  if (user && !pathname.startsWith('/login/nuova-password') && (pathname.startsWith('/login') || pathname.startsWith('/signup'))) {
     const url = request.nextUrl.clone();
     url.pathname = '/app';
     url.search = '';
