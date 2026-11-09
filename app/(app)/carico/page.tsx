@@ -5,6 +5,7 @@ import { AppHeader } from '@/components/app-header';
 import { BackButton } from '@/components/back-button';
 import { getUoAttivaId } from '@/lib/uo-cookie';
 import type { CurrentUserContext } from '@/lib/types';
+import { FileUp } from 'lucide-react';
 
 export const metadata = { title: 'Carico farmacia' };
 
@@ -67,6 +68,20 @@ export default async function CaricoPage() {
             </Link>
           ))}
         </div>
+
+        {/* Flag: carica intero consumo giornaliero (file unico terapie + nutrizioni) */}
+        <Link
+          href="/carico/consumo"
+          className="group mt-3 flex items-center gap-3 p-4 rounded-2xl border border-forest/30 bg-forest/5 hover:bg-forest/10 hover:border-forest/50 transition-all"
+        >
+          <div className="w-12 h-12 rounded-xl bg-forest/10 flex items-center justify-center shrink-0">
+            <FileUp className="w-6 h-6 text-forest" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-ink">Carica intero consumo giornaliero</p>
+            <p className="text-xs text-ink-mute">Carica il file e ottieni il calcolo per forma farmaceutica, pazienti e richieste</p>
+          </div>
+        </Link>
       </main>
     </div>
   );
