@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { AVATAR_IDS, avatarSrc } from '@/lib/avatar';
@@ -27,12 +26,9 @@ export function LogoAvatar({ avatar }: { avatar?: string | null }) {
         className={`shrink-0 rounded-xl active:scale-95 transition ${pending ? 'opacity-60' : ''}`}>
         {src
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={src} alt="" className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover" />
-          : <Logo size={68} hideText />}
+          ? <img src={src} alt="" className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover" />
+          : <Logo size={64} hideText />}
       </button>
-      <Link href="/app" className="font-display font-semibold text-forest text-[13px] sm:text-base leading-tight min-w-0">
-        Gestionale<br />Infermieristico
-      </Link>
 
       {open && (
         <>
