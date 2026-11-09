@@ -27,7 +27,7 @@ interface Props {
 export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
   return (
     <header className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-line">
-      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-4 h-[72px] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 shrink-0">
           <LogoAvatar avatar={(ctx.profile as { avatar?: string | null }).avatar ?? null} />
         </div>
