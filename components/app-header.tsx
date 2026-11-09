@@ -11,7 +11,6 @@ import { Bell, LogOut, ClipboardList, Settings, CalendarDays, Users, Activity } 
 import { LogoAvatar } from './logo-avatar';
 import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
-import { MobileMenu } from './mobile-menu';
 import { UoSwitcher } from './uo-switcher';
 import { logoutAction } from '@/app/(auth)/actions';
 import type { CurrentUserContext } from '@/lib/types';
@@ -92,7 +91,6 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
             </button>
           </form>
 
-          <MobileMenu uoAttiva={uoAttiva} unita={unita} />
         </div>
       </div>
     </header>
