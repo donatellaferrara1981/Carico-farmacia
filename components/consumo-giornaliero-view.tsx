@@ -34,6 +34,7 @@ interface Riga {
   pazienti: { nome: string; posologia: string | null }[];
   altoCosto: boolean;
   nominativa: boolean;
+  consumo: number;
 }
 
 const norm = (s: string | null | undefined) =>
@@ -81,8 +82,9 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
       const mappa = sezioni.get(sezione) ?? new Map<string, Riga>();
       const r = mappa.get(chiave) ?? {
         chiave, principio: p.principio_attivo.trim(), dosaggio: (p.dosaggio ?? '').trim(),
-        nomi: [], pazienti: [], altoCosto: isAltoCosto(p.principio_attivo), nominativa: false,
+        nomi: [], pazienti: [], altoCosto: isAltoCosto(p.principio_attivo), nominativa: false, consumo: 0,
       };
+      r.consumo += Number(p.consumo_giornaliero) || 0;
       if (p.nome_commerciale && !r.nomi.some((n) => norm(n) === norm(p.nome_commerciale))) r.nomi.push(p.nome_commerciale.trim());
       for (const x of pz) if (!r.pazienti.some((y) => y.nome === x.nome)) r.pazienti.push(x);
       r.nominativa = r.nominativa || p.nominativa;
@@ -134,22 +136,31 @@ export function ConsumoGiornalieroView({ prodotti, terapie, pazienti, orgName, u
   }
 
   function generaHtml() {
+    const fmt = (n: number) => (Math.round(n * 100) / 100).toString().replace('.', ',');
     const badge = (r: Riga) =>
-      `${r.altoCosto ? '<b class="red">⚠ Richiesta motivata</b> ' : ''}${r.nominativa ? '<b class="red">📝 Richiesta cartacea Direzione Sanitaria</b>' : ''}`;
-    const tab = (righe: Riga[]) =>
-      `<table><thead><tr><th>Principio attivo</th><th>Nomi commerciali</th><th>Pazienti</th><th>Richieste</th></tr></thead><tbody>${righe
-        .map((r) => `<tr><td><b>${esc(r.principio)}</b> ${esc(r.dosaggio)}</td><td>${esc(r.nomi.join(', '))}</td><td>${esc(r.pazienti.map((p) => p.nome).join('; '))}</td><td>${badge(r)}</td></tr>`)
-        .join('')}</tbody></table>`;
-    let corpo = '';
-    if (dati.motivate.length || dati.cartacee.length) {
-      corpo += `<h2>Da richiedere</h2><table><tbody>`;
-      if (dati.motivate.length) corpo += `<tr><td><b>Richiesta motivata (alto costo)</b></td><td>${esc(dati.motivate.map((r) => `${r.principio} ${r.dosaggio}`.trim()).join(', '))}</td></tr>`;
-      if (dati.cartacee.length) corpo += `<tr><td><b>Richiesta cartacea Direzione Sanitaria (nominative)</b></td><td>${esc(dati.cartacee.map((r) => `${r.principio} ${r.dosaggio}`.trim()).join(', '))}</td></tr>`;
-      corpo += `</tbody></table>`;
-    }
-    for (const g of dati.gruppi) corpo += `<h2>${esc(g.label)}</h2>${tab(g.righe)}`;
-    if (dati.integratori.length) corpo += `<h2>Integratori — non forniti dalla farmacia</h2>${tab(dati.integratori)}`;
-    return htmlBase(`Consumo giornaliero — ${esc(uoNome || orgName)}`, `Data: ${oggi}`, corpo);
+      `${r.altoCosto ? '<b class="red">⚠ Motivata</b> ' : ''}${r.nominativa ? '<b class="red">📝 Cartacea DS</b>' : ''}`;
+    const sez = (label: string, righe: Riga[]) =>
+      `<tr class="sez"><td colspan="6">${esc(label)}</td></tr>` +
+      righe
+        .map((r) => `<tr><td><b>${esc(r.principio)}</b> ${esc(r.dosaggio)}</td><td>${esc(r.nomi.join(', '))}</td><td class="num">${r.consumo ? fmt(r.consumo) : '—'}</td><td class="num">${r.consumo ? fmt(r.consumo * 7) : '—'}</td><td>${esc(r.pazienti.map((p) => p.nome).join('; '))}</td><td>${badge(r)}</td></tr>`)
+        .join('');
+    let corpo = `<table class="fit"><thead><tr><th>Principio attivo / dosaggio</th><th>Nome commerciale</th><th class="num">Die</th><th class="num">x7 gg</th><th>Pazienti</th><th>Richieste</th></tr></thead><tbody>`;
+    for (const g of dati.gruppi) corpo += sez(g.label, g.righe);
+    if (dati.integratori.length) corpo += sez('Integratori — non forniti dalla farmacia', dati.integratori);
+    corpo += '</tbody></table>';
+    const extra = `<style>
+  table.fit{margin-top:4px}
+  table.fit th,table.fit td{font-size:8px;padding:1.5px 4px;line-height:1.25}
+  tr.sez td{background:#e5e7eb !important;font-weight:700;font-size:8.5px;text-transform:uppercase;letter-spacing:.03em}
+  @media print{@page{size:A4 portrait;margin:0.8cm}tr{break-inside:avoid}}
+</style>
+<script>
+  // adatta il contenuto a un unico foglio A4
+  (function(){var H=(29.7-1.6)/2.54*96,W=(21-1.6)/2.54*96;
+    var h=document.body.scrollHeight,w=document.body.scrollWidth;
+    var k=Math.min(1,H/h,W/w); if(k<1) document.body.style.zoom=k;})();
+</script>`;
+    return htmlBase(`Consumo giornaliero — ${esc(uoNome || orgName)}`, `Data: ${oggi} · fabbisogno settimanale = consumo die × 7`, corpo).replace('</body>', `${extra}</body>`);
   }
 
   if (vuoto) {
