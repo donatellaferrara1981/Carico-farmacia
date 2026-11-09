@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { Plus, Loader2, AlertCircle, FileUp } from 'lucide-react';
 import { ArchivioRelazioni, type RelazioneArchiviata } from '@/components/archivio-relazioni';
-import { archiviaRelazioneManualeAction } from '@/app/(app)/relazioni/actions';
+import { archiviaRelazioneManualeAction, archiviaRelazionePdfAction } from '@/app/(app)/relazioni/actions';
 
 const FILTRI = [
   { id: 'tutte', label: 'Tutte' },
@@ -20,6 +20,7 @@ export function ArchivioPagina({ orgId, relazioni }: { orgId: string; relazioni:
   const [periodo, setPeriodo] = useState('');
   const [testo, setTesto] = useState('');
   const [eHtml, setEHtml] = useState(false);
+  const [pdf, setPdf] = useState<File | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [salvando, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -31,9 +32,16 @@ export function ArchivioPagina({ orgId, relazioni }: { orgId: string; relazioni:
     const f = e.target.files?.[0];
     if (!f) return;
     setErrore(null);
-    if (f.size > 1_500_000) { setErrore('File troppo grande (massimo 1,5 MB).'); return; }
     const nome = f.name.toLowerCase();
-    if (!/\.(txt|html?|md)$/.test(nome)) { setErrore('Sono supportati solo file .txt, .html o .md. Per un PDF incolla il testo.'); return; }
+    if (nome.endsWith('.pdf')) {
+      if (f.size > 4_000_000) { setErrore('PDF troppo grande (massimo 4 MB).'); return; }
+      setPdf(f); setTesto(''); setEHtml(false);
+      if (!titolo) setTitolo(f.name.replace(/\.[^.]+$/, ''));
+      return;
+    }
+    if (f.size > 1_500_000) { setErrore('File troppo grande (massimo 1,5 MB).'); return; }
+    if (!/\.(txt|html?|md)$/.test(nome)) { setErrore('Sono supportati PDF, .txt, .html e .md.'); return; }
+    setPdf(null);
     setTesto(await f.text());
     setEHtml(/\.html?$/.test(nome));
     if (!titolo) setTitolo(f.name.replace(/\.[^.]+$/, ''));
@@ -42,9 +50,16 @@ export function ArchivioPagina({ orgId, relazioni }: { orgId: string; relazioni:
   function salva() {
     setErrore(null);
     start(async () => {
-      const res = await archiviaRelazioneManualeAction(orgId, titolo, periodo || null, testo, eHtml);
+      let res;
+      if (pdf) {
+        const fd = new FormData();
+        fd.append('file', pdf); fd.append('org_id', orgId); fd.append('titolo', titolo); fd.append('periodo', periodo);
+        res = await archiviaRelazionePdfAction(fd);
+      } else {
+        res = await archiviaRelazioneManualeAction(orgId, titolo, periodo || null, testo, eHtml);
+      }
       if ('error' in res && res.error) { setErrore(res.error); return; }
-      setTitolo(''); setPeriodo(''); setTesto(''); setEHtml(false); setAperto(false);
+      setTitolo(''); setPeriodo(''); setTesto(''); setEHtml(false); setPdf(null); setAperto(false);
       if (fileRef.current) fileRef.current.value = '';
     });
   }
@@ -72,20 +87,29 @@ export function ArchivioPagina({ orgId, relazioni }: { orgId: string; relazioni:
       {aperto && (
         <div className="card space-y-3">
           <p className="text-sm text-ink-soft">
-            Archivia una relazione scritta a mano: incolla il testo oppure carica un file .txt/.html. Le relazioni ICA e PACA
+            Archivia una relazione: carica un PDF (massimo 4 MB) oppure un file .txt/.html, o incolla il testo. Le relazioni ICA e PACA
             si archiviano dalle rispettive pagine con il pulsante «Archivia».
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input className={input} placeholder="Titolo *" value={titolo} onChange={(e) => setTitolo(e.target.value)} maxLength={200} />
             <input className={input} placeholder="Periodo (facoltativo)" value={periodo} onChange={(e) => setPeriodo(e.target.value)} maxLength={100} />
           </div>
-          <textarea className={`${input} min-h-[160px]`} placeholder="Testo della relazione" value={testo}
-            onChange={(e) => { setTesto(e.target.value); setEHtml(false); }} />
+          {pdf ? (
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg-soft px-3 py-2 text-sm">
+              <FileUp className="w-4 h-4 text-forest shrink-0" />
+              <span className="truncate flex-1">{pdf.name}</span>
+              <button type="button" onClick={() => { setPdf(null); if (fileRef.current) fileRef.current.value = ''; }}
+                className="text-xs text-abx underline">Rimuovi</button>
+            </div>
+          ) : (
+            <textarea className={`${input} min-h-[160px]`} placeholder="Testo della relazione" value={testo}
+              onChange={(e) => { setTesto(e.target.value); setEHtml(false); }} />
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => fileRef.current?.click()} className="btn-secondary text-sm">
               <FileUp className="w-4 h-4" /> Carica file
             </button>
-            <input ref={fileRef} type="file" accept=".txt,.html,.htm,.md,text/plain,text/html" className="hidden" onChange={leggiFile} />
+            <input ref={fileRef} type="file" accept=".pdf,.txt,.html,.htm,.md,application/pdf,text/plain,text/html" className="hidden" onChange={leggiFile} />
             <button type="button" onClick={salva} disabled={salvando} className="btn-primary text-sm ml-auto">
               {salvando ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvo…</> : 'Archivia'}
             </button>

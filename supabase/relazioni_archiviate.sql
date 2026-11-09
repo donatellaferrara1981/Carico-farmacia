@@ -11,8 +11,11 @@ create table if not exists public.relazioni_archiviate (
   html text not null,
   created_by uuid references auth.users(id),
   created_by_nome text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  file_path text -- percorso del PDF nel bucket privato "documenti" (se la relazione e' un PDF)
 );
+
+alter table public.relazioni_archiviate add column if not exists file_path text;
 
 create index if not exists relazioni_archiviate_org_tipo_idx
   on public.relazioni_archiviate (org_id, tipo, created_at desc);

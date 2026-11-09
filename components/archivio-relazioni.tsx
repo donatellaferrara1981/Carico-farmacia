@@ -15,6 +15,7 @@ export interface RelazioneArchiviata {
   created_at: string;
   created_by_nome: string | null;
   tipo?: string;
+  file_path?: string | null;
 }
 
 function formatData(iso: string) {
@@ -39,7 +40,7 @@ export function ArchivioRelazioni({
   const [eliminando, startElimina] = useTransition();
   const [apertura, startApertura] = useTransition();
   const [apertaId, setApertaId] = useState<string | null>(null);
-  const [aperta, setAperta] = useState<{ titolo: string; html: string } | null>(null);
+  const [aperta, setAperta] = useState<{ titolo: string; html?: string; pdfUrl?: string } | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Tiene solo le selezioni ancora presenti (dopo un'eliminazione la lista si aggiorna)
@@ -64,7 +65,9 @@ export function ArchivioRelazioni({
     setApertaId(r.id);
     startApertura(async () => {
       const res = await getRelazioneHtmlAction(r.id);
-      if ('html' in res && res.html) {
+      if ('pdfUrl' in res && res.pdfUrl) {
+        setAperta({ titolo: r.titolo, pdfUrl: res.pdfUrl });
+      } else if ('html' in res && res.html) {
         setAperta({ titolo: r.titolo, html: res.html });
       } else {
         setErrore('error' in res && res.error ? res.error : 'Impossibile aprire la relazione.');
@@ -150,6 +153,9 @@ export function ArchivioRelazioni({
                       {r.tipo === 'altro' ? 'altra' : r.tipo}
                     </span>
                   )}
+                  {r.file_path && (
+                    <span className="mr-2 text-[10px] px-1.5 py-0.5 rounded-full bg-abx/10 text-abx border border-abx/20 align-middle">PDF</span>
+                  )}
                   {r.titolo}
                 </p>
                 <p className="text-xs text-ink-mute">
@@ -182,13 +188,24 @@ export function ArchivioRelazioni({
           >
             <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
               <p className="text-sm font-semibold text-ink truncate flex-1">{aperta.titolo}</p>
-              <button
-                type="button"
-                onClick={stampaAperta}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
-              >
-                <Printer className="w-3.5 h-3.5" /> Stampa
-              </button>
+              {aperta.pdfUrl ? (
+                <a
+                  href={aperta.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Apri / stampa
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={stampaAperta}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-line hover:border-forest/40 text-ink-soft hover:text-forest transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Stampa
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setAperta(null)}
@@ -199,13 +216,17 @@ export function ArchivioRelazioni({
               </button>
             </div>
             {/* sandbox senza allow-scripts: eventuale codice nel contenuto non viene eseguito */}
-            <iframe
-              ref={iframeRef}
-              title={aperta.titolo}
-              srcDoc={aperta.html}
-              sandbox="allow-same-origin allow-modals"
-              className="flex-1 w-full bg-white"
-            />
+            {aperta.pdfUrl ? (
+              <iframe title={aperta.titolo} src={aperta.pdfUrl} className="flex-1 w-full bg-white" />
+            ) : (
+              <iframe
+                ref={iframeRef}
+                title={aperta.titolo}
+                srcDoc={aperta.html}
+                sandbox="allow-same-origin allow-modals"
+                className="flex-1 w-full bg-white"
+              />
+            )}
           </div>
         </div>
       )}

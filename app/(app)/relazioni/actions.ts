@@ -63,11 +63,18 @@ export async function getRelazioneHtmlAction(id: string) {
 
   const { data, error } = await supabase
     .from('relazioni_archiviate')
-    .select('html')
+    .select('html, file_path')
     .eq('id', id)
     .single();
 
   if (error || !data) return { error: 'Relazione non trovata.' };
+  if (data.file_path) {
+    const { data: firmato, error: errUrl } = await supabase.storage
+      .from('documenti')
+      .createSignedUrl(data.file_path as string, 60 * 15); // 15 minuti
+    if (errUrl || !firmato) return { error: 'Impossibile aprire il PDF.' };
+    return { pdfUrl: firmato.signedUrl };
+  }
   return { html: data.html as string };
 }
 
@@ -79,11 +86,18 @@ export async function eliminaRelazioniAction(ids: string[], tipo?: TipoRelazione
   if (tipo && !tipoValido(tipo)) return { error: 'Tipo di relazione non valido.' };
   if (!ids.length) return { error: 'Nessuna relazione selezionata.' };
 
+  let sel = supabase.from('relazioni_archiviate').select('id, file_path').in('id', ids);
+  if (tipo) sel = sel.eq('tipo', tipo);
+  const { data: righe } = await sel;
+  const files = (righe ?? []).map((r) => r.file_path as string | null).filter((f): f is string => !!f);
+
   let query = supabase.from('relazioni_archiviate').delete().in('id', ids);
   if (tipo) query = query.eq('tipo', tipo);
   const { error } = await query;
 
   if (error) return { error: error.message };
+  // il PDF viene tolto dallo storage solo dopo che la riga è stata cancellata
+  if (files.length) await supabase.storage.from('documenti').remove(files);
   revalidatePath('/archivio');
   revalidatePath('/report-ica');
   revalidatePath('/report-paca');
@@ -112,4 +126,47 @@ export async function archiviaRelazioneManualeAction(
       `h1{font-size:20px}pre{white-space:pre-wrap;font-family:inherit}</style></head>` +
       `<body><h1>${esc(t)}</h1>${periodo ? `<p>${esc(periodo)}</p>` : ''}<pre>${esc(contenuto)}</pre></body></html>`;
   return archiviaRelazioneAction(orgId, 'altro', t, periodo, html);
+}
+
+const MAX_PDF = 4_000_000; // 4 MB (limite dei caricamenti dell'app)
+
+// Archivia una relazione già pronta in formato PDF (file nel bucket privato "documenti").
+export async function archiviaRelazionePdfAction(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Non autenticato.' };
+
+  const file = formData.get('file') as File | null;
+  const orgId = String(formData.get('org_id') ?? '');
+  const titolo = String(formData.get('titolo') ?? '').trim();
+  const periodo = String(formData.get('periodo') ?? '').trim();
+  if (!file || !orgId) return { error: 'File mancante.' };
+  if (!titolo) return { error: 'Scrivi un titolo.' };
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) return { error: 'Il file non è un PDF.' };
+  if (file.size > MAX_PDF) return { error: 'PDF troppo grande (massimo 4 MB).' };
+
+  const { data: profilo } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+
+  const percorso = `${orgId}/relazioni/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const { error: errUp } = await supabase.storage
+    .from('documenti')
+    .upload(percorso, file, { contentType: 'application/pdf', upsert: false });
+  if (errUp) return { error: errUp.message };
+
+  const { error } = await supabase.from('relazioni_archiviate').insert({
+    org_id: orgId,
+    tipo: 'altro',
+    titolo: titolo.slice(0, 200),
+    periodo: periodo.slice(0, 100) || null,
+    html: '<p>Relazione in formato PDF.</p>',
+    file_path: percorso,
+    created_by: user.id,
+    created_by_nome: profilo?.full_name ?? null,
+  });
+  if (error) {
+    await supabase.storage.from('documenti').remove([percorso]);
+    return { error: error.message };
+  }
+  revalidatePath('/archivio');
+  return { ok: true };
 }

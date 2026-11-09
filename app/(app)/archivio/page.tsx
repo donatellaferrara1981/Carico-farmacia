@@ -32,7 +32,7 @@ export default async function ArchivioPaginaRoute() {
     // senza il contenuto HTML, che si carica solo all'apertura
     supabase
       .from('relazioni_archiviate')
-      .select('id, tipo, titolo, periodo, created_at, created_by_nome')
+      .select('id, tipo, titolo, periodo, created_at, created_by_nome, file_path')
       .eq('org_id', org.id)
       .order('created_at', { ascending: false }),
     supabase.from('unita_operative').select('*').eq('org_id', org.id).order('nome'),
