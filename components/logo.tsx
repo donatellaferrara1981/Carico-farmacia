@@ -1,4 +1,4 @@
-export function Logo({ size = 40 }: { size?: number }) {
+export function Logo({ size = 40, hideText = false }: { size?: number; hideText?: boolean }) {
   return (
     <div className="flex items-center gap-3">
       <svg
@@ -22,9 +22,11 @@ export function Logo({ size = 40 }: { size?: number }) {
         <rect x="156" y="290" width="200" height="72" rx="36" fill="none" stroke="#f4f8fa" strokeWidth="5" />
         <line x1="256" y1="290" x2="256" y2="362" stroke="#0a4d7a" strokeWidth="5" />
       </svg>
-      <span className="font-display font-semibold text-forest text-base leading-tight">
-        Gestionale<br />Infermieristico
-      </span>
+      {!hideText && (
+        <span className="font-display font-semibold text-forest text-base leading-tight">
+          Gestionale<br />Infermieristico
+        </span>
+      )}
     </div>
   );
 }

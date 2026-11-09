@@ -8,7 +8,7 @@ import { GareIcon } from '@/components/gare-icon';
 import { GraficiIcon } from '@/components/grafici-icon';
 import { CarrelloIcon } from '@/components/carrello-icon';
 import { Bell, LogOut, ClipboardList, Settings, CalendarDays, Users, Activity } from 'lucide-react';
-import { Logo } from './logo';
+import { LogoAvatar } from './logo-avatar';
 import { RoleBadge } from './role-badge';
 import { AlertBellServer } from './alert-bell-server';
 import { MobileMenu } from './mobile-menu';
@@ -29,9 +29,7 @@ export function AppHeader({ ctx, uoAttiva, unita = [] }: Props) {
     <header className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 shrink-0">
-          <Link href="/app">
-            <Logo size={32} />
-          </Link>
+          <LogoAvatar avatar={(ctx.profile as { avatar?: string | null }).avatar ?? null} />
         </div>
 
         {/* UO attiva — desktop switcher + Pazienti subito dopo */}
