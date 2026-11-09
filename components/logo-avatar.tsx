@@ -27,8 +27,8 @@ export function LogoAvatar({ avatar }: { avatar?: string | null }) {
         className={`shrink-0 rounded-xl active:scale-95 transition ${pending ? 'opacity-60' : ''}`}>
         {src
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={src} alt="" className="w-14 h-14 rounded-2xl object-cover" />
-          : <Logo size={52} hideText />}
+          ? <img src={src} alt="" className="w-[72px] h-[72px] rounded-2xl object-cover" />
+          : <Logo size={68} hideText />}
       </button>
       <Link href="/app" className="font-display font-semibold text-forest text-base leading-tight">
         Gestionale<br />Infermieristico
