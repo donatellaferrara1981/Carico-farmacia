@@ -16,6 +16,7 @@ import { eliminaTuttiPazientiUoAction } from '@/app/(app)/pazienti/actions';
 import type { CategoriaArticolo } from '@/lib/types';
 import { SharePrintBar, htmlBase } from '@/components/share-print-bar';
 import { CAT_LABELS } from '@/lib/types';
+import { CLASSI_FORMA, classeForma, isIntegratore } from '@/lib/classifica-consumo';
 
 interface DocLibero {
   id: string;
@@ -797,6 +798,41 @@ export function ProdottiView({ prodotti, docsLiberi, orgId, categoria, canEdit, 
                     <td class="num ${ord > 0 ? 'red' : 'green'}">${ord > 0 ? ord : '✓'}</td>
                   </tr>`;
                 }).join('');
+                const escH = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (categoria === 'terapie') {
+                  // Schema per il conteggio della farmacia: per forma farmaceutica, A→Z per principio attivo,
+                  // con nome commerciale e degenti; integratori (melatonina inclusa) in coda; un solo foglio A4.
+                  const pazDi = (prod: typeof ordinati[number]) => {
+                    const ids = new Set(
+                      terapiePazienti
+                        .filter((t) => t.prodotto_id
+                          ? t.prodotto_id === prod.id
+                          : norm(t.principio_attivo) === norm(prod.principio_attivo) && norm(t.dosaggio ?? '') === norm(prod.dosaggio ?? ''))
+                        .map((t) => t.paziente_id),
+                    );
+                    return [...ids].map((id) => nominativoPerPaziente.get(id)).filter(Boolean).sort((a, b) => (a as string).localeCompare(b as string, 'it')) as string[];
+                  };
+                  const riga = (p: typeof ordinati[number]) => {
+                    const fabb = Math.ceil((p.consumo_giornaliero ?? 0) * moltiplicatore * giorniEffettivi);
+                    const ord  = Math.max(0, fabb - p.quantita);
+                    return `<tr><td><b>${escH(p.principio_attivo)}</b> ${escH(p.dosaggio ?? '')}</td><td>${escH(p.nome_commerciale ?? '')}</td><td>${escH(pazDi(p).join('; '))}</td><td class="num">${p.consumo_giornaliero ?? 0}</td><td class="num green">${fabb}</td><td class="num">${p.quantita}</td><td class="num ${ord > 0 ? 'red' : 'green'}">${ord > 0 ? ord : '✓'}</td></tr>`;
+                  };
+                  const alfa = (a: typeof ordinati[number], b: typeof ordinati[number]) =>
+                    a.principio_attivo.localeCompare(b.principio_attivo, 'it') || (a.dosaggio ?? '').localeCompare(b.dosaggio ?? '', 'it');
+                  const integr = ordinati.filter((p) => isIntegratore(p)).sort(alfa);
+                  const sezioni = CLASSI_FORMA
+                    .map((c) => ({ label: c.label, righe: ordinati.filter((p) => !isIntegratore(p) && classeForma(p) === c.id).sort(alfa) }))
+                    .filter((g) => g.righe.length > 0);
+                  if (integr.length) sezioni.push({ label: 'Integratori — non forniti dalla farmacia (in coda)', righe: integr });
+                  const sez = sezioni.map((g) => `<tr class="sez"><td colspan="7">${escH(g.label)}</td></tr>${g.righe.map(riga).join('')}`).join('');
+                  const corpoT = `<table class="fit"><thead><tr><th>Principio attivo / dosaggio</th><th>Nome commerciale</th><th>Degenti</th><th class="num">/die</th><th class="num">Fabbisogno</th><th class="num">Disp.</th><th class="num">Ordinare</th></tr></thead><tbody>${sez}</tbody></table>`;
+                  const extra = `<style>
+  table.fit th,table.fit td{font-size:8px;padding:1.5px 4px;line-height:1.25}
+  tr.sez td{background:#e5e7eb !important;font-weight:700;font-size:8.5px;text-transform:uppercase;letter-spacing:.03em}
+  @media print{@page{size:A4 portrait;margin:0.8cm}tr{break-inside:avoid}}
+</style><script>(function(){var H=(29.7-1.6)/2.54*96,W=(21-1.6)/2.54*96;var h=document.body.scrollHeight,w=document.body.scrollWidth;var k=Math.min(1,H/h,W/w);if(k<1)document.body.style.zoom=k;})();</script>`;
+                  return htmlBase(`${CAT_LABELS[categoria]} — fabbisogno ${giorniEffettivi} giorni`, `Stampato il ${date}`, corpoT).replace('</body>', `${extra}</body>`);
+                }
                 const corpo = `<table><thead><tr><th>Farmaco</th><th class="num">/die</th><th class="num">Fabbisogno</th><th class="num">Disponibile</th><th class="num">Da ordinare</th></tr></thead><tbody>${righe}</tbody></table>`;
                 return htmlBase(`${CAT_LABELS[categoria]} — fabbisogno ${giorniEffettivi} giorni`, `Stampato il ${date}`, corpo);
               }}
