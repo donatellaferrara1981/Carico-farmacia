@@ -23,14 +23,14 @@ export async function chiediProntuarioAction(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Non autenticato.' };
-  const { data: member } = await supabase.from('organization_members').select('org_id').eq('user_id', user.id).single();
+  const { data: member } = await supabase.from('organization_members').select('organization_id').eq('user_id', user.id).single();
   if (!member) return { error: 'Organizzazione non trovata.' };
   if (!process.env.ANTHROPIC_API_KEY) return { error: 'Chiave API non configurata sul server.' };
 
   const ultimi = messaggi.slice(-12);
   if (!ultimi.length || ultimi[ultimi.length - 1].ruolo !== 'utente') return { error: 'Scrivi una domanda.' };
 
-  const catalogo = await caricaCatalogoProntuario(supabase, member.org_id as string);
+  const catalogo = await caricaCatalogoProntuario(supabase, member.organization_id as string);
   const righe = catalogo.slice(0, 700).map((p) =>
     `- ${p.principio_attivo}${p.dosaggio ? ' ' + p.dosaggio : ''}${p.nome_commerciale ? ` (${p.nome_commerciale})` : ''} [${p.forma_farmaceutica}]` +
     `${isAltoCosto(p.principio_attivo) ? ' ALTO COSTO/prescrizione motivata' : ''}${p.nominativa ? ' NOMINATIVA' : ''}${p.pazienti ? ` · ${p.pazienti} degenti` : ''}`,

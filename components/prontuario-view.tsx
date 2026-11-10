@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState, useTransition } from 'react';
-import { Search, Send, Loader2, BookOpen, AlertTriangle, FileSignature, Users, Sparkles } from 'lucide-react';
+import { Search, Send, Loader2, BookOpen, AlertTriangle, FileSignature, Users, Sparkles, X } from 'lucide-react';
 import type { VoceProntuario } from '@/lib/prontuario';
 import { classificaFarmaco, isAltoCosto, CLASSE_LABEL } from '@/lib/antibiotici';
 import { CLASSI_FORMA, classeForma, isIntegratore } from '@/lib/classifica-consumo';
@@ -91,7 +91,15 @@ export function ProntuarioView({ voci }: { voci: VoceProntuario[] }) {
     <div className="space-y-5 mt-4">
       {/* Chiedi */}
       <section ref={chatRef} className="rounded-2xl border border-forest/30 bg-forest/5 p-3 sm:p-4 space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles className="w-4 h-4 text-forest" /> Chiedi al prontuario</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink"><Sparkles className="w-4 h-4 text-forest" /> Chiedi al prontuario</h2>
+          {(chat.length > 0 || errore) && (
+            <button type="button" onClick={() => { setChat([]); setErrore(null); setDomanda(''); }}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-line bg-bg-card text-ink-soft hover:text-red-600 hover:border-red-300">
+              <X className="w-3.5 h-3.5" /> Cancella
+            </button>
+          )}
+        </div>
         {chat.length === 0 && (
           <div className="flex flex-wrap gap-1.5">
             {['Cosa abbiamo in reparto per la stipsi?', 'Interazioni tra i farmaci dello stesso paziente: cosa controllare?', 'Quali antibiotici richiedono prescrizione motivata?'].map((s) => (
