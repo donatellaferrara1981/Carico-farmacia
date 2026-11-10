@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
-import { parseTerapiaGSO, type GsoItem } from '@/lib/parse-gso';
+import { parseTerapiaGSO, type GsoItem, type GsoPaziente } from '@/lib/parse-gso';
 import { parseNutrizioniText } from '@/lib/parse-nutrizioni';
 import { inflateSync } from 'zlib';
 import { getUoAttivaId } from '@/lib/uo-cookie';
@@ -454,6 +454,7 @@ Se nessun articolo trovato: {"articoli":[]}`,
 
   // 1) Lettura a regole del foglio terapia GSO: nessun costo, nessuna intelligenza artificiale.
   let daRegole = false;
+  let gsoPazienti: GsoPaziente[] = [];
   if (categoria === 'terapie') {
     try {
       const { getDocumentProxy } = await import('unpdf');
@@ -468,6 +469,7 @@ Se nessun articolo trovato: {"articoli":[]}`,
       }
       const gso = parseTerapiaGSO(items);
       if (gso.pazienti.length > 0) {
+        gsoPazienti = gso.pazienti;
         prescrizioniPerPaziente = gso.pazienti.map((p) => ({
           nominativo: p.nominativo, numero_letto: p.numero_letto, sala: p.sala,
           farmaci: p.farmaci,
@@ -590,17 +592,72 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
     return { error: `Testo estratto ma nessun farmaco riconosciuto.\n\nAnteprima: "${anteprima}"` };
   }
 
-  // Al primo PDF del batch azzera i consumi terapie e svuota i collegamenti
-  // paziente→terapia, così ricaricare i 3 turni riparte pulito senza duplicare.
+  // Anagrafica pazienti ricavata dal foglio terapia (sala, letto, SDO, data di nascita, nome completo).
+  // Aggiorna chi esiste già nella UO attiva (per SDO o nome), inserisce i nuovi, NON elimina nessuno.
+  let pazientiNuovi = 0;
+  let pazientiAggiornati = 0;
+  if (categoria === 'terapie' && gsoPazienti.length > 0 && uoAttivaId) {
+    const { data: dbUo } = await supabase
+      .from('pazienti')
+      .select('id, nominativo, sala, numero_letto, codice_sdo, data_nascita')
+      .eq('org_id', orgId)
+      .eq('unita_operativa_id', uoAttivaId);
+    const lista = [...(dbUo ?? [])];
+    for (const g of gsoPazienti) {
+      if (!g.nominativo) continue;
+      const trovato =
+        (g.codice_sdo ? lista.find((x) => x.codice_sdo && x.codice_sdo === g.codice_sdo) : undefined) ??
+        trovaPaziente(lista, g.nominativo, g.numero_letto, g.sala);
+      const campi = {
+        nominativo: g.nominativo,
+        ...(g.sala ? { sala: g.sala } : {}),
+        ...(g.numero_letto != null ? { numero_letto: g.numero_letto } : {}),
+        ...(g.codice_sdo ? { codice_sdo: g.codice_sdo } : {}),
+        ...(g.data_nascita ? { data_nascita: g.data_nascita } : {}),
+      };
+      if (trovato) {
+        await supabase.from('pazienti').update(campi).eq('id', trovato.id);
+        Object.assign(trovato, campi);
+        pazientiAggiornati++;
+      } else if (g.sala && g.numero_letto != null) {
+        const { data: ins } = await supabase
+          .from('pazienti')
+          .insert({ org_id: orgId, unita_operativa_id: uoAttivaId, ...campi })
+          .select('id, nominativo, sala, numero_letto, codice_sdo, data_nascita')
+          .single();
+        if (ins) lista.push(ins);
+        pazientiNuovi++;
+      }
+    }
+  }
+
+  // Al primo PDF del batch azzera i collegamenti terapia dei SOLI pazienti della UO attiva.
+  // I consumi (colonna unica org-wide) si azzerano solo se nessun'altra UO ha terapie collegate,
+  // altrimenti si cancellerebbero i dati delle altre UO.
+  let avviso: string | undefined;
   if (categoria === 'terapie' && isFirstInBatch) {
-    await supabase.from('prodotti')
-      .update({ consumo_giornaliero: 0 })
-      .eq('org_id', orgId)
-      .eq('categoria', 'terapie');
-    await supabase.from('terapie_pazienti')
-      .delete()
-      .eq('org_id', orgId)
-      .eq('tipo', 'terapia');
+    let idsUo: string[] | null = null;
+    if (uoAttivaId) {
+      const { data: pUo } = await supabase.from('pazienti').select('id').eq('org_id', orgId).eq('unita_operativa_id', uoAttivaId);
+      idsUo = (pUo ?? []).map((x) => x.id);
+    }
+    let altreUo = false;
+    if (idsUo) {
+      let q = supabase.from('terapie_pazienti').select('id', { count: 'exact', head: true }).eq('org_id', orgId).eq('tipo', 'terapia');
+      if (idsUo.length) q = q.not('paziente_id', 'in', `(${idsUo.join(',')})`);
+      const { count } = await q;
+      altreUo = (count ?? 0) > 0;
+      if (idsUo.length) {
+        await supabase.from('terapie_pazienti').delete().eq('org_id', orgId).eq('tipo', 'terapia').in('paziente_id', idsUo);
+      }
+    } else {
+      await supabase.from('terapie_pazienti').delete().eq('org_id', orgId).eq('tipo', 'terapia');
+    }
+    if (!altreUo) {
+      await supabase.from('prodotti').update({ consumo_giornaliero: 0 }).eq('org_id', orgId).eq('categoria', 'terapie');
+    } else {
+      avviso = 'Altre UO hanno già terapie caricate: i consumi di questo PDF sono stati sommati senza azzerare. Se è un ricaricamento della stessa UO, i consumi risultano raddoppiati.';
+    }
   }
 
   // Prodotti org-wide: nessun filtro UO per terapie/nutrizioni
@@ -726,7 +783,7 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
   }
 
   revalidatePath(`/${categoria}`);
-  return { ok: true, count: nuovi.length, aggiornati };
+  return { ok: true, count: nuovi.length, aggiornati, pazientiNuovi, pazientiAggiornati, ...(avviso ? { avviso } : {}) };
 }
 
 export async function estraiProdottiDaImmagineAction(
