@@ -162,11 +162,12 @@ export function ProntuarioView({ voci }: { voci: VoceProntuario[] }) {
                 {g.nominativa && <span className="inline-flex items-center gap-1 text-[11px] text-abx"><FileSignature className="w-3 h-3" /> nominativa</span>}
                 {g.integratore && <span className="text-[11px] text-ink-mute">integratore</span>}
                 {g.pazienti > 0 && <span className="inline-flex items-center gap-1 text-[11px] text-forest"><Users className="w-3 h-3" /> {g.pazienti}</span>}
-                <a href={`https://medicinali.aifa.gov.it/it/#/it/risultati?query=${encodeURIComponent(g.principio)}`} target="_blank" rel="noreferrer"
-                  className="ml-auto text-[11px] px-2 py-0.5 rounded-lg border border-line text-ink-soft hover:text-forest hover:border-forest/40">AIFA</a>
+                <span className="ml-auto flex gap-1.5 shrink-0"><a href={`https://medicinali.aifa.gov.it/it/#/it/risultati?query=${encodeURIComponent(g.principio)}`} target="_blank" rel="noreferrer"
+                  className="text-[11px] px-2 py-0.5 rounded-lg border border-line text-ink-soft hover:text-forest hover:border-forest/40">AIFA</a>
                 <button onClick={() => invia(`Scheda sintetica di ${g.principio}: indicazioni, controindicazioni, interazioni principali e avvertenze, da fonti AIFA.`)}
                   disabled={pending}
                   className="text-[11px] px-2 py-0.5 rounded-lg border border-line text-ink-soft hover:text-forest hover:border-forest/40 disabled:opacity-50">{pending ? '…' : 'Scheda'}</button>
+              </span>
               </div>
               <p className="text-xs text-ink-mute mt-0.5">
                 {g.varianti.map((v) => [v.dosaggio, v.nome && `(${v.nome})`, v.forma && `· ${v.forma}`].filter(Boolean).join(' ')).join(' | ')}
