@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { parseTerapiaText } from '@/lib/parse-terapia';
+import { parseTerapiaGSO, type GsoItem } from '@/lib/parse-gso';
 import { parseNutrizioniText } from '@/lib/parse-nutrizioni';
 import { inflateSync } from 'zlib';
 import { getUoAttivaId } from '@/lib/uo-cookie';
@@ -448,13 +449,59 @@ Se nessun articolo trovato: {"articoli":[]}`,
     }>;
   };
 
-  let estratti: import('@/lib/parse-terapia').ProdottoEstratto[];
+  let estratti: import('@/lib/parse-terapia').ProdottoEstratto[] = [];
   let prescrizioniPerPaziente: PrescrizioneTerapia[] = [];
 
+  // 1) Lettura a regole del foglio terapia GSO: nessun costo, nessuna intelligenza artificiale.
+  let daRegole = false;
   if (categoria === 'terapie') {
+    try {
+      const { getDocumentProxy } = await import('unpdf');
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const items: GsoItem[] = [];
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const pagina = await pdf.getPage(n);
+        const tc = await pagina.getTextContent();
+        for (const it of tc.items as Array<{ str?: string; transform?: number[] }>) {
+          if (it.str && it.str.trim() && it.transform) items.push({ page: n, x: it.transform[4], y: it.transform[5], s: it.str });
+        }
+      }
+      const gso = parseTerapiaGSO(items);
+      if (gso.pazienti.length > 0) {
+        prescrizioniPerPaziente = gso.pazienti.map((p) => ({
+          nominativo: p.nominativo, numero_letto: p.numero_letto, sala: p.sala,
+          farmaci: p.farmaci,
+        }));
+        // catalogo: un prodotto per principio+forma+dosaggio, con i consumi di tutti i pazienti sommati
+        const perChiave = new Map<string, import('@/lib/parse-terapia').ProdottoEstratto>();
+        for (const f of gso.pazienti.flatMap((p) => p.farmaci)) {
+          const k = `${f.principio_attivo.toLowerCase()}|${f.forma_farmaceutica}|${(f.dosaggio ?? '').toLowerCase()}`;
+          const e = perChiave.get(k);
+          if (e) {
+            e.consumo_giornaliero += f.consumo_giornaliero;
+            if (!e.nome_commerciale && f.nome_commerciale) e.nome_commerciale = f.nome_commerciale;
+          } else {
+            perChiave.set(k, {
+              principio_attivo: f.principio_attivo, nome_commerciale: f.nome_commerciale ?? '',
+              forma_farmaceutica: f.forma_farmaceutica as import('@/lib/prodotti').FormaFarmaceutica,
+              dosaggio: f.dosaggio ?? '', consumo_giornaliero: f.consumo_giornaliero, note: f.note ?? '',
+            });
+          }
+        }
+        estratti = [...perChiave.values()];
+        daRegole = true;
+      }
+    } catch (e) {
+      console.error('Lettura a regole fallita, si passa al metodo con IA:', e);
+    }
+  }
+
+  if (categoria === 'terapie' && !daRegole) {
     const base64Pdf = buffer.toString('base64');
     const anthropic = new Anthropic();
-    const msg = await anthropic.messages.create({
+    let msg: Awaited<ReturnType<typeof anthropic.messages.create>> | null = null;
+    try {
+    msg = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 8192,
       messages: [{
@@ -514,8 +561,12 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
         ],
       }],
     });
+    } catch (e) {
+      console.error('IA non disponibile, uso il lettore a regole:', e);
+    }
 
-    const rawMsg = msg.content[0].type === 'text' ? msg.content[0].text.trim() : '';
+    const first = msg && 'content' in msg ? msg.content[0] : null;
+    const rawMsg = first && first.type === 'text' ? first.text.trim() : '';
     try {
       const jsonMatch = rawMsg.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -525,12 +576,12 @@ Se nessun paziente/farmaco: {"pazienti": []}`,
         const tuttiIFarmaci = prescrizioniPerPaziente.flatMap((p) => p.farmaci);
         estratti = tuttiIFarmaci as import('@/lib/parse-terapia').ProdottoEstratto[];
       } else {
-        estratti = [];
+        estratti = parseTerapiaText(testo);
       }
     } catch {
       estratti = parseTerapiaText(testo);
     }
-  } else {
+  } else if (!daRegole) {
     estratti = parseTerapiaText(testo);
   }
 
