@@ -127,6 +127,7 @@ export default async function AppPage() {
                 { href: '/report-paca',        src: '/icone/report-paca.png', label: 'Report PACA' },
                 { href: '/archivio',           src: '/icone/archivio.png',    label: 'Archivio' },
                 { href: '/carrelli',           src: '/icone/carrelli-v2.png',    label: 'Carrelli' },
+                { href: '/prontuario',         src: '/icone/terapie.png',     label: 'Prontuario' },
               ].map(({ href, src, label }) => (
                 <Link key={href} href={href}
                   className="flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-line bg-bg-card hover:border-forest/40 hover:bg-forest/5 active:scale-95 transition-all">
