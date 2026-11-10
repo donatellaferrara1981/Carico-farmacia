@@ -70,6 +70,10 @@ Regole:
     }
     return { testo: testo.trim() || 'Nessuna risposta.', fonti: [...fonti].map(([url, titolo]) => ({ url, titolo })) };
   } catch (err) {
-    return { error: `Errore: ${err instanceof Error ? err.message : String(err)}` };
+    const m = err instanceof Error ? err.message : String(err);
+    if (/credit balance|billing/i.test(m)) {
+      return { error: 'Il credito del servizio di intelligenza artificiale è esaurito: la chat e le schede si riattivano appena viene ricaricato (console.anthropic.com → Plans & Billing). Nel frattempo usa il tasto «AIFA» accanto a ogni farmaco.' };
+    }
+    return { error: `Errore: ${m}` };
   }
 }
