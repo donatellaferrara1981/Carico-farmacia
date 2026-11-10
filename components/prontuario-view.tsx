@@ -73,10 +73,16 @@ export function ProntuarioView({ voci }: { voci: VoceProntuario[] }) {
     setChat(nuova);
     setDomanda('');
     setErrore(null);
+    // porta subito in vista la chat: la risposta compare lì, in alto
+    setTimeout(() => chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
     start(async () => {
-      const r = await chiediProntuarioAction(nuova.map(({ ruolo, testo }) => ({ ruolo, testo })));
-      if (r.error) setErrore(r.error);
-      else setChat((c) => [...c, { ruolo: 'assistente', testo: r.testo ?? '', fonti: r.fonti }]);
+      try {
+        const r = await chiediProntuarioAction(nuova.map(({ ruolo, testo }) => ({ ruolo, testo })));
+        if (r.error) setErrore(r.error);
+        else setChat((c) => [...c, { ruolo: 'assistente', testo: r.testo ?? '', fonti: r.fonti }]);
+      } catch {
+        setErrore('La richiesta non è andata a buon fine (tempo scaduto o connessione). Riprova: se capita ancora, fai una domanda più breve.');
+      }
       setTimeout(() => chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     });
   }
@@ -149,7 +155,8 @@ export function ProntuarioView({ voci }: { voci: VoceProntuario[] }) {
                 {g.integratore && <span className="text-[11px] text-ink-mute">integratore</span>}
                 {g.pazienti > 0 && <span className="inline-flex items-center gap-1 text-[11px] text-forest"><Users className="w-3 h-3" /> {g.pazienti}</span>}
                 <button onClick={() => invia(`Scheda sintetica di ${g.principio}: indicazioni, controindicazioni, interazioni principali e avvertenze, da fonti AIFA.`)}
-                  className="ml-auto text-[11px] px-2 py-0.5 rounded-lg border border-line text-ink-soft hover:text-forest hover:border-forest/40">Scheda</button>
+                  disabled={pending}
+                  className="ml-auto text-[11px] px-2 py-0.5 rounded-lg border border-line text-ink-soft hover:text-forest hover:border-forest/40 disabled:opacity-50">{pending ? '…' : 'Scheda'}</button>
               </div>
               <p className="text-xs text-ink-mute mt-0.5">
                 {g.varianti.map((v) => [v.dosaggio, v.nome && `(${v.nome})`, v.forma && `· ${v.forma}`].filter(Boolean).join(' ')).join(' | ')}

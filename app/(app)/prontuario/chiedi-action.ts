@@ -52,9 +52,9 @@ Regole:
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const msg = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
+      max_tokens: 1500,
       system,
-      tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 4, allowed_domains: DOMINI_UFFICIALI }],
+      tools: [{ type: 'web_search_20250305' as const, name: 'web_search', max_uses: 3, allowed_domains: DOMINI_UFFICIALI }],
       messages: ultimi.map((m) => ({ role: m.ruolo === 'utente' ? 'user' as const : 'assistant' as const, content: m.testo })),
     });
 
